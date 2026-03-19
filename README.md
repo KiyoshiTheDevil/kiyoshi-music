@@ -1,4 +1,7 @@
-# Kiyoshi Music 🎵
+<img width="256" height="256" alt="KMusic Logo noText icon" src="https://github.com/user-attachments/assets/bcf17683-7660-4bae-ad16-2cf474742074" />
+
+
+Kiyoshi Music
 
 Ein privater YouTube Music Desktop-Client für Windows, gebaut mit Tauri + React.
 
