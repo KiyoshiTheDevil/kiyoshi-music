@@ -1,0 +1,99 @@
+@font-face {
+  font-family: 'MiSans Latin';
+  src: url('./fonts/MiSansLatin-Regular.ttf') format('truetype');
+  font-weight: 400;
+}
+@font-face {
+  font-family: 'MiSans Latin';
+  src: url('./fonts/MiSansLatin-Medium.ttf') format('truetype');
+  font-weight: 500;
+}
+@font-face {
+  font-family: 'MiSans Latin';
+  src: url('./fonts/MiSansLatin-Semibold.ttf') format('truetype');
+  font-weight: 600;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg-base: #0d0d0d;
+  --bg-surface: #141414;
+  --bg-elevated: #1c1c1c;
+  --bg-hover: #222222;
+  --accent: #e040fb;
+  --accent-dim: rgba(224,64,251,0.08);
+  --text-primary: #f0f0f0;
+  --text-secondary: #999;
+  --text-muted: #555;
+  --border: rgba(255,255,255,0.07);
+  --radius: 8px;
+  --radius-lg: 12px;
+  --font: 'MiSans Latin', system-ui, sans-serif;
+}
+
+/* ─── OLED Theme ───────────────────────────────────────────────────────── */
+[data-theme="oled"] {
+  --bg-base: #000000;
+  --bg-surface: #080808;
+  --bg-elevated: #0f0f0f;
+  --bg-hover: #141414;
+  --text-primary: #ffffff;
+  --text-secondary: #888;
+  --text-muted: #444;
+  --border: rgba(255,255,255,0.05);
+}
+
+/* ─── Light Theme ──────────────────────────────────────────────────────── */
+[data-theme="light"] {
+  --bg-base: #f0f0f0;
+  --bg-surface: #ffffff;
+  --bg-elevated: #e4e4e4;
+  --bg-hover: #d8d8d8;
+  --text-primary: #111111;
+  --text-secondary: #555555;
+  --text-muted: #999999;
+  --border: rgba(0,0,0,0.10);
+}
+
+[data-theme="light"] ::-webkit-scrollbar-thumb { background: #bbb; }
+[data-theme="light"] ::-webkit-scrollbar-thumb:hover { background: #888; }
+[data-theme="light"] .scrollable:hover::-webkit-scrollbar-thumb { background: #888; }
+[data-theme="light"] .carousel:hover::-webkit-scrollbar-thumb { background: #888; }
+
+html, body, #root {
+  height: 100%;
+  background: var(--bg-base);
+  color: var(--text-primary);
+  font-family: var(--font);
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+/* ─── Scrollbars — fixed track size, no layout shift ──────────────────────
+   Track width stays constant at 8px. The thumb appears narrow (≈3px) via
+   transparent border + background-clip, and widens (≈6px) on hover —
+   purely visual, zero reflow.                                              */
+::-webkit-scrollbar               { width: 8px; height: 8px; }
+::-webkit-scrollbar-track         { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background-color: #333;
+  border-radius: 4px;
+  border: 2.5px solid transparent;
+  background-clip: content-box;
+  transition: background-color 0.2s, border-width 0.2s;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: #666;
+  border-width: 1px;
+}
+::-webkit-scrollbar-track:hover   { background: rgba(255,255,255,0.03); }
+
+/* Scrollable containers — dimmer thumb until container is hovered */
+.scrollable::-webkit-scrollbar-thumb         { background-color: #2a2a2a; }
+.scrollable:hover::-webkit-scrollbar-thumb   { background-color: #666; border-width: 1px; }
+
+/* Horizontal carousels — same treatment, vertical size stays 8px */
+.carousel::-webkit-scrollbar-thumb           { background-color: #2a2a2a; }
+.carousel:hover::-webkit-scrollbar-thumb     { background-color: #666; border-width: 1px; }

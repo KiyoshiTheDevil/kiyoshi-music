@@ -1,0 +1,7 @@
+ytmusicapi
+flask
+flask-cors
+requests
+yt-dlp
+mutagen
+Pillow
