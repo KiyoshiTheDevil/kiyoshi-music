@@ -8,7 +8,7 @@ Ein privater YouTube Music Desktop-Client für Windows, gebaut mit Tauri + React
 ## Voraussetzungen
 - Node.js & Rust (bereits installiert)
 - Python 3.10+
-- YouTube Premium Account
+- Google Account für YouTube Music-Login
 
 ## Einrichtung (einmalig)
 
