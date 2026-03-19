@@ -55,8 +55,6 @@
 
 Head over to the [Releases](https://github.com/KiyoshiTheDevil/kiyoshi-music/releases) page and download the latest installer.
 
-> **Note:** Kiyoshi Music requires a **YouTube Premium** account.
-
 ---
 
 ## For Developers
