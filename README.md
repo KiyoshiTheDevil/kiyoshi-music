@@ -46,9 +46,10 @@
 | Close to tray | 🔜 Planned |
 | Open on startup | 🔜 Planned |
 | High contrast mode | 🔜 Planned |
-| Community translations (Crowdin) | 🔜 Planned |
+| Community translations (Crowdin) | 🔄 In progress |
 | WebNowPlaying support | 🔜 Planned |
 
+If you have suggestions or ideas how the pleayer could be improve, do not hesitate to give feedback! (⁠≧⁠▽⁠≦⁠)
 ---
 
 ## Download
