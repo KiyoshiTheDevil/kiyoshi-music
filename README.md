@@ -29,27 +29,21 @@
 | Feature | Status |
 |---|---|
 | Home feed (Mixes, Quick Picks, Listen Again) | ✅ Available |
-| Library & Playlist management | ✅ Available |
-| Liked Songs & History | ✅ Available |
+| Synced Library and Playlists | ✅ Available |
 | Global Search | ✅ Available |
 | Artist & Album pages | ✅ Available |
-| Playback controls (Shuffle, Repeat, Queue) | ✅ Available |
-| Synced Lyrics (Line & Syllable sync) | ✅ Available |
-| Multiple lyrics providers (LRCLIB, BetterLyrics, SimpMusic, Kugou) | ✅ Available |
-| Explicit content filter | ✅ Available |
+| Synced Lyrics from multiple Providers (Better Lyrics, LRCLIB, SimpMuisc & KuGou) | ✅ Available |
 | In-playlist search & total duration | ✅ Available |
-| UI scaling | ✅ Available |
-| Multilingual UI (English & German) | ✅ Available |
+| Download Songs for Offline Play | ✅ Available |
+| Multilingual UI (English & German)* | ✅ Available |
 | Keyboard shortcuts | ✅ Available |
-| Visualizer | 🔜 Planned |
-| Romaji toggle for Japanese titles | 🔜 Planned |
-| Close to tray | 🔜 Planned |
-| Open on startup | 🔜 Planned |
-| High contrast mode | 🔜 Planned |
 | Community translations (Crowdin) | 🔄 In progress |
 | WebNowPlaying support | 🔜 Planned |
 
-If you have suggestions or ideas how the pleayer could be improve, do not hesitate to give feedback! (⁠≧⁠▽⁠≦⁠)
+*More languages available soon. Want to contribute? Check out our [Crowdin](https://crowdin.com/project/kiyoshi-music)
+
+If you have suggestions or ideas on how the player could be improved, do not hesitate to give feedback! (⁠≧⁠▽⁠≦⁠)
+
 ---
 
 ## Download
