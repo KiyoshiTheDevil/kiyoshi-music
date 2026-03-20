@@ -39,10 +39,21 @@
 | Keyboard shortcuts | ✅ Available |
 | Community translations (Crowdin) | 🔄 In progress |
 | WebNowPlaying support | 🔜 Planned |
+| Local Account (No Log-in required) | 🔜 Planned |
 
 *More languages available soon. Want to contribute? Check out our [Crowdin](https://crowdin.com/project/kiyoshi-music)
 
 If you have suggestions or ideas on how the player could be improved, do not hesitate to give feedback! (⁠≧⁠▽⁠≦⁠)
+
+
+### Known Issues:
+| Issue | Progress |
+|---|---|
+| Syllable Lyrics feeling choppy sometimes | 🔄 In progress |
+| OBS Application Audio Input not detecting any Audio | ⏹️ Known |
+| Crossfade sometimes not saving after a restart | ⏹️ Known |
+
+If you find more issues and bugs, please report then in the Issues-Tab! Thank you!
 
 ---
 
