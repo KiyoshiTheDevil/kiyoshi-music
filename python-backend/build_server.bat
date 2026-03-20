@@ -18,6 +18,7 @@ pyinstaller --onefile ^
   --hidden-import=yt_dlp ^
   --collect-all ytmusicapi ^
   --collect-all yt_dlp ^
+  --add-data "%LOCALAPPDATA%\Programs\Python\Python313\Lib\site-packages\ytmusicapi\locales;ytmusicapi/locales" ^
   server.py
 
 echo.

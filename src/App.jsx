@@ -32,17 +32,32 @@ import {
   ArrowCircleUp,
   Copy,
   ArrowSquareOut,
+  SunHorizon,
+  Sun,
+  CloudSun,
+  Moon,
+  MoonStars,
 } from "@phosphor-icons/react";
 
 const API = "http://localhost:9847";
 
 // ─── App Version ─────────────────────────────────────────────────────────────
-const APP_VERSION = "Alpha 9";
-const BUILD_NUMBER = 47; // Erhöhe diese Zahl bei jeder Änderung
+const APP_VERSION = "0.9.0-alpha";
+const BUILD_NUMBER = 20825; // Erhöhe diese Zahl bei jeder Änderung
 
-// ─── Update Checker (Supabase) ──────────────────────────────────────────────
-const UPDATE_SUPABASE_URL = "https://tqjnuyjnpyedrarrpmgk.supabase.co";
-const UPDATE_SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxam51eWpucHllZHJhcnJwbWdrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2NzIzNDEsImV4cCI6MjA4OTI0ODM0MX0.M-_P_UVaL5Clyfrn_eaKozbLGmynG0PZue97TRA5Mss";
+// ─── Update Checker (GitHub Releases) ───────────────────────────────────────
+const APP_TAG = "v0.9.0";
+const GITHUB_RELEASES_API = "https://api.github.com/repos/KiyoshiTheDevil/kiyoshi-music/releases?per_page=1";
+
+function isNewerVersion(latest, current) {
+  const parse = v => v.replace(/^v/, "").split(".").map(n => parseInt(n) || 0);
+  const l = parse(latest), c = parse(current);
+  for (let i = 0; i < Math.max(l.length, c.length); i++) {
+    if ((l[i] || 0) > (c[i] || 0)) return true;
+    if ((l[i] || 0) < (c[i] || 0)) return false;
+  }
+  return false;
+}
 
 const LangContext = createContext("de");
 const useLang = () => {
@@ -60,6 +75,16 @@ const useAnimations = () => useContext(AnimationContext);
 // ─── Zoom Context ─────────────────────────────────────────────────────────────
 const ZoomContext = createContext(1);
 const useZoom = () => useContext(ZoomContext);
+
+// ─── Font Scale Context ───────────────────────────────────────────────────────
+const FontScaleContext = createContext(1);
+const useFontScale = () => useContext(FontScaleContext);
+
+// Stepped values for the zoom and font-size sliders
+const ZOOM_STEPS      = [0.8, 0.9, 1.0, 1.1, 1.2];
+const ZOOM_LABELS     = ["80%", "90%", "100%", "110%", "120%"];
+const FONT_STEPS      = [0.85, 0.93, 1.0, 1.10, 1.20];
+const FONT_LABELS     = ["S", "M", "L", "XL", "XXL"];
 
 // Spring physics: returns a CSS transition string
 function spring(prop, opts = {}) {
@@ -274,14 +299,14 @@ function TrackRow({ track, isPlaying, onPlay, onOpenArtist, onContextMenu }) {
       </div>
       <div style={{ flex: 1, overflow: "hidden" }}>
         <div style={{
-          fontSize: 13, fontWeight: 500, display: "flex", alignItems: "center", gap: 4, overflow: "hidden",
+          fontSize: "var(--t13)", fontWeight: 500, display: "flex", alignItems: "center", gap: 4, overflow: "hidden",
           color: isPlaying ? "var(--accent)" : "var(--text-primary)",
           transition: anim ? "color 0.2s ease" : "none",
         }}>
           <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>{track.title}</span>
           {track.isExplicit && <ExplicitBadge />}
         </div>
-        <div style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+        <div style={{ fontSize: "var(--t12)", color: "var(--text-secondary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
           {onOpenArtist && track.artistBrowseId ? (
             <span
               onClick={e => { e.stopPropagation(); onOpenArtist({ browseId: track.artistBrowseId, artist: track.artists }); }}
@@ -293,7 +318,7 @@ function TrackRow({ track, isPlaying, onPlay, onOpenArtist, onContextMenu }) {
           {track.album ? ` · ${track.album}` : ""}
         </div>
       </div>
-      <div style={{ fontSize: 12, color: "var(--text-muted)", flexShrink: 0 }}>
+      <div style={{ fontSize: "var(--t12)", color: "var(--text-muted)", flexShrink: 0 }}>
         {formatDuration(track.duration)}
       </div>
     </div>
@@ -373,7 +398,7 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
         <div style={{
           position: "fixed", left: tooltip.x, top: tooltip.y, transform: "translateY(-50%)",
           background: "var(--bg-elevated)", color: "var(--text-primary)",
-          padding: "4px 10px", borderRadius: 6, fontSize: 12, whiteSpace: "nowrap",
+          padding: "4px 10px", borderRadius: 6, fontSize: "var(--t12)", whiteSpace: "nowrap",
           border: "0.5px solid var(--border)", pointerEvents: "none",
           zIndex: 9999, boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
         }}>{tooltip.text}</div>
@@ -423,7 +448,7 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
               {/* Alpha badge */}
 
             </div>
-            <span style={{ fontSize: 15, fontWeight: 500, whiteSpace: "nowrap" }}>Music</span>
+            <span style={{ fontSize: "var(--t15)", fontWeight: 500, whiteSpace: "nowrap" }}>Music</span>
           </>
         )}
       </div>
@@ -444,7 +469,7 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
               placeholder={t("search")}
               style={{
                 background: "none", border: "none", outline: "none", color: "var(--text-primary)",
-                fontSize: 13, width: "100%", fontFamily: "var(--font)"
+                fontSize: "var(--t13)", width: "100%", fontFamily: "var(--font)"
               }}
             />
             {query && <div onClick={() => setQuery("")} style={{ cursor: "pointer", color: "var(--text-muted)", lineHeight: 1 }}>✕</div>}
@@ -487,7 +512,7 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
               transition: anim
                 ? `background 0.15s, color 0.15s, transform 0.22s cubic-bezier(0.34,1.56,0.64,1)`
                 : "background 0.15s, color 0.15s",
-              fontSize: 13,
+              fontSize: "var(--t13)",
             }}
           >
             <span style={{ flexShrink: 0 }}>{item.iconEl}</span>
@@ -502,12 +527,12 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
         <div style={{ overflowY: "auto", maxHeight: 240, margin: "4px 0" }}>
           {pinnedPlaylists.length > 0 && (
             <>
-              <div style={{ fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", padding: "6px 20px 4px" }}>{t("pinned")}</div>
+              <div style={{ fontSize: "var(--t10)", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", padding: "6px 20px 4px" }}>{t("pinned")}</div>
               {pinnedPlaylists.map(pl => (
                 <div key={sidebarItemId(pl)}
                   onClick={() => { openItem(pl); onCloseOverlay?.(); }}
                   onContextMenu={e => onContextMenu?.(e, pl)}
-                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 12px", margin: "0 8px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: 12, color: "var(--text-secondary)" }}
+                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 12px", margin: "0 8px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t12)", color: "var(--text-secondary)" }}
                   onMouseEnter={e => { e.currentTarget.style.background = "var(--bg-hover)"; e.currentTarget.style.color = "var(--text-primary)"; }}
                   onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--text-secondary)"; }}
                 >
@@ -524,12 +549,12 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
           )}
           {recentPlaylists.filter(pl => !isPinned(pl)).length > 0 && (
             <>
-              <div style={{ fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", padding: "6px 20px 4px" }}>{t("recentlyOpened")}</div>
+              <div style={{ fontSize: "var(--t10)", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", padding: "6px 20px 4px" }}>{t("recentlyOpened")}</div>
               {recentPlaylists.filter(pl => !isPinned(pl)).map(pl => (
                 <div key={sidebarItemId(pl)}
                   onClick={() => { openItem(pl); onCloseOverlay?.(); }}
                   onContextMenu={e => onContextMenu?.(e, pl)}
-                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 12px", margin: "0 8px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: 12, color: "var(--text-secondary)" }}
+                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 12px", margin: "0 8px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t12)", color: "var(--text-secondary)" }}
                   onMouseEnter={e => { e.currentTarget.style.background = "var(--bg-hover)"; e.currentTarget.style.color = "var(--text-primary)"; }}
                   onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--text-secondary)"; }}
                 >
@@ -553,7 +578,7 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
           onClick={onCreatePlaylist}
           style={{
             display: "flex", alignItems: "center", gap: 8, padding: "8px 20px",
-            fontSize: 12, color: "var(--text-muted)", cursor: "pointer", transition: "all 0.15s",
+            fontSize: "var(--t12)", color: "var(--text-muted)", cursor: "pointer", transition: "all 0.15s",
           }}
           onMouseEnter={e => { e.currentTarget.style.color = "var(--text-primary)"; }}
           onMouseLeave={e => { e.currentTarget.style.color = "var(--text-muted)"; }}
@@ -585,7 +610,7 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
               style={{
                 width: 28, height: 28, borderRadius: "50%", background: "var(--accent)",
                 display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 11, fontWeight: 500, flexShrink: 0,
+                fontSize: "var(--t11)", fontWeight: 500, flexShrink: 0,
                 overflow: "hidden",
               }}>
               {currentProfileData?.avatar
@@ -593,8 +618,8 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
                 : (currentProfileData?.displayName || "?")[0].toUpperCase()}
             </div>
             <div style={{ overflow: "hidden", flex: 1 }}>
-              <div style={{ fontSize: 12, fontWeight: 500, whiteSpace: "nowrap" }}>{currentProfileData?.displayName || t("noProfile")}</div>
-              <div style={{ fontSize: 11, color: "var(--text-muted)", whiteSpace: "nowrap" }}>{t("switchProfile")}</div>
+              <div style={{ fontSize: "var(--t12)", fontWeight: 500, whiteSpace: "nowrap" }}>{currentProfileData?.displayName || t("noProfile")}</div>
+              <div style={{ fontSize: "var(--t11)", color: "var(--text-muted)", whiteSpace: "nowrap" }}>{t("switchProfile")}</div>
             </div>
             <CaretUp size={12} style={{ color: "var(--text-muted)", flexShrink: 0, transform: profileDropdownOpen ? "rotate(0deg)" : "rotate(180deg)", transition: "transform 0.2s" }} />
           </div>
@@ -604,7 +629,7 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
               padding: "6px 12px", margin: "0 8px 2px",
               borderRadius: "var(--radius)", cursor: "pointer",
               background: "rgba(224,64,251,0.08)", color: "var(--accent)",
-              fontSize: 12, fontWeight: 500, transition: "all 0.15s",
+              fontSize: "var(--t12)", fontWeight: 500, transition: "all 0.15s",
             }}
               onMouseEnter={e => e.currentTarget.style.background = "rgba(224,64,251,0.15)"}
               onMouseLeave={e => e.currentTarget.style.background = "rgba(224,64,251,0.08)"}
@@ -620,7 +645,7 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
               padding: "8px 12px", margin: "0 8px 8px",
               borderRadius: "var(--radius)", cursor: "pointer",
               color: "var(--text-secondary)", background: "transparent",
-              transition: "all 0.15s", fontSize: 13,
+              transition: "all 0.15s", fontSize: "var(--t13)",
             }}
             onMouseEnter={e => { e.currentTarget.style.background = "var(--bg-hover)"; e.currentTarget.style.color = "var(--text-primary)"; }}
             onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--text-secondary)"; }}
@@ -634,7 +659,7 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
         <div style={{ marginTop: "auto" }}>
           <div style={{ margin: "0 16px 4px", borderTop: "0.5px solid var(--border)" }} />
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, padding: "8px 0 8px" }}>
-          <div onMouseEnter={e => { const r = e.currentTarget.getBoundingClientRect(); setTooltip({ text: "Kiyoshi", x: r.right + 10, y: r.top + r.height / 2 }); }} onMouseLeave={() => setTooltip(null)} style={{ width: 28, height: 28, borderRadius: "50%", background: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 500 }}>K</div>
+          <div onMouseEnter={e => { const r = e.currentTarget.getBoundingClientRect(); setTooltip({ text: "Kiyoshi", x: r.right + 10, y: r.top + r.height / 2 }); }} onMouseLeave={() => setTooltip(null)} style={{ width: 28, height: 28, borderRadius: "50%", background: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "var(--t11)", fontWeight: 500 }}>K</div>
           {updateInfo && (
             <div onClick={onOpenUpdateTab}
               onMouseEnter={e => { const r = e.currentTarget.getBoundingClientRect(); setTooltip({ text: t("updateAvailable"), x: r.right + 10, y: r.top + r.height / 2 }); }}
@@ -827,7 +852,7 @@ function ColorPickerPopover({ value, onChange, onClose, anchorRef, inline = fals
           }}
           style={{
             flex: 1, background: "var(--bg-main)", border: "0.5px solid var(--border)",
-            borderRadius: 6, padding: "5px 8px", fontSize: 12, fontFamily: "monospace",
+            borderRadius: 6, padding: "5px 8px", fontSize: "var(--t12)", fontFamily: "monospace",
             color: "var(--text-primary)", outline: "none",
           }}
           spellCheck={false}
@@ -899,8 +924,8 @@ function SettingRow({ label, description, children }) {
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, padding: "10px 0", borderBottom: "0.5px solid var(--border)" }}>
       <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: 13, fontWeight: 500 }}>{label}</div>
-        {description && <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>{description}</div>}
+        <div style={{ fontSize: "var(--t13)", fontWeight: 500 }}>{label}</div>
+        {description && <div style={{ fontSize: "var(--t11)", color: "var(--text-muted)", marginTop: 2 }}>{description}</div>}
       </div>
       <div style={{ flexShrink: 0 }}>{children}</div>
     </div>
@@ -967,7 +992,7 @@ function DownloadsTab({ t }) {
   return (
     <div>
       {/* Default save path */}
-      <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", color: "var(--text-secondary)", letterSpacing: 0.5, marginTop: 24, marginBottom: 10 }}>
+      <div style={{ fontSize: "var(--t11)", fontWeight: 600, textTransform: "uppercase", color: "var(--text-secondary)", letterSpacing: 0.5, marginTop: 24, marginBottom: 10 }}>
         {t("defaultSavePath")}
       </div>
       <div style={{
@@ -976,23 +1001,23 @@ function DownloadsTab({ t }) {
         border: "0.5px solid var(--border)", marginBottom: 8,
       }}>
         <DownloadSimple size={16} style={{ color: "var(--accent)", flexShrink: 0 }} />
-        <div style={{ flex: 1, fontSize: 12, color: mp3Dir ? "var(--text-primary)" : "var(--text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        <div style={{ flex: 1, fontSize: "var(--t12)", color: mp3Dir ? "var(--text-primary)" : "var(--text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {mp3Dir || t("noPathSet")}
         </div>
         {mp3Dir && (
           <button onClick={handleResetPath} style={{
             padding: "4px 10px", borderRadius: 6, border: "0.5px solid var(--border)",
-            background: "transparent", color: "var(--text-secondary)", fontSize: 11, cursor: "pointer",
+            background: "transparent", color: "var(--text-secondary)", fontSize: "var(--t11)", cursor: "pointer",
           }}>{t("resetPath")}</button>
         )}
         <button onClick={handleChangePath} style={{
           padding: "4px 12px", borderRadius: 6, border: "0.5px solid var(--border)",
-          background: "var(--accent)", color: "#fff", fontSize: 11, fontWeight: 500, cursor: "pointer",
+          background: "var(--accent)", color: "#fff", fontSize: "var(--t11)", fontWeight: 500, cursor: "pointer",
         }}>{t("changePath")}</button>
       </div>
 
       {/* Stats */}
-      <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", color: "var(--text-secondary)", letterSpacing: 0.5, marginTop: 24, marginBottom: 10 }}>
+      <div style={{ fontSize: "var(--t11)", fontWeight: 600, textTransform: "uppercase", color: "var(--text-secondary)", letterSpacing: 0.5, marginTop: 24, marginBottom: 10 }}>
         {t("storageUsed")}
       </div>
       <div style={{
@@ -1003,10 +1028,10 @@ function DownloadsTab({ t }) {
       }}>
         <MusicNote size={18} style={{ color: overLimit ? "#ff6b6b" : "var(--accent)", flexShrink: 0 }} />
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 13, fontWeight: 500 }}>
+          <div style={{ fontSize: "var(--t13)", fontWeight: 500 }}>
             {songStats ? `${songStats.count} ${t("songsCount")}` : "…"}
           </div>
-          <div style={{ fontSize: 11, color: overLimit ? "#ff6b6b" : "var(--text-secondary)", marginTop: 2 }}>
+          <div style={{ fontSize: "var(--t11)", color: overLimit ? "#ff6b6b" : "var(--text-secondary)", marginTop: 2 }}>
             {songStats ? fmtBytes(songStats.size) : "…"}
             {overLimit && ` — ${t("cacheWarning")}`}
           </div>
@@ -1014,7 +1039,7 @@ function DownloadsTab({ t }) {
       </div>
 
       {/* Max cache size slider */}
-      <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", color: "var(--text-secondary)", letterSpacing: 0.5, marginTop: 24, marginBottom: 10 }}>
+      <div style={{ fontSize: "var(--t11)", fontWeight: 600, textTransform: "uppercase", color: "var(--text-secondary)", letterSpacing: 0.5, marginTop: 24, marginBottom: 10 }}>
         {t("maxCacheSize")}
       </div>
       <div style={{ padding: "14px 16px", background: "var(--bg-elevated)", borderRadius: "var(--radius-lg)", border: "0.5px solid var(--border)" }}>
@@ -1026,7 +1051,7 @@ function DownloadsTab({ t }) {
           onChange={handleSlider}
           width="100%"
         />
-        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "var(--text-muted)", marginTop: 8 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", fontSize: "var(--t10)", color: "var(--text-muted)", marginTop: 8 }}>
           {MAX_CACHE_STEPS.map((v, i) => (
             <span key={i} style={{ fontWeight: i === sliderIndex ? 600 : 400, color: i === sliderIndex ? "var(--accent)" : undefined }}>{stepLabel(v)}</span>
           ))}
@@ -1083,7 +1108,7 @@ function CacheTab({ t }) {
   return (
     <div>
       {fetchError && (
-        <div style={{ padding: "8px 12px", marginBottom: 12, borderRadius: 8, background: "rgba(255,60,60,0.15)", color: "#ff6b6b", fontSize: 11 }}>
+        <div style={{ padding: "8px 12px", marginBottom: 12, borderRadius: 8, background: "rgba(255,60,60,0.15)", color: "#ff6b6b", fontSize: "var(--t11)" }}>
           Cache-Stats Fehler: {fetchError}
         </div>
       )}
@@ -1099,8 +1124,8 @@ function CacheTab({ t }) {
             {/* Icon + Label */}
             <div style={{ color: "var(--accent)", flexShrink: 0 }}>{icon}</div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 13, fontWeight: 500 }}>{label}</div>
-              <div style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 2 }}>
+              <div style={{ fontSize: "var(--t13)", fontWeight: 500 }}>{label}</div>
+              <div style={{ fontSize: "var(--t11)", color: "var(--text-secondary)", marginTop: 2 }}>
                 {s ? fmtBytes(s.size) : "…"}
                 {s?.count != null ? ` · ${s.count} ${key === "images" ? t("cacheFiles") : t("cacheEntries")}` : ""}
               </div>
@@ -1112,7 +1137,7 @@ function CacheTab({ t }) {
               padding: "5px 12px", borderRadius: 7, border: "0.5px solid var(--border)",
               background: wasCleared ? "rgba(76,175,80,0.15)" : "var(--bg-elevated)",
               color: wasCleared ? "#4caf50" : isClearing ? "var(--text-muted)" : "var(--text-secondary)",
-              fontSize: 11, fontWeight: 500, cursor: isClearing ? "default" : "pointer",
+              fontSize: "var(--t11)", fontWeight: 500, cursor: isClearing ? "default" : "pointer",
               transition: "all 0.2s", whiteSpace: "nowrap", minWidth: 64,
             }}>
               {wasCleared ? t("cacheCleared") : isClearing ? "…" : t("cacheClear")}
@@ -1125,7 +1150,7 @@ function CacheTab({ t }) {
         <button onClick={() => categories.forEach(c => clear(c.key))} style={{
           padding: "7px 18px", borderRadius: 8, border: "0.5px solid var(--border)",
           background: "var(--bg-elevated)", color: "var(--text-secondary)",
-          fontSize: 12, fontWeight: 500, cursor: "pointer", transition: "all 0.15s",
+          fontSize: "var(--t12)", fontWeight: 500, cursor: "pointer", transition: "all 0.15s",
         }}
         onMouseEnter={e => { e.currentTarget.style.background = "var(--bg-hover)"; e.currentTarget.style.color = "var(--text-primary)"; }}
         onMouseLeave={e => { e.currentTarget.style.background = "var(--bg-elevated)"; e.currentTarget.style.color = "var(--text-secondary)"; }}
@@ -1170,40 +1195,40 @@ function CreatePlaylistModal({ onClose, onCreated, t }) {
         background: "var(--bg-elevated)", borderRadius: 16, padding: 28, minWidth: 380, maxWidth: 440,
         border: "0.5px solid var(--border)", boxShadow: "0 12px 40px rgba(0,0,0,0.5)",
       }}>
-        <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 20 }}>{t("createPlaylist")}</div>
+        <div style={{ fontSize: "var(--t16)", fontWeight: 600, marginBottom: 20 }}>{t("createPlaylist")}</div>
 
         <div style={{ marginBottom: 14 }}>
-          <div style={{ fontSize: 11, fontWeight: 500, color: "var(--text-secondary)", marginBottom: 6 }}>{t("playlistTitle")} *</div>
+          <div style={{ fontSize: "var(--t11)", fontWeight: 500, color: "var(--text-secondary)", marginBottom: 6 }}>{t("playlistTitle")} *</div>
           <input value={title} onChange={e => setTitle(e.target.value)} autoFocus
             onKeyDown={e => e.key === "Enter" && handleCreate()}
             style={{
               width: "100%", padding: "8px 12px", borderRadius: 8, border: "0.5px solid var(--border)",
-              background: "var(--bg-main)", color: "var(--text-primary)", fontSize: 13, outline: "none",
+              background: "var(--bg-main)", color: "var(--text-primary)", fontSize: "var(--t13)", outline: "none",
               boxSizing: "border-box",
             }}
           />
         </div>
 
         <div style={{ marginBottom: 14 }}>
-          <div style={{ fontSize: 11, fontWeight: 500, color: "var(--text-secondary)", marginBottom: 6 }}>{t("playlistDescription")}</div>
+          <div style={{ fontSize: "var(--t11)", fontWeight: 500, color: "var(--text-secondary)", marginBottom: 6 }}>{t("playlistDescription")}</div>
           <textarea value={description} onChange={e => setDescription(e.target.value)} rows={3}
             style={{
               width: "100%", padding: "8px 12px", borderRadius: 8, border: "0.5px solid var(--border)",
-              background: "var(--bg-main)", color: "var(--text-primary)", fontSize: 13, outline: "none",
+              background: "var(--bg-main)", color: "var(--text-primary)", fontSize: "var(--t13)", outline: "none",
               resize: "vertical", fontFamily: "inherit", boxSizing: "border-box",
             }}
           />
         </div>
 
         <div style={{ marginBottom: 20 }}>
-          <div style={{ fontSize: 11, fontWeight: 500, color: "var(--text-secondary)", marginBottom: 6 }}>{t("playlistPrivacy")}</div>
+          <div style={{ fontSize: "var(--t11)", fontWeight: 500, color: "var(--text-secondary)", marginBottom: 6 }}>{t("playlistPrivacy")}</div>
           <div style={{ display: "flex", gap: 8 }}>
             {[["PRIVATE", t("privacyPrivate")], ["PUBLIC", t("privacyPublic")], ["UNLISTED", t("privacyUnlisted")]].map(([val, label]) => (
               <button key={val} onClick={() => setPrivacy(val)} style={{
                 padding: "6px 14px", borderRadius: 8, border: "0.5px solid var(--border)",
                 background: privacy === val ? "var(--accent)" : "var(--bg-main)",
                 color: privacy === val ? "#fff" : "var(--text-secondary)",
-                fontSize: 12, fontWeight: 500, cursor: "pointer", transition: "all 0.15s",
+                fontSize: "var(--t12)", fontWeight: 500, cursor: "pointer", transition: "all 0.15s",
               }}>{label}</button>
             ))}
           </div>
@@ -1212,12 +1237,12 @@ function CreatePlaylistModal({ onClose, onCreated, t }) {
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
           <button onClick={onClose} style={{
             padding: "8px 18px", borderRadius: 8, border: "0.5px solid var(--border)",
-            background: "var(--bg-main)", color: "var(--text-secondary)", fontSize: 13, cursor: "pointer",
+            background: "var(--bg-main)", color: "var(--text-secondary)", fontSize: "var(--t13)", cursor: "pointer",
           }}>{t("cancel")}</button>
           <button onClick={handleCreate} disabled={!title.trim() || creating} style={{
             padding: "8px 18px", borderRadius: 8, border: "none",
             background: !title.trim() ? "var(--text-muted)" : "var(--accent)", color: "#fff",
-            fontSize: 13, fontWeight: 500, cursor: !title.trim() ? "default" : "pointer",
+            fontSize: "var(--t13)", fontWeight: 500, cursor: !title.trim() ? "default" : "pointer",
             opacity: creating ? 0.6 : 1,
           }}>{creating ? t("loadingDots") : t("create")}</button>
         </div>
@@ -1298,13 +1323,13 @@ function LyricsProviderList({ providers, onChange }) {
             <DotsSixVertical size={16} style={{ pointerEvents: "none" }} />
           </div>
           {/* Label */}
-          <span style={{ fontSize: 13, color: p.enabled ? "var(--text-primary)" : "var(--text-muted)" }}>{p.label}</span>
+          <span style={{ fontSize: "var(--t13)", color: p.enabled ? "var(--text-primary)" : "var(--text-muted)" }}>{p.label}</span>
           {/* Sync-type tag */}
           {PROVIDER_SYNC[p.id] && (() => {
             const sync = PROVIDER_SYNC[p.id];
             return (
               <span style={{
-                fontSize: 10, fontWeight: 600, lineHeight: 1,
+                fontSize: "var(--t10)", fontWeight: 600, lineHeight: 1,
                 padding: "3px 7px", borderRadius: 20,
                 background: p.enabled ? sync.bg : "var(--bg-base)",
                 color: p.enabled ? sync.color : "var(--text-muted)",
@@ -1325,11 +1350,10 @@ function LyricsProviderList({ providers, onChange }) {
   );
 }
 
-function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, animations, onAnimationsChange, lyricsFontSize, onLyricsFontSizeChange, lyricsProviders, onLyricsProvidersChange, autoplay, onAutoplayChange, crossfade, onCrossfadeChange, discordRpc, onDiscordRpcChange, language, onLanguageChange, updateInfo, onCheckUpdate, initialTab, onTabOpened, hideExplicit, onHideExplicitChange, uiZoom, onUiZoomChange }) {
+function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, animations, onAnimationsChange, lyricsFontSize, onLyricsFontSizeChange, lyricsProviders, onLyricsProvidersChange, autoplay, onAutoplayChange, crossfade, onCrossfadeChange, discordRpc, onDiscordRpcChange, language, onLanguageChange, updateInfo, onCheckUpdate, updateDownloading, updateDownloadProgress, updateDownloaded, onDownloadUpdate, onInstallUpdate, onCancelDownload, initialTab, onTabOpened, hideExplicit, onHideExplicitChange, uiZoom, onUiZoomChange, appFontScale, onFontScaleChange }) {
   const anim = useAnimations();
   const t = useLang();
   const [tab, setTab] = useState(initialTab || "darstellung");
-  const [draftZoom, setDraftZoom] = useState(() => Math.round(uiZoom * 100));
   const [checkingUpdate, setCheckingUpdate] = useState(false);
   const [colorPickerOpen, setColorPickerOpen] = useState(false);
   const colorPickerTriggerRef = useRef(null);
@@ -1355,10 +1379,16 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
     { key: "↓",         action: t("scVolDown") },
     { key: "F",         action: t("scFullscreen") },
     { key: "Esc",       action: t("scClose") },
+    { key: "M",         action: t("scMute") },
+    { key: "L",         action: t("scToggleLyrics") },
+    { key: ",",         action: t("scSeekBack") },
+    { key: ".",         action: t("scSeekForward") },
+    { key: "Ctrl + +",  action: t("scZoomIn") },
+    { key: "Ctrl + −",  action: t("scZoomOut") },
   ];
 
   const SectionLabel = ({ children }) => (
-    <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", margin: "24px 0 8px" }}>{children}</div>
+    <div style={{ fontSize: "var(--t11)", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", margin: "24px 0 8px" }}>{children}</div>
   );
 
   return (
@@ -1383,12 +1413,12 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                 fontSize: 8, fontWeight: 700, letterSpacing: "0.04em",
                 padding: "2px 5px", borderRadius: 4, lineHeight: 1.4,
                 boxShadow: "0 1px 4px rgba(0,0,0,0.4)",
-              }}>Alpha 9</div>
+              }}>Alpha</div>
             </div>
           </div>
 
           <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", padding: "0 8px 8px" }}>{t("appSettings")}</div>
+          <div style={{ fontSize: "var(--t10)", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", padding: "0 8px 8px" }}>{t("appSettings")}</div>
 
           {navItems.map(item => (
             <div key={item.id} onClick={() => setTab(item.id)} style={{
@@ -1396,7 +1426,7 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
               padding: "8px 10px", borderRadius: "var(--radius)", cursor: "pointer",
               background: tab === item.id ? "rgba(224,64,251,0.12)" : "transparent",
               color: tab === item.id ? "var(--accent)" : "var(--text-secondary)",
-              fontSize: 13, fontWeight: tab === item.id ? 500 : 400,
+              fontSize: "var(--t13)", fontWeight: tab === item.id ? 500 : 400,
               transition: "background 0.15s, color 0.15s", marginBottom: 2,
             }}
             onMouseEnter={e => { if (tab !== item.id) { e.currentTarget.style.background = "var(--bg-hover)"; e.currentTarget.style.color = "var(--text-primary)"; }}}
@@ -1413,8 +1443,8 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
 
           <div style={{ borderTop: "0.5px solid var(--border)", paddingTop: 12 }}>
             <div style={{ padding: "0 8px 12px" }}>
-              <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-primary)", marginBottom: 4 }}>{APP_VERSION} · Build {BUILD_NUMBER}</div>
-              <div style={{ fontSize: 10, color: "var(--text-muted)", lineHeight: 1.7 }}>
+              <div style={{ fontSize: "var(--t11)", fontWeight: 600, color: "var(--text-primary)", marginBottom: 4 }}>{APP_VERSION} · Build {BUILD_NUMBER}</div>
+              <div style={{ fontSize: "var(--t10)", color: "var(--text-muted)", lineHeight: 1.7 }}>
                 Tauri 2.10.3<br/>
                 Chromium {chromiumVersion}
               </div>
@@ -1422,7 +1452,7 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
             <div onClick={onClose} style={{
               display: "flex", alignItems: "center", gap: 10,
               padding: "8px 10px", borderRadius: "var(--radius)", cursor: "pointer",
-              color: "var(--text-muted)", fontSize: 13, transition: "all 0.15s",
+              color: "var(--text-muted)", fontSize: "var(--t13)", transition: "all 0.15s",
             }}
             onMouseEnter={e => { e.currentTarget.style.background = "var(--bg-hover)"; e.currentTarget.style.color = "#f44336"; }}
             onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--text-muted)"; }}
@@ -1436,7 +1466,7 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
         {/* Right Content */}
         <div style={{ flex: 1, background: "var(--bg-surface)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
           <div style={{ padding: "24px 32px 0", flexShrink: 0 }}>
-            <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>
+            <div style={{ fontSize: "var(--t20)", fontWeight: 700, marginBottom: 4 }}>
               {navItems.find(i => i.id === tab)?.label}
             </div>
             <div style={{ height: 1, background: "var(--border)", marginTop: 20 }} />
@@ -1475,7 +1505,7 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                       </div>
                       {/* Label */}
                       <div style={{
-                        background: th.surface, padding: "7px 10px", fontSize: 12, fontWeight: 500,
+                        background: th.surface, padding: "7px 10px", fontSize: "var(--t12)", fontWeight: 500,
                         color: theme === th.id ? accent : th.text, textAlign: "center",
                         borderTop: `1px solid ${th.id === "light" ? "rgba(0,0,0,0.1)" : "rgba(255,255,255,0.06)"}`,
                       }}>{th.label}</div>
@@ -1533,10 +1563,28 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                 <SettingRow label={t("animations")} description={t("animationsDesc")}>
                   <Toggle value={animations} onChange={onAnimationsChange} />
                 </SettingRow>
-                <SettingRow label={t("uiZoom")} description={`${t("uiZoomDesc")}: ${draftZoom}%`}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <Slider min={85} max={120} step={5} value={draftZoom} onChange={setDraftZoom} onChangeCommit={v => onUiZoomChange(v / 100)} width={120} />
-                    <span style={{ fontSize: 12, color: "var(--text-muted)", width: 38 }}>{draftZoom}%</span>
+                <SettingRow label={t("uiZoom")} description={t("uiZoomDesc")}>
+                  <div style={{ width: 180 }}>
+                    <Slider min={0} max={ZOOM_STEPS.length - 1} step={1}
+                      value={Math.max(0, ZOOM_STEPS.indexOf(uiZoom))}
+                      onChange={i => onUiZoomChange(ZOOM_STEPS[i])} width={180} />
+                    <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6 }}>
+                      {ZOOM_LABELS.map((label, i) => (
+                        <span key={i} style={{ fontSize: "var(--t10)", fontWeight: uiZoom === ZOOM_STEPS[i] ? 700 : 400, color: uiZoom === ZOOM_STEPS[i] ? "var(--accent)" : "var(--text-muted)" }}>{label}</span>
+                      ))}
+                    </div>
+                  </div>
+                </SettingRow>
+                <SettingRow label={t("fontSize")} description={t("fontSizeDesc")}>
+                  <div style={{ width: 180 }}>
+                    <Slider min={0} max={FONT_STEPS.length - 1} step={1}
+                      value={Math.max(0, FONT_STEPS.indexOf(appFontScale))}
+                      onChange={i => onFontScaleChange(FONT_STEPS[i])} width={180} />
+                    <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6 }}>
+                      {FONT_LABELS.map((label, i) => (
+                        <span key={i} style={{ fontSize: "var(--t10)", fontWeight: appFontScale === FONT_STEPS[i] ? 700 : 400, color: appFontScale === FONT_STEPS[i] ? "var(--accent)" : "var(--text-muted)" }}>{label}</span>
+                      ))}
+                    </div>
                   </div>
                 </SettingRow>
               </>
@@ -1551,7 +1599,7 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                 <SettingRow label={t("crossfade")} description={`${t("crossfadeDesc")}: ${crossfade}s`}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <Slider min={0} max={12} step={1} value={crossfade} onChange={onCrossfadeChange} width={120} />
-                    <span style={{ fontSize: 12, color: "var(--text-muted)", width: 28 }}>{crossfade}s</span>
+                    <span style={{ fontSize: "var(--t12)", color: "var(--text-muted)", width: 28 }}>{crossfade}s</span>
                   </div>
                 </SettingRow>
                 <SettingRow label={t("discordRpc")} description={t("discordRpcDesc")}>
@@ -1569,11 +1617,11 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                 <SettingRow label={t("fontSize")} description={`${t("fontSizeDesc")}: ${lyricsFontSize}px`}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <Slider min={18} max={52} step={2} value={lyricsFontSize} onChange={onLyricsFontSizeChange} width={120} />
-                    <span style={{ fontSize: 12, color: "var(--text-muted)", width: 36 }}>{lyricsFontSize}px</span>
+                    <span style={{ fontSize: "var(--t12)", color: "var(--text-muted)", width: 36 }}>{lyricsFontSize}px</span>
                   </div>
                 </SettingRow>
                 <SectionLabel>{t("lyricsProviders")}</SectionLabel>
-                <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 10 }}>{t("lyricsProvidersDesc")}</div>
+                <div style={{ fontSize: "var(--t11)", color: "var(--text-muted)", marginBottom: 10 }}>{t("lyricsProvidersDesc")}</div>
                 <LyricsProviderList providers={lyricsProviders || DEFAULT_LYRICS_PROVIDERS} onChange={onLyricsProvidersChange} />
               </>
             )}
@@ -1584,12 +1632,12 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4 }}>
                   {shortcuts.map((s, i) => (
                     <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", borderRadius: "var(--radius)", background: "var(--bg-elevated)" }}>
-                      <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>{s.action}</span>
-                      <kbd style={{ background: "var(--bg-surface)", border: "0.5px solid var(--border)", borderRadius: 6, padding: "3px 10px", fontSize: 12, fontFamily: "monospace", color: "var(--text-primary)", boxShadow: "0 1px 0 var(--border)", flexShrink: 0, marginLeft: 8 }}>{s.key}</kbd>
+                      <span style={{ fontSize: "var(--t13)", color: "var(--text-secondary)" }}>{s.action}</span>
+                      <kbd style={{ background: "var(--bg-surface)", border: "0.5px solid var(--border)", borderRadius: 6, padding: "3px 10px", fontSize: "var(--t12)", fontFamily: "monospace", color: "var(--text-primary)", boxShadow: "0 1px 0 var(--border)", flexShrink: 0, marginLeft: 8 }}>{s.key}</kbd>
                     </div>
                   ))}
                 </div>
-                <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 16 }}>{t("shortcutsNote")}</div>
+                <div style={{ fontSize: "var(--t11)", color: "var(--text-muted)", marginTop: 16 }}>{t("shortcutsNote")}</div>
               </>
             )}
 
@@ -1612,7 +1660,7 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                   onMouseLeave={e => { if (language !== lang.code) e.currentTarget.style.background = "var(--bg-elevated)"; }}
                   >
                     <div dangerouslySetInnerHTML={{ __html: lang.flag }} style={{ width: 32, height: 20, flexShrink: 0, borderRadius: 3, overflow: "hidden", border: "0.5px solid var(--border)" }} />
-                    <div style={{ fontSize: 13, fontWeight: 500, color: language === lang.code ? "var(--accent)" : "var(--text-primary)" }}>{lang.label}</div>
+                    <div style={{ fontSize: "var(--t13)", fontWeight: 500, color: language === lang.code ? "var(--accent)" : "var(--text-primary)" }}>{lang.label}</div>
                     {language === lang.code && (
                       <Check size={14} style={{ marginLeft: "auto", color: "var(--accent)" }} />
                     )}
@@ -1629,8 +1677,8 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                   background: "var(--bg-elevated)", border: "0.5px solid var(--border)",
                   marginBottom: 16,
                 }}>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>{APP_VERSION}</div>
-                  <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 4 }}>Build {BUILD_NUMBER}</div>
+                  <div style={{ fontSize: "var(--t14)", fontWeight: 600, color: "var(--text-primary)" }}>{APP_VERSION}</div>
+                  <div style={{ fontSize: "var(--t12)", color: "var(--text-muted)", marginTop: 4 }}>Build {BUILD_NUMBER}</div>
                 </div>
 
                 {updateInfo ? (
@@ -1643,38 +1691,83 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                     }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
                         <ArrowCircleUp size={18} style={{ color: "var(--accent)" }} />
-                        <div style={{ fontSize: 14, fontWeight: 600, color: "var(--accent)" }}>{updateInfo.version}</div>
-                        <div style={{ fontSize: 12, color: "var(--text-muted)" }}>Build {updateInfo.buildNumber}</div>
+                        <div style={{ fontSize: "var(--t14)", fontWeight: 600, color: "var(--accent)" }}>{updateInfo.version}</div>
                       </div>
                       {updateInfo.releasedAt && (
-                        <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 12 }}>
+                        <div style={{ fontSize: "var(--t11)", color: "var(--text-muted)", marginBottom: 12 }}>
                           {t("released")}: {new Date(updateInfo.releasedAt).toLocaleDateString()}
                         </div>
                       )}
                       {updateInfo.changelog && (
                         <>
-                          <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>{t("changelog")}</div>
-                          <div style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{updateInfo.changelog}</div>
+                          <div style={{ fontSize: "var(--t11)", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>{t("changelog")}</div>
+                          <div style={{ fontSize: "var(--t12)", color: "var(--text-secondary)", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{updateInfo.changelog}</div>
                         </>
                       )}
                     </div>
-                    <button
-                      onClick={() => {
-                        import("@tauri-apps/plugin-shell").then(({ open }) => open(updateInfo.downloadUrl)).catch(() => window.open(updateInfo.downloadUrl, "_blank"));
-                      }}
-                      style={{
-                        display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-                        width: "100%", padding: "10px 16px", borderRadius: "var(--radius)",
-                        background: "var(--accent)", border: "none", color: "#fff",
-                        fontSize: 13, fontWeight: 600, cursor: "pointer",
-                        fontFamily: "var(--font)", transition: "opacity 0.15s",
-                      }}
-                      onMouseEnter={e => e.currentTarget.style.opacity = "0.85"}
-                      onMouseLeave={e => e.currentTarget.style.opacity = "1"}
-                    >
-                      <DownloadSimple size={16} />
-                      {t("downloadUpdate")}
-                    </button>
+                    {updateDownloaded ? (
+                      <>
+                        <div style={{ fontSize: "var(--t12)", color: "#4caf50", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
+                          <CheckCircle size={14} weight="fill" style={{ color: "#4caf50" }} />
+                          {t("savedToDownloads")}
+                        </div>
+                        <button
+                          onClick={onInstallUpdate}
+                          style={{
+                            display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                            width: "100%", padding: "10px 16px", borderRadius: "var(--radius)",
+                            background: "var(--accent)", border: "none", color: "#fff",
+                            fontSize: "var(--t13)", fontWeight: 600, cursor: "pointer",
+                            fontFamily: "var(--font)", transition: "opacity 0.15s",
+                          }}
+                          onMouseEnter={e => e.currentTarget.style.opacity = "0.85"}
+                          onMouseLeave={e => e.currentTarget.style.opacity = "1"}
+                        >
+                          <DownloadSimple size={16} />
+                          {t("installNow")}
+                        </button>
+                      </>
+                    ) : updateDownloading ? (
+                      <>
+                        <div style={{ fontSize: "var(--t12)", color: "var(--text-muted)", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+                          <ArrowClockwise size={13} style={{ animation: "spin2 0.8s linear infinite" }} />
+                          {t("downloadingUpdate")}
+                        </div>
+                        <div style={{ height: 4, background: "var(--bg-hover)", borderRadius: 2, overflow: "hidden", marginBottom: 10 }}>
+                          <div style={{ height: "100%", width: `${updateDownloadProgress ?? 0}%`, background: "var(--accent)", transition: "width 0.3s" }} />
+                        </div>
+                        <button
+                          onClick={onCancelDownload}
+                          style={{
+                            display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                            width: "100%", padding: "9px 16px", borderRadius: "var(--radius)",
+                            background: "var(--bg-elevated)", border: "0.5px solid var(--border)", color: "var(--text-secondary)",
+                            fontSize: "var(--t13)", fontWeight: 500, cursor: "pointer",
+                            fontFamily: "var(--font)", transition: "all 0.15s",
+                          }}
+                          onMouseEnter={e => { e.currentTarget.style.background = "var(--bg-hover)"; e.currentTarget.style.color = "var(--text-primary)"; }}
+                          onMouseLeave={e => { e.currentTarget.style.background = "var(--bg-elevated)"; e.currentTarget.style.color = "var(--text-secondary)"; }}
+                        >
+                          {t("cancel")}
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        onClick={onDownloadUpdate}
+                        style={{
+                          display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                          width: "100%", padding: "10px 16px", borderRadius: "var(--radius)",
+                          background: "var(--accent)", border: "none", color: "#fff",
+                          fontSize: "var(--t13)", fontWeight: 600, cursor: "pointer",
+                          fontFamily: "var(--font)", transition: "opacity 0.15s",
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.opacity = "0.85"}
+                        onMouseLeave={e => e.currentTarget.style.opacity = "1"}
+                      >
+                        <DownloadSimple size={16} />
+                        {t("downloadUpdate")}
+                      </button>
+                    )}
                   </>
                 ) : (
                   <div style={{
@@ -1682,7 +1775,7 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                     padding: "32px 16px", color: "var(--text-muted)",
                   }}>
                     <CheckCircle size={32} style={{ color: "#4caf50" }} />
-                    <div style={{ fontSize: 13, textAlign: "center" }}>{t("upToDate")}</div>
+                    <div style={{ fontSize: "var(--t13)", textAlign: "center" }}>{t("upToDate")}</div>
                   </div>
                 )}
 
@@ -1693,7 +1786,7 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                     display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
                     width: "100%", padding: "9px 16px", marginTop: 8, borderRadius: "var(--radius)",
                     background: "var(--bg-elevated)", border: "0.5px solid var(--border)", color: "var(--text-secondary)",
-                    fontSize: 13, fontWeight: 500, cursor: checkingUpdate ? "default" : "pointer",
+                    fontSize: "var(--t13)", fontWeight: 500, cursor: checkingUpdate ? "default" : "pointer",
                     fontFamily: "var(--font)", transition: "all 0.15s",
                     opacity: checkingUpdate ? 0.6 : 1,
                   }}
@@ -1748,11 +1841,11 @@ function QueueRow({ track, globalIdx, isDraggable, isActive, dragOver, onPointer
           : <div style={{ width: "100%", height: "100%", background: "linear-gradient(135deg,#2a1535,#1a0a25)" }} />}
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 12, fontWeight: 500, display: "flex", alignItems: "center", gap: 4, overflow: "hidden", color: isActive ? "var(--accent)" : "var(--text-primary)" }}>
+        <div style={{ fontSize: "var(--t12)", fontWeight: 500, display: "flex", alignItems: "center", gap: 4, overflow: "hidden", color: isActive ? "var(--accent)" : "var(--text-primary)" }}>
           <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>{track.title}</span>
           {track.isExplicit && <ExplicitBadge />}
         </div>
-        <div style={{ fontSize: 11, color: "var(--text-secondary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+        <div style={{ fontSize: "var(--t11)", color: "var(--text-secondary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
           {track.artists}
         </div>
       </div>
@@ -1777,11 +1870,22 @@ function QueuePanel({ queue, setQueue, currentTrack, setTrack, onClose }) {
   const [showScrollTop, setShowScrollTop] = useState(false);
   const isDragging = useRef(false);
   const listRef = useRef(null);
+  const nowPlayingRef = useRef(null);
 
   useEffect(() => {
     const el = listRef.current;
     if (!el) return;
-    const onScroll = () => setShowScrollTop(el.scrollTop > 180);
+    const onScroll = () => {
+      const target = nowPlayingRef.current;
+      if (target) {
+        const containerRect = el.getBoundingClientRect();
+        const targetRect = target.getBoundingClientRect();
+        const targetScrollPos = el.scrollTop + targetRect.top - containerRect.top;
+        setShowScrollTop(el.scrollTop > targetScrollPos + target.clientHeight);
+      } else {
+        setShowScrollTop(el.scrollTop > 180);
+      }
+    };
     el.addEventListener("scroll", onScroll);
     return () => el.removeEventListener("scroll", onScroll);
   }, []);
@@ -1854,10 +1958,10 @@ function QueuePanel({ queue, setQueue, currentTrack, setTrack, onClose }) {
     <div style={{ display: "flex", flexDirection: "column", height: "100%", position: "relative" }}>
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "44px 16px 12px", borderBottom: "0.5px solid var(--border)", flexShrink: 0 }}>
-        <div style={{ fontSize: 14, fontWeight: 600 }}>{t("queue")}</div>
+        <div style={{ fontSize: "var(--t14)", fontWeight: 600 }}>{t("queue")}</div>
         <button onClick={() => setQueue([])} style={{
           background: "none", border: "none", cursor: "pointer", padding: "4px 8px",
-          fontSize: 11, color: "var(--text-muted)", borderRadius: "var(--radius)",
+          fontSize: "var(--t11)", color: "var(--text-muted)", borderRadius: "var(--radius)",
           fontFamily: "var(--font)", transition: "all 0.15s",
         }}
         onMouseEnter={e => { e.currentTarget.style.background = "var(--bg-hover)"; e.currentTarget.style.color = "#f44336"; }}
@@ -1866,10 +1970,23 @@ function QueuePanel({ queue, setQueue, currentTrack, setTrack, onClose }) {
       </div>
 
       <div ref={listRef} className="scrollable" style={{ flex: 1, overflowY: "auto", paddingBottom: 16 }}>
+        {/* Previously played */}
+        {played.length > 0 && (
+          <>
+            <div style={{ fontSize: "var(--t10)", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", padding: "12px 16px 6px" }}>{t("previouslyPlayed")}</div>
+            {played.map((qt, i) => (
+              <QueueRow key={qt.videoId || i} track={qt} globalIdx={i} isDraggable={false}
+                isActive={false} dragOver={dragOver}
+                onPointerDown={handlePointerDown}
+                onPlay={() => setTrack(qt)} onRemove={removeTrack} />
+            ))}
+          </>
+        )}
+
         {/* Now playing */}
         {currentTrack && (
           <>
-            <div style={{ fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", padding: "12px 16px 6px" }}>{t("nowPlaying")}</div>
+            <div ref={nowPlayingRef} style={{ fontSize: "var(--t10)", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", padding: "12px 16px 6px" }}>{t("nowPlaying")}</div>
             <QueueRow track={currentTrack} globalIdx={currentIdx} isDraggable={false}
               isActive={true} dragOver={dragOver}
               onPointerDown={handlePointerDown}
@@ -1880,7 +1997,7 @@ function QueuePanel({ queue, setQueue, currentTrack, setTrack, onClose }) {
         {/* Up next */}
         {upNext.length > 0 && (
           <>
-            <div style={{ fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", padding: "12px 16px 6px" }}>{t("upNext")}</div>
+            <div style={{ fontSize: "var(--t10)", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", padding: "12px 16px 6px" }}>{t("upNext")}</div>
             {upNext.map((qt, i) => (
               <QueueRow key={qt.videoId || i} track={qt} globalIdx={currentIdx + 1 + i} isDraggable={true}
                 isActive={false} dragOver={dragOver}
@@ -1890,28 +2007,26 @@ function QueuePanel({ queue, setQueue, currentTrack, setTrack, onClose }) {
           </>
         )}
 
-        {/* Previously played */}
-        {played.length > 0 && (
-          <>
-            <div style={{ fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", padding: "12px 16px 6px" }}>{t("previouslyPlayed")}</div>
-            {played.map((qt, i) => (
-              <QueueRow key={qt.videoId || i} track={qt} globalIdx={i} isDraggable={false}
-                isActive={false} dragOver={dragOver}
-                onPointerDown={handlePointerDown}
-                onPlay={() => setTrack(qt)} onRemove={removeTrack} />
-            ))}
-          </>
-        )}
-
         {queue.length === 0 && (
-          <div style={{ padding: 24, color: "var(--text-muted)", fontSize: 13, textAlign: "center" }}>{t("emptyQueue")}</div>
+          <div style={{ padding: 24, color: "var(--text-muted)", fontSize: "var(--t13)", textAlign: "center" }}>{t("emptyQueue")}</div>
         )}
       </div>
 
       {/* Scroll-to-top button — appears after scrolling down */}
       {showScrollTop && (
         <button
-          onClick={() => listRef.current?.scrollTo({ top: 0, behavior: "smooth" })}
+          onClick={() => {
+            const target = nowPlayingRef.current;
+            const container = listRef.current;
+            if (target && container) {
+              const containerRect = container.getBoundingClientRect();
+              const targetRect = target.getBoundingClientRect();
+              const scrollOffset = container.scrollTop + targetRect.top - containerRect.top - 8;
+              container.scrollTo({ top: scrollOffset, behavior: "smooth" });
+            } else {
+              listRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+            }
+          }}
           style={{
             position: "absolute", bottom: 16, right: 16,
             width: 40, height: 40, borderRadius: "50%",
@@ -2315,14 +2430,14 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
               : <div style={{ width: "100%", height: "100%", background: track ? "linear-gradient(135deg,#2a1535,#1a0a25)" : "transparent" }} />}
           </div>
           <div style={{ overflow: "hidden" }}>
-            <div style={{ fontSize: 13, fontWeight: 500, display: "flex", alignItems: "center", gap: 4, overflow: "hidden" }}>
+            <div style={{ fontSize: "var(--t13)", fontWeight: 500, display: "flex", alignItems: "center", gap: 4, overflow: "hidden" }}>
               <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>{loading ? t("loading") : track?.title}</span>
               {track?.isExplicit && <ExplicitBadge />}
             </div>
-            <div style={{ fontSize: 11, color: "var(--text-secondary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            <div style={{ fontSize: "var(--t11)", color: "var(--text-secondary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
               {track?.artists}
             </div>
-            <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 2 }}>
+            <div style={{ fontSize: "var(--t10)", color: "var(--text-muted)", marginTop: 2 }}>
               {track ? `${fmt(progress)} / ${fmt(duration)}` : ""}
             </div>
           </div>
@@ -2517,19 +2632,19 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
                     <>
                       <div style={{ padding: "6px 12px 8px", display: "flex", gap: 14 }}>
                         {songStats.views && (
-                          <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: "var(--text-muted)" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: "var(--t12)", color: "var(--text-muted)" }}>
                             <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
                             {songStats.views}
                           </div>
                         )}
                         {songStats.likes && (
-                          <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: "var(--text-muted)" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: "var(--t12)", color: "var(--text-muted)" }}>
                             <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M1 21h4V9H1v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z"/></svg>
                             {songStats.likes}
                           </div>
                         )}
                         {songStats.dislikes && (
-                          <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: "var(--text-muted)" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: "var(--t12)", color: "var(--text-muted)" }}>
                             <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style={{ transform: "rotate(180deg)" }}><path d="M1 21h4V9H1v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z"/></svg>
                             {songStats.dislikes}
                           </div>
@@ -2548,7 +2663,7 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
                       {albumId && onOpenAlbum && (
                         <div
                           onClick={() => { setMoreOpen(false); if (expanded) onExpandToggle(); onOpenAlbum({ browseId: albumId, title: track.album }); }}
-                          style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: 13, color: "var(--text-primary)" }}
+                          style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "var(--text-primary)" }}
                           onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
                           onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                         >
@@ -2559,7 +2674,7 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
                       {artistId && onOpenArtist && (
                         <div
                           onClick={() => { setMoreOpen(false); if (expanded) onExpandToggle(); onOpenArtist({ browseId: artistId, artist: track.artists }); }}
-                          style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: 13, color: "var(--text-primary)" }}
+                          style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "var(--text-primary)" }}
                           onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
                           onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                         >
@@ -2576,7 +2691,7 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
                   {/* Refetch Lyrics */}
                   <div
                     onClick={() => { setMoreOpen(false); onRefetchLyrics?.(); }}
-                    style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: 13, color: "var(--text-primary)" }}
+                    style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "var(--text-primary)" }}
                     onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
                     onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                   >
@@ -2594,7 +2709,7 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
                   ].map(item => (
                     <div key={item.fmt}
                       onClick={async () => { setMoreOpen(false); await onExportSong?.(track, item.fmt); }}
-                      style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: 13, color: "var(--text-primary)" }}
+                      style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "var(--text-primary)" }}
                       onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
                       onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                     >
@@ -2661,14 +2776,22 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
   );
 }
 
+function hiResThumb(url) {
+  if (!url) return url;
+  if (url.includes("lh3.googleusercontent.com"))
+    return url.replace(/=w\d+-h\d+[^"'\s]*/,  "=w600-h600-l90-rj");
+  return url;
+}
+
 function CoverView({ track, isPlaying, onClose }) {
+  const hq = hiResThumb(track.thumbnail);
 
   return (
     <div style={{ width: "100%", height: "100%", position: "relative", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", background: "#0d0d0d" }}>
       {/* Blurred background */}
       <div style={{
         position: "absolute", inset: 0, zIndex: 0,
-        backgroundImage: track.thumbnail ? `url(${track.thumbnail})` : "none",
+        backgroundImage: hq ? `url(${thumb(hq)})` : "none",
         backgroundSize: "cover", backgroundPosition: "center",
         filter: "blur(60px) brightness(0.35)",
         transform: "scale(1.15)",
@@ -2684,19 +2807,19 @@ function CoverView({ track, isPlaying, onClose }) {
           transform: isPlaying ? "scale(1.03)" : "scale(0.97)",
           transition: "transform 0.6s cubic-bezier(0.4,0,0.2,1)",
         }}>
-          {track.thumbnail
-            ? <img src={thumb(track.thumbnail)} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          {hq
+            ? <img src={thumb(hq)} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
             : <div style={{ width: "100%", height: "100%", background: "linear-gradient(135deg,#2a1535,#1a0a25)" }} />
           }
         </div>
 
         {/* Track info */}
         <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: 22, fontWeight: 700, color: "#fff", marginBottom: 6, maxWidth: 400, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+          <div style={{ fontSize: "var(--t22)", fontWeight: 700, color: "#fff", marginBottom: 6, maxWidth: 400, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
             <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>{track.title}</span>
             {track.isExplicit && <ExplicitBadge />}
           </div>
-          <div style={{ fontSize: 14, color: "rgba(255,255,255,0.6)" }}>{track.artists}</div>
+          <div style={{ fontSize: "var(--t14)", color: "rgba(255,255,255,0.6)" }}>{track.artists}</div>
         </div>
       </div>
     </div>
@@ -2716,6 +2839,22 @@ function parseLrc(lrc) {
     }
   }
   return lines.sort((a, b) => a.time - b.time);
+}
+
+function parseRichSync(richsync) {
+  // Musixmatch RichSync: [{ ts, te, l: [{c, o}], x }, ...]
+  // ts/te = line start/end in seconds, l[i].c = word/char, l[i].o = offset from ts
+  if (!Array.isArray(richsync)) return [];
+  return richsync
+    .filter(line => line && typeof line.ts === "number")
+    .map(line => {
+      const words = (line.l || []).map((w, j) => {
+        const wordStart = line.ts + (w.o || 0);
+        const wordEnd = line.l[j + 1] ? line.ts + line.l[j + 1].o : line.te;
+        return { text: w.c, time: wordStart, end: wordEnd, isSpace: (w.c || "").trim() === "" };
+      });
+      return { time: line.ts, endTime: line.te, words, wordSync: true, text: line.x || "" };
+    });
 }
 
 function parseTtml(ttml) {
@@ -2798,18 +2937,20 @@ function formatTotalDuration(tracks) {
 }
 
 const DEFAULT_LYRICS_PROVIDERS = [
-  { id: "better", label: "Better Lyrics", enabled: true },
-  { id: "lrclib", label: "LRCLIB",        enabled: true },
-  { id: "kugou",  label: "Kugou",         enabled: true },
-  { id: "simp",   label: "SimpMusic",     enabled: true },
+  { id: "better",     label: "Better Lyrics", enabled: true },
+  { id: "musixmatch", label: "Musixmatch",    enabled: true },
+  { id: "lrclib",     label: "LRCLIB",        enabled: true },
+  { id: "kugou",      label: "Kugou",         enabled: true },
+  { id: "simp",       label: "SimpMusic",     enabled: true },
 ];
 
 // Sync-type tags shown next to each provider in settings
 const PROVIDER_SYNC = {
-  better: { label: "Syllable-Sync", color: "#ce93d8", bg: "rgba(206,147,216,0.12)" },
-  lrclib: { label: "Line-Sync",  color: "#81c784", bg: "rgba(129,199,132,0.12)" },
-  kugou:  { label: "Line-Sync",  color: "#81c784", bg: "rgba(129,199,132,0.12)" },
-  simp:   { label: "Line-Sync",  color: "#81c784", bg: "rgba(129,199,132,0.12)" },
+  better:     { label: "Syllable-Sync", color: "#ce93d8", bg: "rgba(206,147,216,0.12)" },
+  musixmatch: { label: "Word-Sync",     color: "#f48fb1", bg: "rgba(244,143,177,0.12)" },
+  lrclib:     { label: "Line-Sync",     color: "#81c784", bg: "rgba(129,199,132,0.12)" },
+  kugou:      { label: "Line-Sync",     color: "#81c784", bg: "rgba(129,199,132,0.12)" },
+  simp:       { label: "Line-Sync",     color: "#81c784", bg: "rgba(129,199,132,0.12)" },
 };
 
 async function fetchLyrics(title, artist, album, duration, providers = DEFAULT_LYRICS_PROVIDERS, videoId = "") {
@@ -2855,8 +2996,19 @@ async function fetchLyrics(title, artist, album, duration, providers = DEFAULT_L
     }
     return null;
   };
+  const tryMusixmatch = async () => {
+    const params = new URLSearchParams({ title, artist, source: "musixmatch" });
+    if (duration) params.set("duration", Math.round(duration));
+    const r = await fetch(`${API}/lyrics?${params}`);
+    if (!r.ok) return null;
+    const d = await r.json();
+    if (d.richsync) { const lrc = parseRichSync(d.richsync); if (lrc.length) return { source: "Musixmatch", lrc }; }
+    if (d.synced)   return { source: "Musixmatch", lrc: parseLrc(d.synced) };
+    if (d.plain)    return { source: "Musixmatch", lrc: d.plain.split("\n").map(t => ({ time: -1, text: t })) };
+    return null;
+  };
 
-  const tryFns = { better: tryBetter, lrclib: tryLrclib, kugou: tryKugou, simp: trySimp };
+  const tryFns = { better: tryBetter, lrclib: tryLrclib, kugou: tryKugou, simp: trySimp, musixmatch: tryMusixmatch };
   try {
     for (const p of providers) {
       if (!p.enabled) continue;
@@ -2999,7 +3151,7 @@ function LyricsOverlay({ track, audioRef, onClose, fontSize = 32, providers = DE
 
       {/* Source badge */}
       <div style={{ position: "absolute", bottom: 12, right: 16, zIndex: 2, display: "flex", alignItems: "center", gap: 6 }}>
-        {source && <span style={{ fontSize: 10, color: "var(--text-muted)", background: "rgba(255,255,255,0.08)", padding: "3px 8px", borderRadius: 10 }}>{source}</span>}
+        {source && <span style={{ fontSize: "var(--t10)", color: "var(--text-muted)", background: "rgba(255,255,255,0.08)", padding: "3px 8px", borderRadius: 10 }}>{source}</span>}
       </div>
 
       {/* Lyrics */}
@@ -3010,8 +3162,8 @@ function LyricsOverlay({ track, audioRef, onClose, fontSize = 32, providers = DE
         {loading && <div style={{ textAlign: "center", color: "var(--text-muted)", marginTop: 60 }}>{t("lyricsLoading")}</div>}
         {!loading && !lyrics && (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16, marginTop: 60 }}>
-            <div style={{ color: "var(--text-muted)", fontSize: 14 }}>{t("noLyrics")}</div>
-            <div style={{ color: "var(--text-muted)", fontSize: 12, opacity: 0.7 }}>{t("noLyricsHint")}</div>
+            <div style={{ color: "var(--text-muted)", fontSize: "var(--t14)" }}>{t("noLyrics")}</div>
+            <div style={{ color: "var(--text-muted)", fontSize: "var(--t12)", opacity: 0.7 }}>{t("noLyricsHint")}</div>
             <div style={{ display: "flex", gap: 10 }}>
               {/* Akari's LRC Maker */}
               <button
@@ -3019,7 +3171,7 @@ function LyricsOverlay({ track, audioRef, onClose, fontSize = 32, providers = DE
                 style={{
                   background: "rgba(255,255,255,0.08)", border: "0.5px solid rgba(255,255,255,0.12)",
                   borderRadius: 10, padding: "8px 16px", cursor: "pointer",
-                  color: "rgba(255,255,255,0.8)", fontSize: 13, display: "flex", alignItems: "center", gap: 8,
+                  color: "rgba(255,255,255,0.8)", fontSize: "var(--t13)", display: "flex", alignItems: "center", gap: 8,
                   transition: "background 0.15s, color 0.15s",
                 }}
                 onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.16)"; e.currentTarget.style.color = "#fff"; }}
@@ -3034,7 +3186,7 @@ function LyricsOverlay({ track, audioRef, onClose, fontSize = 32, providers = DE
                 style={{
                   background: "rgba(255,255,255,0.08)", border: "0.5px solid rgba(255,255,255,0.12)",
                   borderRadius: 10, padding: "8px 16px", cursor: "pointer",
-                  color: "rgba(255,255,255,0.8)", fontSize: 13, display: "flex", alignItems: "center", gap: 8,
+                  color: "rgba(255,255,255,0.8)", fontSize: "var(--t13)", display: "flex", alignItems: "center", gap: 8,
                   transition: "background 0.15s, color 0.15s",
                 }}
                 onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.16)"; e.currentTarget.style.color = "#fff"; }}
@@ -3059,15 +3211,10 @@ function LyricsOverlay({ track, audioRef, onClose, fontSize = 32, providers = DE
             ? line.words.map(w => w.text).join("")
             : (line.text || "\u00A0");
 
-          // Wipe progress: lineSync = smooth over full line duration, wordSync = per-word
+          // Wipe progress: wordSync only — per-word timing
           let wipePercent = 0;
           if (isActive) {
-            if (line.lineSync && line.endTime != null) {
-              // Smooth wipe over the full line duration
-              const elapsed = now - line.time;
-              const lineDur = line.endTime - line.time;
-              wipePercent = lineDur > 0 ? Math.min(100, (elapsed / lineDur) * 100) : 100;
-            } else if (line.wordSync && line.words) {
+            if (line.wordSync && line.words) {
               const nonSpaceWords = line.words.filter(w => !w.isSpace);
               if (nonSpaceWords.length) {
                 const last = nonSpaceWords[nonSpaceWords.length - 1];
@@ -3127,7 +3274,7 @@ function LyricsOverlay({ track, audioRef, onClose, fontSize = 32, providers = DE
                 margin: "0 -8px 24px",
               }}
             >
-              {isActive && (line.wordSync || line.lineSync) ? (
+              {isActive && line.wordSync ? (
                 <span style={{ display: "inline-grid" }}>
                   <span style={{ gridArea: "1/1", color: "rgba(255,255,255,0.25)", whiteSpace: "pre-wrap" }}>{lineText}</span>
                   <span style={{
@@ -3165,8 +3312,8 @@ function GridCard({ thumbnail, title, subtitle, onClick, onContextMenu }) {
           : <div style={{ width: "100%", height: "100%", background: "linear-gradient(135deg,#2a1535,#1a0a25)" }} />}
       </div>
       <div style={{ padding: "10px 12px 12px" }}>
-        <div style={{ fontSize: 13, fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{title}</div>
-        {subtitle && <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{subtitle}</div>}
+        <div style={{ fontSize: "var(--t13)", fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{title}</div>
+        {subtitle && <div style={{ fontSize: "var(--t11)", color: "var(--text-muted)", marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{subtitle}</div>}
       </div>
     </div>
   );
@@ -3218,7 +3365,7 @@ function LibraryView({ onPlay, currentTrack, isPlaying, onOpenPlaylist, onOpenAl
 
   return (
     <div style={{ padding: "24px 24px" }}>
-      <div style={{ fontSize: 22, fontWeight: 600, marginBottom: 20 }}>{t("library")}</div>
+      <div style={{ fontSize: "var(--t22)", fontWeight: 600, marginBottom: 20 }}>{t("library")}</div>
 
       {/* Tabs */}
       <div style={{ display: "flex", gap: 8, marginBottom: 24 }}>
@@ -3227,7 +3374,7 @@ function LibraryView({ onPlay, currentTrack, isPlaying, onOpenPlaylist, onOpenAl
             background: tab === tab_.id ? "var(--accent)" : "var(--bg-elevated)",
             color: tab === tab_.id ? "#fff" : "var(--text-secondary)",
             border: "none", borderRadius: 20, padding: "6px 16px",
-            fontSize: 13, cursor: "pointer", fontFamily: "var(--font)",
+            fontSize: "var(--t13)", cursor: "pointer", fontFamily: "var(--font)",
             transition: "all 0.15s",
           }}>{tab_.label}</button>
         ))}
@@ -3310,7 +3457,7 @@ function TableRow({ track, index, isPlaying, onPlay, onOpenArtist, onOpenAlbum, 
   const [hovered, setHovered] = useState(false);
 
   const linkStyle = {
-    fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap",
+    fontSize: "var(--t12)", color: "var(--text-secondary)", whiteSpace: "nowrap",
     overflow: "hidden", textOverflow: "ellipsis", transition: "color 0.15s",
   };
 
@@ -3344,7 +3491,7 @@ function TableRow({ track, index, isPlaying, onPlay, onOpenArtist, onOpenAlbum, 
           )}
         </div>
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 13, fontWeight: 500, display: "flex", alignItems: "center", gap: 4, overflow: "hidden", color: isPlaying ? "var(--accent)" : "var(--text-primary)" }}>
+          <div style={{ fontSize: "var(--t13)", fontWeight: 500, display: "flex", alignItems: "center", gap: 4, overflow: "hidden", color: isPlaying ? "var(--accent)" : "var(--text-primary)" }}>
             <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>{track.title}</span>
             {track.isExplicit && <ExplicitBadge />}
           </div>
@@ -3383,7 +3530,7 @@ function TableRow({ track, index, isPlaying, onPlay, onOpenArtist, onOpenAlbum, 
         ) : null}
       </div>
       {/* Duration */}
-      <div style={{ fontSize: 12, color: "var(--text-muted)", textAlign: "right" }}>
+      <div style={{ fontSize: "var(--t12)", color: "var(--text-muted)", textAlign: "right" }}>
         {track.duration || "—"}
       </div>
     </div>
@@ -3451,9 +3598,9 @@ function PlaylistLayout({ title, thumbnail, tracks, total, loading, progress, ca
           </div>
           {/* Info */}
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 11, fontWeight: 500, color: "rgba(255,255,255,0.6)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>{isAlbum ? t("album") : t("playlist")}</div>
+            <div style={{ fontSize: "var(--t11)", fontWeight: 500, color: "rgba(255,255,255,0.6)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>{isAlbum ? t("album") : t("playlist")}</div>
             <div style={{ fontSize: 42, fontWeight: 700, lineHeight: 1.1, marginBottom: 12, color: "#fff", textShadow: "0 2px 12px rgba(0,0,0,0.4)" }}>{title}</div>
-            <div style={{ fontSize: 13, color: "rgba(255,255,255,0.7)", marginBottom: 16, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+            <div style={{ fontSize: "var(--t13)", color: "rgba(255,255,255,0.7)", marginBottom: 16, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
               {isAlbum && albumArtists && (
                 <span
                   onClick={() => albumArtistBrowseId && onOpenArtist?.({ browseId: albumArtistBrowseId, artist: albumArtists })}
@@ -3484,7 +3631,7 @@ function PlaylistLayout({ title, thumbnail, tracks, total, loading, progress, ca
                 return allCached ? (
                   <div style={{
                     borderRadius: 20, height: 36, display: "flex", alignItems: "center",
-                    padding: "0 14px", gap: 6, fontSize: 12, fontWeight: 500,
+                    padding: "0 14px", gap: 6, fontSize: "var(--t12)", fontWeight: 500,
                     color: "#4caf50", background: "rgba(76,175,80,0.12)", border: "0.5px solid rgba(76,175,80,0.3)",
                   }}>
                     <CheckCircle size={14} weight="fill" />
@@ -3499,7 +3646,7 @@ function PlaylistLayout({ title, thumbnail, tracks, total, loading, progress, ca
                       background: "rgba(255,255,255,0.1)", border: "0.5px solid rgba(255,255,255,0.2)",
                       borderRadius: 20, height: 36, display: "flex", alignItems: "center",
                       justifyContent: "center", cursor: someDownloading ? "default" : "pointer", transition: "background 0.15s",
-                      color: "rgba(255,255,255,0.8)", padding: "0 14px", gap: 6, fontSize: 12, fontWeight: 500,
+                      color: "rgba(255,255,255,0.8)", padding: "0 14px", gap: 6, fontSize: "var(--t12)", fontWeight: 500,
                       opacity: someDownloading ? 0.6 : 1,
                     }}
                     onMouseEnter={e => { if (!someDownloading) e.currentTarget.style.background = "rgba(255,255,255,0.2)"; }}
@@ -3553,12 +3700,12 @@ function PlaylistLayout({ title, thumbnail, tracks, total, loading, progress, ca
                   placeholder={t("searchInPlaylist")}
                   style={{
                     background: "rgba(0,0,0,0.35)", border: "0.5px solid rgba(255,255,255,0.2)",
-                    borderRadius: 20, padding: "7px 14px", fontSize: 13, color: "#fff",
+                    borderRadius: 20, padding: "7px 14px", fontSize: "var(--t13)", color: "#fff",
                     outline: "none", width: 240, fontFamily: "var(--font)",
                   }}
                 />
                 {trackSearch && (
-                  <span style={{ fontSize: 12, color: "rgba(255,255,255,0.55)" }}>
+                  <span style={{ fontSize: "var(--t12)", color: "rgba(255,255,255,0.55)" }}>
                     {visibleTracks.length} {t("xOfY")} {tracks.length}
                   </span>
                 )}
@@ -3572,8 +3719,8 @@ function PlaylistLayout({ title, thumbnail, tracks, total, loading, progress, ca
       {loading && !cached && (
         <div style={{ padding: "0 28px 12px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-            <span style={{ fontSize: 11, color: "var(--text-muted)" }}>{t("fetchingSongs")}</span>
-            <span style={{ fontSize: 11, color: "var(--accent)", fontWeight: 500 }}>{progress}%</span>
+            <span style={{ fontSize: "var(--t11)", color: "var(--text-muted)" }}>{t("fetchingSongs")}</span>
+            <span style={{ fontSize: "var(--t11)", color: "var(--accent)", fontWeight: 500 }}>{progress}%</span>
           </div>
           <div style={{ height: 3, background: "var(--bg-elevated)", borderRadius: 2, overflow: "hidden" }}>
             <div style={{ height: "100%", borderRadius: 2, background: "linear-gradient(90deg,var(--accent),#c020e0)", width: `${progress}%`, transition: "width 0.4s ease" }} />
@@ -3586,7 +3733,7 @@ function PlaylistLayout({ title, thumbnail, tracks, total, loading, progress, ca
         display: "grid", gridTemplateColumns: isAlbum ? "minmax(0,2fr) minmax(0,1fr) 28px 48px" : "minmax(0,2fr) minmax(0,1fr) minmax(0,1fr) 28px 48px",
         gap: 8, padding: "8px 16px", margin: "0 12px",
         borderBottom: "0.5px solid var(--border)",
-        fontSize: 11, fontWeight: 500, color: "var(--text-muted)",
+        fontSize: "var(--t11)", fontWeight: 500, color: "var(--text-muted)",
         textTransform: "uppercase", letterSpacing: "0.07em",
       }}>
         <div>{t("colTitle")}</div>
@@ -3599,7 +3746,7 @@ function PlaylistLayout({ title, thumbnail, tracks, total, loading, progress, ca
       {/* Track list */}
       <div style={{ padding: "8px 12px 32px" }}>
         {visibleTracks.map((tr, i) => (
-          <TableRow key={tr.videoId || i} track={tr} index={i}
+          <TableRow key={`${i}-${tr.videoId}`} track={tr} index={i}
             isPlaying={isPlaying && currentTrack?.videoId === tr.videoId}
             onPlay={() => onPlay(tr, visibleTracks)}
             onOpenArtist={onOpenArtist}
@@ -3690,7 +3837,7 @@ function SearchView({ query, onPlay, currentTrack, isPlaying, onOpenArtist, onOp
     <div style={{ padding: "20px 12px" }}>
       {/* Header */}
       <div style={{ padding: "0 16px", marginBottom: 16 }}>
-        <div style={{ fontSize: 18, fontWeight: 500, marginBottom: 12 }}>
+        <div style={{ fontSize: "var(--t18)", fontWeight: 500, marginBottom: 12 }}>
           {t("searchResultsFor")} „{query}"
         </div>
         {/* Filter tabs */}
@@ -3700,7 +3847,7 @@ function SearchView({ query, onPlay, currentTrack, isPlaying, onOpenArtist, onOp
               background: filter === tab_.id ? "var(--accent)" : "var(--bg-elevated)",
               color: filter === tab_.id ? "#fff" : "var(--text-secondary)",
               border: "none", borderRadius: 20, padding: "6px 16px",
-              fontSize: 13, cursor: "pointer", fontFamily: "var(--font)",
+              fontSize: "var(--t13)", cursor: "pointer", fontFamily: "var(--font)",
               transition: "all 0.15s",
             }}>{tab_.label}</button>
           ))}
@@ -3743,8 +3890,8 @@ function SearchView({ query, onPlay, currentTrack, isPlaying, onOpenArtist, onOp
                   ? <img src={thumb(a.thumbnail)} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                   : <div style={{ width: "100%", height: "100%", background: "linear-gradient(135deg,#2a1535,#1a0a25)" }} />}
               </div>
-              <div className="sr-title" style={{ fontSize: 13, fontWeight: 500, transition: "color 0.15s", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.title}</div>
-              {a.subtitle && <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 3 }}>{a.subtitle}</div>}
+              <div className="sr-title" style={{ fontSize: "var(--t13)", fontWeight: 500, transition: "color 0.15s", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.title}</div>
+              {a.subtitle && <div style={{ fontSize: "var(--t11)", color: "var(--text-muted)", marginTop: 3 }}>{a.subtitle}</div>}
             </div>
           ))}
         </div>
@@ -3772,9 +3919,13 @@ function SearchView({ query, onPlay, currentTrack, isPlaying, onOpenArtist, onOp
   );
 }
 
-function HomeView({ onPlay, onOpenPlaylist, onOpenAlbum, onOpenArtist, onContextMenu, onTrackContextMenu }) {
+function HomeView({ displayName, onPlay, onOpenPlaylist, onOpenAlbum, onOpenArtist, onContextMenu, onTrackContextMenu }) {
   const [sections, setSections] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [chips, setChips] = useState([]);
+  const [activeChip, setActiveChip] = useState(null);
+  const [moodPlaylists, setMoodPlaylists] = useState([]);
+  const [moodLoading, setMoodLoading] = useState(false);
   const t = useLang();
 
   useEffect(() => {
@@ -3782,18 +3933,37 @@ function HomeView({ onPlay, onOpenPlaylist, onOpenAlbum, onOpenArtist, onContext
       .then(r => r.json())
       .then(d => { setSections(d.sections || []); setLoading(false); })
       .catch(() => setLoading(false));
+    fetch(`${API}/mood/categories`)
+      .then(r => r.json())
+      .then(d => { if (Array.isArray(d)) setChips(d.slice(0, 12)); })
+      .catch(() => {});
   }, []);
+
+  const handleChipClick = (chip) => {
+    if (activeChip?.params === chip.params) {
+      setActiveChip(null);
+      setMoodPlaylists([]);
+      return;
+    }
+    setActiveChip(chip);
+    setMoodLoading(true);
+    setMoodPlaylists([]);
+    fetch(`${API}/mood/playlists?params=${encodeURIComponent(chip.params)}`)
+      .then(r => r.json())
+      .then(d => { if (Array.isArray(d)) setMoodPlaylists(d); setMoodLoading(false); })
+      .catch(() => setMoodLoading(false));
+  };
 
   if (loading) return (
     <div style={{ padding: 28 }}>
       {[1,2,3].map(i => (
         <div key={i} style={{ marginBottom: 36 }}>
           <div style={{ height: 14, width: 160, borderRadius: 4, background: "var(--bg-elevated)", marginBottom: 16, animation: "pulse 1.4s ease-in-out infinite" }} />
-          <div style={{ display: "flex", gap: 14 }}>
+          <div style={{ display: "flex", gap: 16 }}>
             {[1,2,3,4,5].map(j => (
-              <div key={j} style={{ flexShrink: 0, width: 140 }}>
-                <div style={{ width: 140, height: 140, borderRadius: 8, background: "var(--bg-elevated)", marginBottom: 8, animation: "pulse 1.4s ease-in-out infinite" }} />
-                <div style={{ height: 11, width: "80%", borderRadius: 3, background: "var(--bg-elevated)", marginBottom: 5, animation: "pulse 1.4s ease-in-out infinite" }} />
+              <div key={j} style={{ flexShrink: 0, width: 160 }}>
+                <div style={{ width: 160, height: 160, borderRadius: 10, background: "var(--bg-elevated)", marginBottom: 10, animation: "pulse 1.4s ease-in-out infinite" }} />
+                <div style={{ height: 12, width: "80%", borderRadius: 3, background: "var(--bg-elevated)", marginBottom: 6, animation: "pulse 1.4s ease-in-out infinite" }} />
                 <div style={{ height: 10, width: "55%", borderRadius: 3, background: "var(--bg-elevated)", animation: "pulse 1.4s ease-in-out infinite" }} />
               </div>
             ))}
@@ -3805,11 +3975,20 @@ function HomeView({ onPlay, onOpenPlaylist, onOpenAlbum, onOpenArtist, onContext
   );
 
   if (!sections.length) return (
-    <div style={{ padding: 28, color: "var(--text-muted)", fontSize: 13 }}>{t("noSuggestions")}</div>
+    <div style={{ padding: 28, color: "var(--text-muted)", fontSize: "var(--t13)" }}>{t("noSuggestions")}</div>
   );
 
+  const { greeting, GreetingIcon } = (() => {
+    const h = new Date().getHours();
+    if (h >= 5 && h < 11) return { greeting: t("goodMorning"), GreetingIcon: SunHorizon };
+    if (h >= 11 && h < 13) return { greeting: t("goodDay"),     GreetingIcon: Sun };
+    if (h >= 13 && h < 18) return { greeting: t("goodAfternoon"), GreetingIcon: CloudSun };
+    if (h >= 18 && h < 23) return { greeting: t("goodEvening"), GreetingIcon: Moon };
+    return { greeting: t("goodNight"), GreetingIcon: MoonStars };
+  })();
+
   return (
-    <div style={{ padding: "28px 0 28px 28px" }}>
+    <div style={{ padding: "0 0 28px 0" }}>
       <style>{`
         @keyframes pulse{0%,100%{opacity:.4}50%{opacity:.9}}
         .carousel::-webkit-scrollbar{height:8px}
@@ -3818,22 +3997,162 @@ function HomeView({ onPlay, onOpenPlaylist, onOpenAlbum, onOpenArtist, onContext
         .home-card:hover .home-card-play{opacity:1!important}
         .home-card:hover .home-card-img{transform:scale(1.04)}
       `}</style>
-      <h1 style={{ fontSize: 22, fontWeight: 600, marginBottom: 28, paddingRight: 28 }}>{(() => {
-        const h = new Date().getHours();
-        if (h >= 5 && h < 11) return t("goodMorning");
-        if (h >= 11 && h < 13) return t("goodNoon");
-        if (h >= 13 && h < 18) return t("goodAfternoon");
-        if (h >= 18 && h < 23) return t("goodEvening");
-        return t("goodNight");
-      })()}</h1>
 
-      {sections.map((section, si) => (
-        <div key={si} style={{ marginBottom: 36 }}>
-          <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 14, paddingRight: 28 }}>{section.title}</div>
-          <div className="carousel" style={{ display: "flex", gap: 14, overflowX: "auto", paddingBottom: 8, paddingRight: 28 }}>
-            {section.items.map((item, ii) => {
-              const isSong = item.type === "song";
+      {/* ── Gradient header ── */}
+      <div style={{ position: "relative", padding: "56px 28px 36px", overflow: "hidden", marginBottom: 8 }}>
+        {/* Accent gradient fading out downward */}
+        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, var(--accent), transparent)", opacity: 0.18, pointerEvents: "none" }} />
+        <div style={{ position: "relative", display: "flex", alignItems: "center", gap: 14 }}>
+          <GreetingIcon size={36} weight="duotone" style={{ color: "var(--accent)", flexShrink: 0 }} />
+          <h1 style={{ fontSize: "var(--t22)", fontWeight: 700, margin: 0, lineHeight: 1.3 }}>
+            {greeting}
+            {displayName && (
+              <>{", "}<span style={{ color: "var(--accent)" }}>{displayName}</span></>
+            )}
+          </h1>
+        </div>
+      </div>
+
+      {/* ── Mood chips ── */}
+      {chips.length > 0 && (
+        <div className="carousel" style={{ display: "flex", gap: 8, overflowX: "auto", paddingLeft: 28, paddingRight: 28, paddingBottom: 4, marginBottom: 24 }}>
+          {chips.map((chip, i) => {
+            const isActive = activeChip?.params === chip.params;
+            return (
+              <button key={i} onClick={() => handleChipClick(chip)} style={{
+                flexShrink: 0, padding: "7px 16px", borderRadius: 20,
+                fontSize: "var(--t13)", fontWeight: isActive ? 700 : 500,
+                border: "none", cursor: "pointer", fontFamily: "var(--font)",
+                background: isActive ? "var(--accent)" : "var(--bg-elevated)",
+                color: isActive ? "#fff" : "var(--text-secondary)",
+                transition: "background 0.15s, color 0.15s",
+              }}>{chip.title}</button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ── Mood playlist results ── */}
+      {activeChip && (
+        <div style={{ marginBottom: 40 }}>
+          <div style={{ fontSize: "var(--t16)", fontWeight: 700, paddingLeft: 28, paddingRight: 28, marginBottom: 16 }}>{activeChip.title}</div>
+          {moodLoading
+            ? <div style={{ display: "flex", gap: 16, paddingLeft: 28, paddingRight: 28 }}>
+                {[1,2,3].map(i => (
+                  <div key={i} style={{ flexShrink: 0, width: 160 }}>
+                    <div style={{ width: 160, height: 160, borderRadius: 10, background: "var(--bg-elevated)", animation: "pulse 1.4s ease-in-out infinite" }} />
+                    <div style={{ height: 12, width: "75%", borderRadius: 3, background: "var(--bg-elevated)", marginTop: 10, animation: "pulse 1.4s ease-in-out infinite" }} />
+                  </div>
+                ))}
+              </div>
+            : <div className="carousel" style={{ display: "flex", gap: 16, overflowX: "auto", paddingBottom: 10, paddingLeft: 28, paddingRight: 28 }}>
+                {moodPlaylists.map((pl, i) => (
+                  <div key={i} className="home-card" onClick={() => onOpenPlaylist({ playlistId: pl.playlistId, title: pl.title, thumbnail: pl.thumbnail })}
+                    onContextMenu={e => onContextMenu?.(e, { playlistId: pl.playlistId, title: pl.title, thumbnail: pl.thumbnail })}
+                    style={{ flexShrink: 0, width: 160, cursor: "pointer" }}>
+                    <div style={{ position: "relative", marginBottom: 10, borderRadius: 10, overflow: "hidden", boxShadow: "0 4px 16px rgba(0,0,0,0.35)" }}>
+                      <div style={{ width: 160, height: 160, background: "var(--bg-elevated)" }}>
+                        {pl.thumbnail
+                          ? <img className="home-card-img" src={thumb(pl.thumbnail)} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", transition: "transform 0.25s" }} />
+                          : <div style={{ width: "100%", height: "100%", background: "linear-gradient(135deg,#2a1535,#1a0a25)" }} />
+                        }
+                      </div>
+                      <div className="home-card-play" style={{ position: "absolute", inset: 0, opacity: 0, transition: "opacity 0.2s", background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
+                        <div style={{ width: 44, height: 44, borderRadius: "50%", background: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 12px rgba(0,0,0,0.5)" }}>
+                          <Play size={18} weight="fill" style={{ color: "white", marginLeft: 2 }} />
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{ fontSize: "var(--t13)", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{pl.title}</div>
+                    {pl.subtitle && <div style={{ fontSize: "var(--t11)", color: "var(--text-muted)", marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{pl.subtitle}</div>}
+                  </div>
+                ))}
+              </div>
+          }
+        </div>
+      )}
+
+      {(() => {
+        const sorted = [...sections].sort((a, b) => {
+          const aAllSongs = (a.items || []).length > 0 && (a.items || []).every(x => x.type === "song");
+          const bAllSongs = (b.items || []).length > 0 && (b.items || []).every(x => x.type === "song");
+          return (bAllSongs ? 1 : 0) - (aAllSongs ? 1 : 0);
+        });
+        let quickPicksUsed = false;
+        return sorted.map((section, si) => {
+        const items = section.items || [];
+        const isAllSongs = items.length > 0 && items.every(x => x.type === "song");
+        if (isAllSongs && quickPicksUsed) return null;
+        const allSongs = isAllSongs && !quickPicksUsed && (quickPicksUsed = true);
+
+        /* ── Quick-Picks list-grid layout ── */
+        if (allSongs) {
+          const ROWS = 4;
+          const columns = [];
+          for (let i = 0; i < section.items.length; i += ROWS)
+            columns.push(section.items.slice(i, i + ROWS));
+
+          return (
+            <div key={si} style={{ marginBottom: 40 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingLeft: 28, paddingRight: 28, marginBottom: 14 }}>
+                <span style={{ fontSize: "var(--t16)", fontWeight: 700 }}>{section.title}</span>
+                <button onClick={() => onPlay(section.items[0], section.items)} style={{
+                  fontSize: "var(--t12)", fontWeight: 600, color: "var(--accent)",
+                  background: "rgba(var(--accent-rgb,180,100,255),0.12)", border: "none",
+                  borderRadius: 20, padding: "5px 14px", cursor: "pointer", fontFamily: "var(--font)",
+                }}>{t("playAll")}</button>
+              </div>
+              <div className="carousel" style={{ display: "flex", gap: 2, overflowX: "auto", paddingBottom: 10, paddingLeft: 28, paddingRight: 28 }}>
+                {columns.map((col, ci) => (
+                  <div key={ci} style={{ flexShrink: 0, width: 380, paddingRight: 16, marginRight: 16 }}>
+                    {col.map((item, ri) => (
+                      <div key={ri} onClick={() => onPlay(item, section.items)}
+                        onContextMenu={e => { e.preventDefault(); onTrackContextMenu?.(e, item); }}
+                        style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 0", cursor: "pointer", borderBottom: "none" }}
+                        onMouseEnter={e => e.currentTarget.style.opacity = "0.75"}
+                        onMouseLeave={e => e.currentTarget.style.opacity = "1"}
+                      >
+                        <div style={{ flexShrink: 0, width: 44, height: 44, borderRadius: 6, overflow: "hidden", background: "var(--bg-elevated)" }}>
+                          {item.thumbnail
+                            ? <img src={thumb(item.thumbnail)} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                            : <div style={{ width: "100%", height: "100%", background: "linear-gradient(135deg,#2a1535,#1a0a25)" }} />
+                          }
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: "var(--t13)", fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "flex", alignItems: "center", gap: 4 }}>
+                            <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{item.title}</span>
+                            {item.isExplicit && <ExplicitBadge />}
+                          </div>
+                          <div style={{ fontSize: "var(--t11)", color: "var(--text-muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginTop: 2 }}>{item.artists}</div>
+                        </div>
+                        <div onClick={e => { e.stopPropagation(); onTrackContextMenu?.(e, item); }}
+                          style={{ flexShrink: 0, padding: "4px 2px", color: "var(--text-secondary)", cursor: "pointer" }}>
+                          <DotsThreeVertical size={16} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        }
+
+        /* ── Normal card carousel layout ── */
+        return (
+        <div key={si} style={{ marginBottom: 40 }}>
+          {/* Section header */}
+          <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 16, paddingLeft: 28, paddingRight: 28 }}>
+            <span style={{ fontSize: "var(--t16)", fontWeight: 700, color: "var(--text-primary)" }}>{section.title}</span>
+          </div>
+
+          {/* Carousel */}
+          <div className="carousel" style={{ display: "flex", gap: 16, overflowX: "auto", paddingBottom: 10, paddingLeft: 28, paddingRight: 28 }}>
+            {items.map((item, ii) => {
+              const isSong   = item.type === "song";
+              const isArtist = item.type === "artist";
               const subtitle = isSong ? item.artists : item.subtitle;
+              const CARD_SIZE = 160;
 
               const handleClick = () => {
                 if (isSong) {
@@ -3843,7 +4162,7 @@ function HomeView({ onPlay, onOpenPlaylist, onOpenAlbum, onOpenArtist, onContext
                   onOpenPlaylist({ playlistId: item.playlistId, title: item.title, thumbnail: item.thumbnail });
                 } else if (item.type === "album") {
                   onOpenAlbum({ browseId: item.browseId, title: item.title, thumbnail: item.thumbnail });
-                } else if (item.type === "artist") {
+                } else if (isArtist) {
                   onOpenArtist({ browseId: item.browseId, artist: item.title });
                 }
               };
@@ -3852,9 +4171,9 @@ function HomeView({ onPlay, onOpenPlaylist, onOpenAlbum, onOpenArtist, onContext
                 ? { playlistId: item.playlistId, title: item.title, thumbnail: item.thumbnail }
                 : (item.type === "album")
                 ? { browseId: item.browseId, title: item.title, thumbnail: item.thumbnail, type: "album" }
-                : (item.type === "artist")
+                : isArtist
                 ? { browseId: item.browseId, title: item.title, thumbnail: item.thumbnail, type: "artist" }
-                : null; // songs handled separately via onTrackContextMenu
+                : null;
 
               const handlePlayDirect = (e) => {
                 e.stopPropagation();
@@ -3887,43 +4206,61 @@ function HomeView({ onPlay, onOpenPlaylist, onOpenAlbum, onOpenArtist, onContext
                   onContextMenu={isSong
                     ? (e) => { e.preventDefault(); onTrackContextMenu?.(e, item); }
                     : (contextItem ? (e) => onContextMenu?.(e, contextItem) : undefined)}
-                  style={{ flexShrink: 0, width: 148, cursor: "pointer" }}
+                  style={{ flexShrink: 0, width: CARD_SIZE, cursor: "pointer" }}
                 >
-                  <div style={{ position: "relative", marginBottom: 8, borderRadius: 8, overflow: "hidden" }}>
-                    <div style={{ width: 148, height: 148, background: "var(--bg-elevated)", overflow: "hidden" }}>
+                  {/* Thumbnail */}
+                  <div style={{
+                    position: "relative", marginBottom: 10,
+                    borderRadius: isArtist ? "50%" : 10, overflow: "hidden",
+                    boxShadow: "0 4px 16px rgba(0,0,0,0.35)",
+                  }}>
+                    <div style={{ width: CARD_SIZE, height: CARD_SIZE, background: "var(--bg-elevated)" }}>
                       {item.thumbnail
-                        ? <img className="home-card-img" src={thumb(item.thumbnail)} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", transition: "transform 0.2s" }} />
+                        ? <img className="home-card-img" src={thumb(item.thumbnail)} alt=""
+                            style={{ width: "100%", height: "100%", objectFit: "cover", transition: "transform 0.25s" }} />
                         : <div style={{ width: "100%", height: "100%", background: "linear-gradient(135deg,#2a1535,#1a0a25)" }} />
                       }
                     </div>
-                    {/* Play overlay — nur für Songs, Playlists und Alben */}
-                    {item.type !== "artist" && (
-                    <div className="home-card-play" style={{
-                      position: "absolute", inset: 0, opacity: 0, transition: "opacity 0.2s",
-                      background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center",
-                      pointerEvents: "none",
-                    }}>
-                      <div onClick={handlePlayDirect} style={{
-                        width: 36, height: 36, borderRadius: "50%", background: "var(--accent)",
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        pointerEvents: "auto", cursor: "pointer",
+                    {/* Play overlay — songs, playlists, albums only */}
+                    {!isArtist && (
+                      <div className="home-card-play" style={{
+                        position: "absolute", inset: 0, opacity: 0, transition: "opacity 0.2s",
+                        background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center",
+                        pointerEvents: "none",
                       }}>
-                        <Play size={14} style={{ color: "white" }} />
+                        <div onClick={handlePlayDirect} style={{
+                          width: 44, height: 44, borderRadius: "50%", background: "var(--accent)",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          pointerEvents: "auto", cursor: "pointer",
+                          boxShadow: "0 2px 12px rgba(0,0,0,0.5)",
+                        }}>
+                          <Play size={18} weight="fill" style={{ color: "white", marginLeft: 2 }} />
+                        </div>
                       </div>
-                    </div>
                     )}
                   </div>
-                  <div style={{ fontSize: 12, fontWeight: 500, color: "var(--text-primary)", display: "flex", alignItems: "center", gap: 4, overflow: "hidden" }}>
-                    <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>{item.title}</span>
+
+                  {/* Title */}
+                  <div style={{ fontSize: "var(--t13)", fontWeight: 600, color: "var(--text-primary)", display: "flex", alignItems: "center", gap: 4, overflow: "hidden",
+                    textAlign: isArtist ? "center" : "left" }}>
+                    <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0, width: "100%" }}>{item.title}</span>
                     {isSong && item.isExplicit && <ExplicitBadge />}
                   </div>
-                  {subtitle && <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{subtitle}</div>}
+
+                  {/* Subtitle */}
+                  {subtitle
+                    ? <div style={{ fontSize: "var(--t11)", color: "var(--text-muted)", marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                        textAlign: isArtist ? "center" : "left" }}>{subtitle}</div>
+                    : isArtist && <div style={{ fontSize: "var(--t11)", color: "var(--text-muted)", marginTop: 3, textAlign: "center" }}>Artist</div>
+                  }
                 </div>
               );
             })}
           </div>
         </div>
-      ))}
+        );
+        });
+      })()}
     </div>
   );
 }
@@ -3966,11 +4303,11 @@ function HistoryView({ onPlay, currentTrack, isPlaying, onOpenArtist, onOpenAlbu
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
       {/* Header */}
       <div style={{ padding: "24px 24px 8px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-        <div style={{ fontSize: 22, fontWeight: 700 }}>{t("history")}</div>
+        <div style={{ fontSize: "var(--t22)", fontWeight: 700 }}>{t("history")}</div>
         {tracks.length > 0 && (
           <button onClick={clearHistory} style={{
             background: "none", border: "0.5px solid var(--border)", borderRadius: 8,
-            color: "var(--text-muted)", fontSize: 12, padding: "5px 12px", cursor: "pointer",
+            color: "var(--text-muted)", fontSize: "var(--t12)", padding: "5px 12px", cursor: "pointer",
             fontFamily: "var(--font)", transition: "all 0.15s",
           }}
           onMouseEnter={e => { e.currentTarget.style.color = "#f44336"; e.currentTarget.style.borderColor = "#f44336"; }}
@@ -3980,7 +4317,7 @@ function HistoryView({ onPlay, currentTrack, isPlaying, onOpenArtist, onOpenAlbu
       </div>
 
       {tracks.length === 0 ? (
-        <div style={{ padding: "40px 24px", color: "var(--text-muted)", fontSize: 13, textAlign: "center" }}>
+        <div style={{ padding: "40px 24px", color: "var(--text-muted)", fontSize: "var(--t13)", textAlign: "center" }}>
           {t("historyEmpty")}
         </div>
       ) : (
@@ -4010,16 +4347,16 @@ function HistoryView({ onPlay, currentTrack, isPlaying, onOpenArtist, onOpenAlbu
                 </div>
                 {/* Info */}
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 500, display: "flex", alignItems: "center", gap: 4, overflow: "hidden", color: isActive ? "var(--accent)" : "var(--text-primary)" }}>
+                  <div style={{ fontSize: "var(--t13)", fontWeight: 500, display: "flex", alignItems: "center", gap: 4, overflow: "hidden", color: isActive ? "var(--accent)" : "var(--text-primary)" }}>
                     <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>{track.title}</span>
                     {track.isExplicit && <ExplicitBadge />}
                   </div>
-                  <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{track.artists}</div>
+                  <div style={{ fontSize: "var(--t11)", color: "var(--text-muted)", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{track.artists}</div>
                 </div>
                 {/* Time ago */}
-                <div style={{ fontSize: 11, color: "var(--text-muted)", flexShrink: 0 }}>{timeAgo(track.playedAt, t)}</div>
+                <div style={{ fontSize: "var(--t11)", color: "var(--text-muted)", flexShrink: 0 }}>{timeAgo(track.playedAt, t)}</div>
                 {/* Duration */}
-                <div style={{ fontSize: 11, color: "var(--text-muted)", flexShrink: 0, minWidth: 36, textAlign: "right" }}>{track.duration || ""}</div>
+                <div style={{ fontSize: "var(--t11)", color: "var(--text-muted)", flexShrink: 0, minWidth: 36, textAlign: "right" }}>{track.duration || ""}</div>
               </div>
             );
           })}
@@ -4056,8 +4393,8 @@ function LikedView({ onPlay, currentTrack, isPlaying, onOpenArtist, onOpenAlbum,
   if (error) return (
     <div style={{ padding: 28 }}>
       <div style={{ color: "#f44336", marginBottom: 8 }}>{t("errorLoading")}</div>
-      <div style={{ color: "var(--text-secondary)", fontSize: 13 }}>{error}</div>
-      <div style={{ color: "var(--text-muted)", fontSize: 12, marginTop: 12 }}>
+      <div style={{ color: "var(--text-secondary)", fontSize: "var(--t13)" }}>{error}</div>
+      <div style={{ color: "var(--text-muted)", fontSize: "var(--t12)", marginTop: 12 }}>
         {t("backendHint")} <code style={{ background: "var(--bg-elevated)", padding: "1px 6px", borderRadius: 4 }}>python server.py</code>
       </div>
     </div>
@@ -4084,13 +4421,13 @@ function ArtistDescription({ text }) {
   return (
     <div style={{ padding: "12px 24px 4px", borderBottom: "0.5px solid var(--border)" }}>
       <p style={{
-        margin: 0, fontSize: 12.5, lineHeight: 1.65,
+        margin: 0, fontSize: "var(--t12)", lineHeight: 1.65,
         color: "var(--text-secondary)", whiteSpace: "pre-wrap",
       }}>{displayed}</p>
       {isLong && (
         <button onClick={() => setExpanded(e => !e)} style={{
           marginTop: 6, background: "none", border: "none", cursor: "pointer",
-          fontSize: 12, color: "var(--accent)", padding: 0, fontFamily: "var(--font)",
+          fontSize: "var(--t12)", color: "var(--accent)", padding: 0, fontFamily: "var(--font)",
         }}>{expanded ? "Weniger anzeigen" : "Mehr anzeigen"}</button>
       )}
     </div>
@@ -4160,7 +4497,7 @@ function ArtistView({ browseId, onPlay, currentTrack, isPlaying, onOpenAlbum, on
           <ArrowLeft size={18} />
         </button>
         <div style={{ position: "absolute", bottom: 20, left: 24 }}>
-          <div style={{ fontSize: 11, fontWeight: 500, color: "rgba(255,255,255,0.6)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>{t("artist")}</div>
+          <div style={{ fontSize: "var(--t11)", fontWeight: 500, color: "rgba(255,255,255,0.6)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>{t("artist")}</div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <div style={{ fontSize: 36, fontWeight: 700, color: "#fff", textShadow: "0 2px 12px rgba(0,0,0,0.6)" }}>
               {artist.name}
@@ -4182,7 +4519,7 @@ function ArtistView({ browseId, onPlay, currentTrack, isPlaying, onOpenAlbum, on
             )}
           </div>
           {artist.subscribers && (
-            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", marginTop: 6, fontWeight: 500 }}>
+            <div style={{ fontSize: "var(--t12)", color: "rgba(255,255,255,0.55)", marginTop: 6, fontWeight: 500 }}>
               {artist.subscribers}
             </div>
           )}
@@ -4198,26 +4535,26 @@ function ArtistView({ browseId, onPlay, currentTrack, isPlaying, onOpenAlbum, on
         {artist.tracks?.length > 0 && (
           <div style={{ marginBottom: 32 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, marginTop: 8 }}>
-              <div style={{ fontSize: 16, fontWeight: 600 }}>{t("topSongs")}</div>
+              <div style={{ fontSize: "var(--t16)", fontWeight: 600 }}>{t("topSongs")}</div>
               <div style={{ display: "flex", gap: 4 }}>
                 {artist.songsBrowseId && (
                   <button
                     onClick={() => onOpenPlaylist({ playlistId: artist.songsBrowseId, title: `${artist.name} – ${t("topSongs")}`, forcedTitle: `${artist.name} – ${t("topSongs")}`, thumbnail: artist.thumbnail })}
                     style={{
                       background: "none", border: "none", cursor: "pointer",
-                      fontSize: 12, color: "var(--text-secondary)", padding: "4px 8px",
+                      fontSize: "var(--t12)", color: "var(--text-secondary)", padding: "4px 8px",
                       borderRadius: "var(--radius)", fontFamily: "var(--font)",
                       transition: "background 0.15s, color 0.15s",
                     }}
                     onMouseEnter={e => { e.currentTarget.style.background = "var(--bg-hover)"; e.currentTarget.style.color = "var(--text-primary)"; }}
                     onMouseLeave={e => { e.currentTarget.style.background = "none"; e.currentTarget.style.color = "var(--text-secondary)"; }}
-                  >Alle anzeigen</button>
+                  >{t("showAll")}</button>
                 )}
                 <button
                   onClick={() => onPlay(artist.tracks[0], artist.tracks)}
                   style={{
                     background: "none", border: "none", cursor: "pointer",
-                    fontSize: 12, color: "var(--accent)", padding: "4px 8px",
+                    fontSize: "var(--t12)", color: "var(--accent)", padding: "4px 8px",
                     borderRadius: "var(--radius)", fontFamily: "var(--font)",
                     transition: "background 0.15s",
                   }}
@@ -4240,7 +4577,7 @@ function ArtistView({ browseId, onPlay, currentTrack, isPlaying, onOpenAlbum, on
         {/* Albums */}
         {artist.albums?.length > 0 && (
           <div style={{ marginBottom: 32 }}>
-            <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>{t("albums")}</div>
+            <div style={{ fontSize: "var(--t16)", fontWeight: 600, marginBottom: 12 }}>{t("albums")}</div>
             <div style={{ display: "flex", gap: 14, overflowX: "auto", paddingBottom: 8 }}>
               {artist.albums.map((a, i) => (
                 <div key={i} onClick={() => onOpenAlbum({ browseId: a.browseId, title: a.title, thumbnail: a.thumbnail })}
@@ -4254,8 +4591,8 @@ function ArtistView({ browseId, onPlay, currentTrack, isPlaying, onOpenAlbum, on
                       ? <img src={thumb(a.thumbnail)} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                       : <div style={{ width: "100%", height: "100%", background: "linear-gradient(135deg,#2a1535,#1a0a25)" }} />}
                   </div>
-                  <div className="album-title" style={{ fontSize: 12, fontWeight: 500, color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", transition: "color 0.15s" }}>{a.title}</div>
-                  {a.year && <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>{a.year}</div>}
+                  <div className="album-title" style={{ fontSize: "var(--t12)", fontWeight: 500, color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", transition: "color 0.15s" }}>{a.title}</div>
+                  {a.year && <div style={{ fontSize: "var(--t11)", color: "var(--text-muted)", marginTop: 2 }}>{a.year}</div>}
                 </div>
               ))}
             </div>
@@ -4265,7 +4602,7 @@ function ArtistView({ browseId, onPlay, currentTrack, isPlaying, onOpenAlbum, on
         {/* Singles */}
         {artist.singles?.length > 0 && (
           <div style={{ marginBottom: 32 }}>
-            <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>{t("singles")}</div>
+            <div style={{ fontSize: "var(--t16)", fontWeight: 600, marginBottom: 12 }}>{t("singles")}</div>
             <div style={{ display: "flex", gap: 14, overflowX: "auto", paddingBottom: 8 }}>
               {artist.singles.map((s, i) => (
                 <div key={i} onClick={() => onOpenAlbum({ browseId: s.browseId, title: s.title, thumbnail: s.thumbnail })}
@@ -4279,8 +4616,8 @@ function ArtistView({ browseId, onPlay, currentTrack, isPlaying, onOpenAlbum, on
                       ? <img src={thumb(s.thumbnail)} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                       : <div style={{ width: "100%", height: "100%", background: "linear-gradient(135deg,#2a1535,#1a0a25)" }} />}
                   </div>
-                  <div className="single-title" style={{ fontSize: 12, fontWeight: 500, color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", transition: "color 0.15s" }}>{s.title}</div>
-                  {s.year && <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>{s.year} · {t("single")}</div>}
+                  <div className="single-title" style={{ fontSize: "var(--t12)", fontWeight: 500, color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", transition: "color 0.15s" }}>{s.title}</div>
+                  {s.year && <div style={{ fontSize: "var(--t11)", color: "var(--text-muted)", marginTop: 2 }}>{s.year} · {t("single")}</div>}
                 </div>
               ))}
             </div>
@@ -4351,7 +4688,7 @@ function LoginScreen({ onSuccess, onCancel }) {
       width: "100%", padding: "12px", border: secondary ? "0.5px solid var(--border)" : "none",
       borderRadius: 10, color: secondary ? "var(--text-secondary)" : "#fff",
       background: secondary ? "var(--bg-elevated)" : "var(--accent)",
-      fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font)",
+      fontSize: "var(--t13)", fontWeight: 600, cursor: "pointer", fontFamily: "var(--font)",
     }}>{children}</button>
   );
 
@@ -4384,14 +4721,14 @@ function LoginScreen({ onSuccess, onCancel }) {
         {/* ── Start ── */}
         {step === "start" && (
           <>
-            <div style={{ fontSize: 20, fontWeight: 700, textAlign: "center", marginBottom: 8 }}>{t("welcome")}</div>
-            <div style={{ fontSize: 13, color: "var(--text-muted)", textAlign: "center", marginBottom: 28, lineHeight: 1.6 }}>
+            <div style={{ fontSize: "var(--t20)", fontWeight: 700, textAlign: "center", marginBottom: 8 }}>{t("welcome")}</div>
+            <div style={{ fontSize: "var(--t13)", color: "var(--text-muted)", textAlign: "center", marginBottom: 28, lineHeight: 1.6 }}>
               {t("loginDesc")}
             </div>
             <Btn onClick={startLogin}>
               {t("loginButton")}
             </Btn>
-            <div style={{ fontSize: 11, color: "var(--text-muted)", textAlign: "center", marginTop: 14, lineHeight: 1.6 }}>
+            <div style={{ fontSize: "var(--t11)", color: "var(--text-muted)", textAlign: "center", marginTop: 14, lineHeight: 1.6 }}>
               {t("loginHint")}
             </div>
           </>
@@ -4401,8 +4738,8 @@ function LoginScreen({ onSuccess, onCancel }) {
         {step === "waiting" && (
           <div style={{ textAlign: "center", padding: "10px 0" }}>
             <div style={{ width: 40, height: 40, borderRadius: "50%", border: "3px solid var(--bg-elevated)", borderTop: "3px solid var(--accent)", animation: "spin2 1s linear infinite", margin: "0 auto 20px" }} />
-            <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 8 }}>{t("loginWaiting")}</div>
-            <div style={{ fontSize: 12, color: "var(--text-muted)", lineHeight: 1.6, marginBottom: 24 }}>
+            <div style={{ fontSize: "var(--t15)", fontWeight: 600, marginBottom: 8 }}>{t("loginWaiting")}</div>
+            <div style={{ fontSize: "var(--t12)", color: "var(--text-muted)", lineHeight: 1.6, marginBottom: 24 }}>
               {t("loginWaitingDesc")}
             </div>
             <Btn onClick={cancelLogin} secondary>{t("cancel")}</Btn>
@@ -4415,8 +4752,8 @@ function LoginScreen({ onSuccess, onCancel }) {
             <div style={{ marginBottom: 12, display: "flex", justifyContent: "center" }}>
               <CheckCircle size={52} weight="fill" style={{ color: "var(--accent)" }} />
             </div>
-            <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 6 }}>{t("loginSuccess")}</div>
-            <div style={{ fontSize: 13, color: "var(--text-muted)" }}>{t("loginSuccessHint")}</div>
+            <div style={{ fontSize: "var(--t16)", fontWeight: 600, marginBottom: 6 }}>{t("loginSuccess")}</div>
+            <div style={{ fontSize: "var(--t13)", color: "var(--text-muted)" }}>{t("loginSuccessHint")}</div>
           </div>
         )}
 
@@ -4453,8 +4790,8 @@ function LanguagePickerScreen({ currentLanguage, onConfirm }) {
           </svg>
         </div>
 
-        <div style={{ fontSize: 20, fontWeight: 700, textAlign: "center", marginBottom: 6 }}>Kiyoshi Music</div>
-        <div style={{ fontSize: 13, color: "var(--text-muted)", textAlign: "center", marginBottom: 28 }}>
+        <div style={{ fontSize: "var(--t20)", fontWeight: 700, textAlign: "center", marginBottom: 6 }}>Kiyoshi Music</div>
+        <div style={{ fontSize: "var(--t13)", color: "var(--text-muted)", textAlign: "center", marginBottom: 28 }}>
           {confirmLabel}
         </div>
 
@@ -4476,7 +4813,7 @@ function LanguagePickerScreen({ currentLanguage, onConfirm }) {
             >
               <div style={{ width: 28, height: 20, borderRadius: 3, overflow: "hidden", flexShrink: 0 }}
                 dangerouslySetInnerHTML={{ __html: lang.flag }} />
-              <div style={{ fontSize: 14, fontWeight: 500, color: selected === lang.code ? "var(--accent)" : "var(--text-primary)" }}>
+              <div style={{ fontSize: "var(--t14)", fontWeight: 500, color: selected === lang.code ? "var(--accent)" : "var(--text-primary)" }}>
                 {lang.label}
               </div>
               {selected === lang.code && (
@@ -4493,7 +4830,7 @@ function LanguagePickerScreen({ currentLanguage, onConfirm }) {
           style={{
             width: "100%", padding: "12px", border: "none",
             borderRadius: 10, color: "#fff", background: "var(--accent)",
-            fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font)",
+            fontSize: "var(--t13)", fontWeight: 600, cursor: "pointer", fontFamily: "var(--font)",
           }}
         >
           {continueLabel} →
@@ -4536,29 +4873,29 @@ function ProfileSwitcher({ profiles, currentProfile, onSwitch, onAdd, onDelete, 
             <div style={{
               width: 36, height: 36, borderRadius: "50%", background: "var(--accent)",
               display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 14, fontWeight: 700, color: "#fff", overflow: "hidden", flexShrink: 0,
+              fontSize: "var(--t14)", fontWeight: 700, color: "#fff", overflow: "hidden", flexShrink: 0,
             }}>
               {confirmProfile?.avatar
                 ? <img src={confirmProfile.avatar} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                 : (confirmProfile?.displayName || confirmProfile?.name || "?")[0].toUpperCase()}
             </div>
             <div style={{ overflow: "hidden" }}>
-              <div style={{ fontSize: 13, fontWeight: 600 }}>{confirmProfile?.displayName || confirmProfile?.name}</div>
-              {confirmProfile?.handle && <div style={{ fontSize: 11, color: "var(--text-muted)" }}>{confirmProfile.handle}</div>}
+              <div style={{ fontSize: "var(--t13)", fontWeight: 600 }}>{confirmProfile?.displayName || confirmProfile?.name}</div>
+              {confirmProfile?.handle && <div style={{ fontSize: "var(--t11)", color: "var(--text-muted)" }}>{confirmProfile.handle}</div>}
             </div>
           </div>
-          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>{t("removeAccountTitle")}</div>
-          <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 14, lineHeight: 1.5 }}>{t("removeAccountDesc")}</div>
+          <div style={{ fontSize: "var(--t13)", fontWeight: 600, marginBottom: 4 }}>{t("removeAccountTitle")}</div>
+          <div style={{ fontSize: "var(--t12)", color: "var(--text-muted)", marginBottom: 14, lineHeight: 1.5 }}>{t("removeAccountDesc")}</div>
           <div style={{ display: "flex", gap: 8 }}>
             <button onClick={() => setConfirmName(null)} style={{
               flex: 1, padding: "8px", background: "var(--bg-elevated)",
               border: "0.5px solid var(--border)", borderRadius: 8,
-              color: "var(--text-secondary)", fontSize: 12, cursor: "pointer", fontFamily: "var(--font)",
+              color: "var(--text-secondary)", fontSize: "var(--t12)", cursor: "pointer", fontFamily: "var(--font)",
             }}>{t("cancel")}</button>
             <button onClick={() => { onDelete(confirmName); setConfirmName(null); }} style={{
               flex: 1, padding: "8px", background: "rgba(244,67,54,0.12)",
               border: "0.5px solid #f44336", borderRadius: 8,
-              color: "#f44336", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font)",
+              color: "#f44336", fontSize: "var(--t12)", fontWeight: 600, cursor: "pointer", fontFamily: "var(--font)",
             }}>{t("removeAccountConfirm")}</button>
           </div>
         </div>
@@ -4566,7 +4903,7 @@ function ProfileSwitcher({ profiles, currentProfile, onSwitch, onAdd, onDelete, 
         <>
           {/* Header */}
           <div style={{ padding: "12px 14px 8px", borderBottom: "0.5px solid var(--border)" }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em" }}>{t("switchProfileTitle")}</div>
+            <div style={{ fontSize: "var(--t11)", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em" }}>{t("switchProfileTitle")}</div>
           </div>
 
           {/* Profile list */}
@@ -4586,15 +4923,15 @@ function ProfileSwitcher({ profiles, currentProfile, onSwitch, onAdd, onDelete, 
                 <div style={{
                   width: 30, height: 30, borderRadius: "50%", background: "var(--accent)",
                   display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: 12, fontWeight: 700, flexShrink: 0, color: "#fff", overflow: "hidden",
+                  fontSize: "var(--t12)", fontWeight: 700, flexShrink: 0, color: "#fff", overflow: "hidden",
                 }}>
                   {p.avatar
                     ? <img src={p.avatar} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                     : (p.displayName || p.name)[0].toUpperCase()}
                 </div>
                 <div style={{ flex: 1, overflow: "hidden" }}>
-                  <div style={{ fontSize: 12, fontWeight: 500, color: p.active ? "var(--accent)" : "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.displayName || p.name}</div>
-                  {p.handle && <div style={{ fontSize: 10, color: "var(--text-muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.handle}</div>}
+                  <div style={{ fontSize: "var(--t12)", fontWeight: 500, color: p.active ? "var(--accent)" : "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.displayName || p.name}</div>
+                  {p.handle && <div style={{ fontSize: "var(--t10)", color: "var(--text-muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.handle}</div>}
                 </div>
                 {p.active && <Check size={13} style={{ color: "var(--accent)", flexShrink: 0 }} />}
                 <div onClick={e => { e.stopPropagation(); setConfirmName(p.name); }} style={{
@@ -4615,7 +4952,7 @@ function ProfileSwitcher({ profiles, currentProfile, onSwitch, onAdd, onDelete, 
             <button onClick={onAdd} style={{
               width: "100%", padding: "8px 10px", background: "transparent",
               border: "none", borderRadius: 8,
-              color: "var(--text-secondary)", fontSize: 12, cursor: "pointer",
+              color: "var(--text-secondary)", fontSize: "var(--t12)", cursor: "pointer",
               fontFamily: "var(--font)", display: "flex", alignItems: "center", gap: 8,
               transition: "background 0.15s, color 0.15s",
             }}
@@ -4699,6 +5036,11 @@ export default function App() {
   const [cachedSongIds, setCachedSongIds] = useState(new Set());
   const [downloadingIds, setDownloadingIds] = useState(new Set());
   const [updateInfo, setUpdateInfo] = useState(null);
+  const [updateDownloading, setUpdateDownloading] = useState(false);
+  const [updateDownloadProgress, setUpdateDownloadProgress] = useState(null);
+  const [updateDownloaded, setUpdateDownloaded] = useState(false);
+  const updateDownloadAbortRef = useRef(null);
+  const mutePrevVolumeRef = useRef(0.5);
   const [toasts, setToasts] = useState([]);
 
   // ─── Toast Notifications ─────────────────────────────────────────────────────
@@ -4710,24 +5052,73 @@ export default function App() {
 
   // ─── Update Check ───────────────────────────────────────────────────────────
   const checkForUpdates = useCallback(() => {
-    return fetch(`${UPDATE_SUPABASE_URL}/rest/v1/app_updates?select=*&order=build_number.desc&limit=1`, {
-      headers: { apikey: UPDATE_SUPABASE_KEY, Authorization: `Bearer ${UPDATE_SUPABASE_KEY}` },
-    })
+    return fetch(GITHUB_RELEASES_API)
       .then(r => r.json())
-      .then(([latest]) => {
-        if (latest && latest.build_number > BUILD_NUMBER) {
+      .then(([release] = []) => {
+        if (release?.tag_name && isNewerVersion(release.tag_name, APP_TAG)) {
+          const asset = release.assets?.find(a => a.name.endsWith(".exe"));
           setUpdateInfo({
-            version: latest.version,
-            buildNumber: latest.build_number,
-            downloadUrl: latest.download_url,
-            changelog: latest.changelog,
-            releasedAt: latest.released_at,
+            version: release.name || release.tag_name,
+            tag: release.tag_name,
+            downloadUrl: asset?.browser_download_url || release.html_url,
+            assetName: asset?.name || "",
+            assetSize: asset?.size || 0,
+            changelog: release.body || "",
+            releasedAt: release.published_at,
           });
         } else {
           setUpdateInfo(null);
         }
       })
       .catch(() => {});
+  }, []);
+
+  const downloadUpdate = useCallback(async () => {
+    if (!updateInfo?.downloadUrl) return;
+    const controller = new AbortController();
+    updateDownloadAbortRef.current = controller;
+    setUpdateDownloading(true);
+    setUpdateDownloadProgress(0);
+    setUpdateDownloaded(false);
+    try {
+      const { fetch: tauriFetch } = await import("@tauri-apps/plugin-http");
+      const response = await tauriFetch(updateInfo.downloadUrl, { method: "GET" });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const buffer = await response.arrayBuffer();
+      const bytes = new Uint8Array(buffer);
+      setUpdateDownloadProgress(90);
+      const { writeFile, BaseDirectory } = await import("@tauri-apps/plugin-fs");
+      await writeFile(updateInfo.assetName || "KiyoshiMusicUpdate.exe", bytes, { baseDir: BaseDirectory.Download });
+      setUpdateDownloaded(true);
+      setUpdateDownloadProgress(100);
+    } catch (e) {
+      if (e?.name !== "AbortError") {
+        const lang = localStorage.getItem("kiyoshi-lang") || "de";
+        addToast(translate(lang, "downloadFailed"), "error");
+        setUpdateDownloadProgress(null);
+      }
+    } finally {
+      setUpdateDownloading(false);
+    }
+  }, [updateInfo, addToast]);
+
+  const installUpdate = useCallback(async () => {
+    if (!updateInfo?.assetName) return;
+    try {
+      const { downloadDir } = await import("@tauri-apps/api/path");
+      const dir = await downloadDir();
+      const { openPath } = await import("@tauri-apps/plugin-opener");
+      await openPath(dir + "\\" + updateInfo.assetName);
+    } catch {
+      const lang = localStorage.getItem("kiyoshi-lang") || "de";
+      addToast(translate(lang, "downloadFailed"), "error");
+    }
+  }, [updateInfo, addToast]);
+
+  const cancelUpdateDownload = useCallback(() => {
+    updateDownloadAbortRef.current?.abort();
+    setUpdateDownloading(false);
+    setUpdateDownloadProgress(null);
   }, []);
 
   useEffect(() => {
@@ -5099,7 +5490,26 @@ export default function App() {
   const [animations, setAnimations] = useState(true);
   const [lyricsFontSize, setLyricsFontSize] = useState(32);
   const [hideExplicit, setHideExplicit] = useState(() => localStorage.getItem("kiyoshi-hide-explicit") === "true");
-  const [uiZoom, setUiZoom] = useState(() => parseFloat(localStorage.getItem("kiyoshi-ui-zoom")) || 1.0);
+  const [uiZoom, setUiZoom] = useState(() => {
+    const saved = parseFloat(localStorage.getItem("kiyoshi-ui-zoom"));
+    return ZOOM_STEPS.includes(saved) ? saved : 1.0;
+  });
+  const CSS_FONT_SIZES = [10, 11, 12, 13, 14, 15, 16, 18, 20, 22];
+  const [appFontScale, setAppFontScale] = useState(() => {
+    const saved = parseFloat(localStorage.getItem("kiyoshi-font-scale"));
+    const scale = FONT_STEPS.includes(saved) ? saved : 1.0;
+    // Set CSS vars synchronously to avoid flash of unstyled text
+    CSS_FONT_SIZES.forEach(s => {
+      document.documentElement.style.setProperty(`--t${s}`, `${Math.round(s * scale)}px`);
+    });
+    return scale;
+  });
+
+  useEffect(() => {
+    CSS_FONT_SIZES.forEach(s => {
+      document.documentElement.style.setProperty(`--t${s}`, `${Math.round(s * appFontScale)}px`);
+    });
+  }, [appFontScale]);
 
   // uiZoom wird direkt im App-Container angewendet (kein document.documentElement),
   // damit position:fixed / 100vh-Werte korrekt bleiben.
@@ -5317,11 +5727,48 @@ export default function App() {
         case "KeyS":
           // Shuffle — handled in Player, no direct access here
           break;
+        case "KeyM":
+          e.preventDefault();
+          if (audioRef.current) {
+            if (audioRef.current.volume > 0) {
+              mutePrevVolumeRef.current = audioRef.current.volume;
+              audioRef.current.volume = 0;
+            } else {
+              audioRef.current.volume = mutePrevVolumeRef.current || 0.5;
+            }
+          }
+          break;
+        case "KeyL":
+          e.preventDefault();
+          if (!currentTrack) break;
+          if (overlayOpen) { setShowLyrics(l => !l); }
+          else { setOverlayOpen(true); }
+          break;
+        case "Comma":
+          e.preventDefault();
+          if (audioRef.current) audioRef.current.currentTime = Math.max(0, audioRef.current.currentTime - 5);
+          break;
+        case "Period":
+          e.preventDefault();
+          if (audioRef.current) audioRef.current.currentTime = Math.min(audioRef.current.duration || 0, audioRef.current.currentTime + 5);
+          break;
+        case "Equal":
+          if (e.ctrlKey) {
+            e.preventDefault();
+            setUiZoom(z => { const idx = ZOOM_STEPS.indexOf(z); const next = ZOOM_STEPS[Math.min(ZOOM_STEPS.length - 1, idx >= 0 ? idx + 1 : 2)]; localStorage.setItem("kiyoshi-ui-zoom", next); return next; });
+          }
+          break;
+        case "Minus":
+          if (e.ctrlKey) {
+            e.preventDefault();
+            setUiZoom(z => { const idx = ZOOM_STEPS.indexOf(z); const next = ZOOM_STEPS[Math.max(0, idx >= 0 ? idx - 1 : 2)]; localStorage.setItem("kiyoshi-ui-zoom", next); return next; });
+          }
+          break;
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [isPlaying, audioRef]);
+  }, [isPlaying, audioRef, overlayOpen, currentTrack, setUiZoom]);
 
   // Animated view wrapper
   const AnimatedView = useCallback(({ children }) => (
@@ -5336,6 +5783,7 @@ export default function App() {
     <IconContext.Provider value={{ weight: "bold" }}>
     <LangContext.Provider value={language}>
     <AnimationContext.Provider value={animations}>
+    <FontScaleContext.Provider value={appFontScale}>
     <ZoomContext.Provider value={uiZoom}>
       <style>{GLOBAL_KEYFRAMES}</style>
       {showSplash && <SplashScreen fading={splashFading} />}
@@ -5348,7 +5796,7 @@ export default function App() {
               background: "var(--bg-elevated)",
               border: `1px solid ${toast.type === "error" ? "rgba(255,100,100,0.35)" : toast.type === "success" ? "rgba(100,220,130,0.35)" : "var(--border)"}`,
               color: toast.type === "error" ? "#ff7070" : toast.type === "success" ? "#6bdf96" : "var(--text-primary)",
-              padding: "10px 16px", borderRadius: 10, fontSize: 13, fontWeight: 500,
+              padding: "10px 16px", borderRadius: 10, fontSize: "var(--t13)", fontWeight: 500,
               boxShadow: "0 4px 24px rgba(0,0,0,0.45)",
               animation: "fadeSlideIn 0.22s cubic-bezier(0.34,1.56,0.64,1)",
               maxWidth: 340,
@@ -5399,7 +5847,7 @@ export default function App() {
         </div>
         <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
           <div key={appKey} className="scrollable" style={{ flex: 1, overflowY: "auto" }}>
-            {view === "home" && <AnimatedView><HomeView onPlay={handlePlay} onOpenPlaylist={(item) => openPlaylist(item, "home")} onOpenAlbum={(item) => openAlbum(item, "home")} onOpenArtist={(item) => openArtist(item, "home")} onContextMenu={openContextMenu} onTrackContextMenu={(e, track) => setTrackContextMenu({ x: e.clientX, y: e.clientY, track })} /></AnimatedView>}
+            {view === "home" && <AnimatedView><HomeView displayName={profiles.find(p => p.active)?.displayName} onPlay={handlePlay} onOpenPlaylist={(item) => openPlaylist(item, "home")} onOpenAlbum={(item) => openAlbum(item, "home")} onOpenArtist={(item) => openArtist(item, "home")} onContextMenu={openContextMenu} onTrackContextMenu={(e, track) => setTrackContextMenu({ x: e.clientX, y: e.clientY, track })} /></AnimatedView>}
             {view === "search" && <AnimatedView><SearchView query={searchQuery} onPlay={handlePlay} currentTrack={currentTrack} isPlaying={isPlaying} onOpenArtist={openArtist} onOpenAlbum={(item) => openAlbum(item, "search")} onOpenPlaylist={(item) => openPlaylist(item, "search")} onContextMenu={openContextMenu} onTrackContextMenu={(e, track) => setTrackContextMenu({ x: e.clientX, y: e.clientY, track })} /></AnimatedView>}
             {view === "liked" && <AnimatedView><LikedView onPlay={handlePlay} currentTrack={currentTrack} isPlaying={isPlaying} onOpenArtist={openArtist} onOpenAlbum={(item) => openAlbum(item, "liked")} onTrackContextMenu={(e, track) => setTrackContextMenu({ x: e.clientX, y: e.clientY, track })} cachedSongIds={cachedSongIds} downloadingIds={downloadingIds} onDownloadSong={handleDownloadSong} hideExplicit={hideExplicit} /></AnimatedView>}
             {view === "history" && <AnimatedView><HistoryView onPlay={handlePlay} currentTrack={currentTrack} isPlaying={isPlaying} onOpenArtist={openArtist} onOpenAlbum={(item) => openAlbum(item, "history")} onTrackContextMenu={(e, track, extra) => setTrackContextMenu({ x: e.clientX, y: e.clientY, track, ...extra })} cachedSongIds={cachedSongIds} downloadingIds={downloadingIds} onDownloadSong={handleDownloadSong} /></AnimatedView>}
@@ -5529,12 +5977,20 @@ export default function App() {
             onLanguageChange={handleLanguageChange}
             updateInfo={updateInfo}
             onCheckUpdate={checkForUpdates}
+            updateDownloading={updateDownloading}
+            updateDownloadProgress={updateDownloadProgress}
+            updateDownloaded={updateDownloaded}
+            onDownloadUpdate={downloadUpdate}
+            onInstallUpdate={installUpdate}
+            onCancelDownload={cancelUpdateDownload}
             initialTab={settingsInitialTab}
             onTabOpened={() => setSettingsInitialTab(null)}
             hideExplicit={hideExplicit}
             onHideExplicitChange={v => { setHideExplicit(v); localStorage.setItem("kiyoshi-hide-explicit", v); }}
             uiZoom={uiZoom}
             onUiZoomChange={v => { setUiZoom(v); localStorage.setItem("kiyoshi-ui-zoom", v); }}
+            appFontScale={appFontScale}
+            onFontScaleChange={v => { setAppFontScale(v); localStorage.setItem("kiyoshi-font-scale", v); }}
           />
         )}
 
@@ -5569,7 +6025,7 @@ export default function App() {
                 }}
                 onMouseLeave={() => setTrackCtxPlaylists(null)}
               >
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: 13, color: "var(--text-primary)" }}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "var(--text-primary)" }}
                   onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
                   onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                 >
@@ -5600,7 +6056,7 @@ export default function App() {
                           setTrackContextMenu(null);
                           setTrackCtxPlaylists(null);
                         }}
-                        style={{ padding: "7px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: 12, color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
+                        style={{ padding: "7px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t12)", color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
                         onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
                         onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                       >{pl.title}</div>
@@ -5608,7 +6064,7 @@ export default function App() {
                     <div style={{ borderTop: "0.5px solid var(--border)", margin: "4px 0" }} />
                     <div
                       onClick={() => { setTrackContextMenu(null); setTrackCtxPlaylists(null); setCreatePlaylistOpen(true); }}
-                      style={{ padding: "7px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: 12, color: "var(--accent)", display: "flex", alignItems: "center", gap: 8 }}
+                      style={{ padding: "7px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t12)", color: "var(--accent)", display: "flex", alignItems: "center", gap: 8 }}
                       onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
                       onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                     >
@@ -5635,7 +6091,7 @@ export default function App() {
                     setTrackContextMenu(null);
                     setTrackCtxPlaylists(null);
                   }}
-                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: 13, color: "var(--text-danger, #e05252)" }}
+                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "var(--text-danger, #e05252)" }}
                   onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
                   onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                 >
@@ -5651,7 +6107,7 @@ export default function App() {
                     trackContextMenu.removeFromHistory();
                     setTrackContextMenu(null); setTrackCtxPlaylists(null);
                   }}
-                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: 13, color: "var(--text-danger, #e05252)" }}
+                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "var(--text-danger, #e05252)" }}
                   onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
                   onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                 >
@@ -5667,7 +6123,7 @@ export default function App() {
               {trackContextMenu.track.albumBrowseId && (
                 <div
                   onClick={() => { const t = trackContextMenu.track; setTrackContextMenu(null); setTrackCtxPlaylists(null); openAlbum({ browseId: t.albumBrowseId, title: t.album }, view); }}
-                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: 13, color: "var(--text-primary)" }}
+                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "var(--text-primary)" }}
                   onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
                   onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                 >
@@ -5678,7 +6134,7 @@ export default function App() {
               {trackContextMenu.track.artistBrowseId && (
                 <div
                   onClick={() => { const t = trackContextMenu.track; setTrackContextMenu(null); setTrackCtxPlaylists(null); openArtist({ browseId: t.artistBrowseId }, view); }}
-                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: 13, color: "var(--text-primary)" }}
+                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "var(--text-primary)" }}
                   onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
                   onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                 >
@@ -5697,7 +6153,7 @@ export default function App() {
                     } catch {}
                     setTrackContextMenu(null); setTrackCtxPlaylists(null);
                   }}
-                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: 13, color: "var(--text-danger, #e05252)" }}
+                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "var(--text-danger, #e05252)" }}
                   onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
                   onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                 >
@@ -5710,7 +6166,7 @@ export default function App() {
                     handleDownloadSong(trackContextMenu.track);
                     setTrackContextMenu(null); setTrackCtxPlaylists(null);
                   }}
-                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: 13, color: "var(--text-primary)" }}
+                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "var(--text-primary)" }}
                   onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
                   onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                 >
@@ -5726,7 +6182,7 @@ export default function App() {
                   setTrackContextMenu(null); setTrackCtxPlaylists(null);
                   handleExportSong(track, "mp3");
                 }}
-                style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: 13, color: "var(--text-primary)" }}
+                style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "var(--text-primary)" }}
                 onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
                 onMouseLeave={e => e.currentTarget.style.background = "transparent"}
               >
@@ -5741,7 +6197,7 @@ export default function App() {
                   setTrackContextMenu(null); setTrackCtxPlaylists(null);
                   handleExportSong(track, "opus");
                 }}
-                style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: 13, color: "var(--text-primary)" }}
+                style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "var(--text-primary)" }}
                 onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
                 onMouseLeave={e => e.currentTarget.style.background = "transparent"}
               >
@@ -5762,7 +6218,7 @@ export default function App() {
                     navigator.clipboard.writeText(text).catch(() => {});
                   }).catch(() => {});
                 }}
-                style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: 13, color: "var(--text-primary)" }}
+                style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "var(--text-primary)" }}
                 onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
                 onMouseLeave={e => e.currentTarget.style.background = "transparent"}
               >
@@ -5800,7 +6256,7 @@ export default function App() {
                     await writeTextFile(filePath, lrcText);
                   } catch (e) { console.error(e); }
                 }}
-                style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: 13, color: "var(--text-primary)" }}
+                style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "var(--text-primary)" }}
                 onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
                 onMouseLeave={e => e.currentTarget.style.background = "transparent"}
               >
@@ -5824,7 +6280,7 @@ export default function App() {
             }}>
               <div
                 onClick={() => { togglePin(globalContextMenu.playlist); setGlobalContextMenu(null); }}
-                style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: 13, color: "var(--text-primary)" }}
+                style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "var(--text-primary)" }}
                 onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
                 onMouseLeave={e => e.currentTarget.style.background = "transparent"}
               >
@@ -5839,7 +6295,7 @@ export default function App() {
                   else openPlaylist(item, view);
                   setGlobalContextMenu(null);
                 }}
-                style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: 13, color: "var(--text-primary)" }}
+                style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "var(--text-primary)" }}
                 onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
                 onMouseLeave={e => e.currentTarget.style.background = "transparent"}
               >
@@ -5853,7 +6309,7 @@ export default function App() {
               {globalContextMenu.playlist?.browseId && globalContextMenu.playlist?.type !== "artist" && (
                 <div
                   onClick={() => { openAlbum(globalContextMenu.playlist, view); setGlobalContextMenu(null); }}
-                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: 13, color: "var(--text-primary)" }}
+                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "var(--text-primary)" }}
                   onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
                   onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                 >
@@ -5864,7 +6320,7 @@ export default function App() {
               {globalContextMenu.playlist?.artistBrowseId && (
                 <div
                   onClick={() => { openArtist({ browseId: globalContextMenu.playlist.artistBrowseId }, view); setGlobalContextMenu(null); }}
-                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: 13, color: "var(--text-primary)" }}
+                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "var(--text-primary)" }}
                   onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
                   onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                 >
@@ -5880,7 +6336,7 @@ export default function App() {
               {globalContextMenu.playlist?.playlistId && globalContextMenu.playlist?.type !== "album" && (
                 <div
                   onClick={() => { setRenameDialog({ playlistId: globalContextMenu.playlist.playlistId, title: globalContextMenu.playlist.title }); setGlobalContextMenu(null); }}
-                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: 13, color: "var(--text-primary)" }}
+                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "var(--text-primary)" }}
                   onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
                   onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                 >
@@ -5892,7 +6348,7 @@ export default function App() {
               {globalContextMenu.playlist?.playlistId && globalContextMenu.playlist?.type !== "album" && (
                 <div
                   onClick={() => { setDeleteDialog({ playlistId: globalContextMenu.playlist.playlistId, title: globalContextMenu.playlist.title }); setGlobalContextMenu(null); }}
-                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: 13, color: "var(--text-danger, #e05252)" }}
+                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "var(--text-danger, #e05252)" }}
                   onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
                   onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                 >
@@ -5903,7 +6359,7 @@ export default function App() {
               {!pinnedIds.includes(itemId(globalContextMenu.playlist)) && (
                 <div
                   onClick={() => { removeRecentPlaylist(itemId(globalContextMenu.playlist)); setGlobalContextMenu(null); }}
-                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: 13, color: "var(--text-danger, #e05252)" }}
+                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "var(--text-danger, #e05252)" }}
                   onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
                   onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                 >
@@ -5924,7 +6380,7 @@ export default function App() {
               background: "var(--bg-elevated)", borderRadius: 16, padding: 28, minWidth: 340,
               border: "0.5px solid var(--border)", boxShadow: "0 12px 40px rgba(0,0,0,0.5)", zoom: uiZoom,
             }}>
-              <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 16 }}>{translate(language, "renamePlaylist")}</div>
+              <div style={{ fontSize: "var(--t16)", fontWeight: 600, marginBottom: 16 }}>{translate(language, "renamePlaylist")}</div>
               <input
                 autoFocus
                 defaultValue={renameDialog.title}
@@ -5945,11 +6401,11 @@ export default function App() {
                 }}
                 style={{
                   width: "100%", padding: "8px 12px", borderRadius: 8, border: "0.5px solid var(--border)",
-                  background: "var(--bg-main)", color: "var(--text-primary)", fontSize: 13, outline: "none",
+                  background: "var(--bg-main)", color: "var(--text-primary)", fontSize: "var(--t13)", outline: "none",
                   boxSizing: "border-box", marginBottom: 16,
                 }}
               />
-              <div style={{ fontSize: 11, color: "var(--text-muted)" }}>Enter ↵</div>
+              <div style={{ fontSize: "var(--t11)", color: "var(--text-muted)" }}>Enter ↵</div>
             </div>
           </>
         )}
@@ -5963,15 +6419,15 @@ export default function App() {
               background: "var(--bg-elevated)", borderRadius: 16, padding: 28, minWidth: 340,
               border: "0.5px solid var(--border)", boxShadow: "0 12px 40px rgba(0,0,0,0.5)", zoom: uiZoom,
             }}>
-              <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>{translate(language, "deletePlaylist")}</div>
-              <div style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 20 }}>
+              <div style={{ fontSize: "var(--t16)", fontWeight: 600, marginBottom: 8 }}>{translate(language, "deletePlaylist")}</div>
+              <div style={{ fontSize: "var(--t13)", color: "var(--text-secondary)", marginBottom: 20 }}>
                 {translate(language, "deletePlaylistConfirm")}
                 <br /><strong>{deleteDialog.title}</strong>
               </div>
               <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
                 <button onClick={() => setDeleteDialog(null)} style={{
                   padding: "8px 18px", borderRadius: 8, border: "0.5px solid var(--border)",
-                  background: "var(--bg-main)", color: "var(--text-secondary)", fontSize: 13, cursor: "pointer",
+                  background: "var(--bg-main)", color: "var(--text-secondary)", fontSize: "var(--t13)", cursor: "pointer",
                 }}>{translate(language, "cancel")}</button>
                 <button onClick={async () => {
                   try {
@@ -5983,7 +6439,7 @@ export default function App() {
                   setDeleteDialog(null);
                 }} style={{
                   padding: "8px 18px", borderRadius: 8, border: "none",
-                  background: "#e05252", color: "#fff", fontSize: 13, fontWeight: 500, cursor: "pointer",
+                  background: "#e05252", color: "#fff", fontSize: "var(--t13)", fontWeight: 500, cursor: "pointer",
                 }}>{translate(language, "removeAccountConfirm")}</button>
               </div>
             </div>
@@ -5991,6 +6447,7 @@ export default function App() {
         )}
       </div>
     </ZoomContext.Provider>
+    </FontScaleContext.Provider>
     </AnimationContext.Provider>
     </LangContext.Provider>
     </IconContext.Provider>

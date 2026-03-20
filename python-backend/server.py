@@ -55,6 +55,84 @@ _download_status = {}  # video_id -> "downloading" | "done" | "error"
 # Cache feature flags (can be toggled at runtime via /cache/settings)
 _cache_enabled = {"playlists": True, "albums": True, "images": True, "songs": True, "lyrics": True}
 
+# ─── Musixmatch (inoffizielle API) ───────────────────────────────────────────
+_mx_token = None
+_mx_token_expires = 0
+MX_APP_ID  = "web-desktop-app-v1.0"
+MX_BASE    = "https://apic-desktop.musixmatch.com/ws/1.1"
+MX_HEADERS = {
+    "authority":   "apic-desktop.musixmatch.com",
+    "user-agent":  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "cookie":      "x-mxm-token-guid=",
+}
+
+def _get_mx_token():
+    """Holt oder erneuert den Musixmatch User-Token (10-Minuten-Cache)."""
+    global _mx_token, _mx_token_expires
+    if _mx_token and time.time() < _mx_token_expires:
+        return _mx_token
+    try:
+        import requests as req
+        r = req.get(f"{MX_BASE}/token.get",
+                    params={"app_id": MX_APP_ID, "guid": "default"},
+                    headers=MX_HEADERS, timeout=8)
+        tok = r.json()["message"]["body"]["user_token"]
+        _mx_token = tok
+        _mx_token_expires = time.time() + 600
+        return tok
+    except Exception as e:
+        print(f"[lyrics] Musixmatch token error: {e}", flush=True)
+        return None
+
+def _try_musixmatch(title, artist, duration=None):
+    """Sucht einen Track auf Musixmatch und gibt RichSync (Word) oder Subtitle (LRC) zurück."""
+    import json as _json, requests as req
+    token = _get_mx_token()
+    if not token:
+        return None
+    base = {"app_id": MX_APP_ID, "usertoken": token}
+
+    # Track suchen
+    try:
+        sr = req.get(f"{MX_BASE}/track.search",
+                     params={**base, "q_track": title, "q_artist": artist,
+                             "s_track_rating": "desc", "page_size": 5},
+                     headers=MX_HEADERS, timeout=8)
+        track_list = sr.json()["message"]["body"]["track_list"]
+    except Exception as e:
+        print(f"[lyrics] Musixmatch search error: {e}", flush=True)
+        return None
+    if not track_list:
+        return None
+    track_id = track_list[0]["track"]["track_id"]
+    bp = {**base, "track_id": track_id}
+
+    # RichSync (Word-Sync)
+    try:
+        rr = req.get(f"{MX_BASE}/track.richsync.get",
+                     params=bp, headers=MX_HEADERS, timeout=8)
+        rb = rr.json()["message"]["body"]
+        if rb and isinstance(rb, dict) and rb.get("richsync", {}).get("richsync_body"):
+            richsync = _json.loads(rb["richsync"]["richsync_body"])
+            if richsync:
+                return {"source": "Musixmatch", "richsync": richsync, "synced": None, "plain": None}
+    except Exception as e:
+        print(f"[lyrics] Musixmatch richsync error: {e}", flush=True)
+
+    # Fallback: Line-Sync (LRC)
+    try:
+        lr = req.get(f"{MX_BASE}/track.subtitle.get",
+                     params={**bp, "subtitle_format": "lrc"},
+                     headers=MX_HEADERS, timeout=8)
+        lb = lr.json()["message"]["body"]
+        if lb and isinstance(lb, dict) and lb.get("subtitle", {}).get("subtitle_body"):
+            return {"source": "Musixmatch", "richsync": None,
+                    "synced": lb["subtitle"]["subtitle_body"], "plain": None}
+    except Exception as e:
+        print(f"[lyrics] Musixmatch subtitle error: {e}", flush=True)
+
+    return None
+
 def _dir_size_and_count(path):
     """Return (total_bytes, file_count) for all files in a directory."""
     total, count = 0, 0
@@ -612,7 +690,14 @@ def get_lyrics():
         except Exception as e:
             print(f"[lyrics] Kugou error: {e}", flush=True)
 
-    # 4. SimpMusic (videoId-only — search endpoint is currently unavailable)
+    # 4. Musixmatch (Word-Sync via RichSync, fallback: Line-Sync)
+    if not result and source in ("auto", "musixmatch"):
+        try:
+            result = _try_musixmatch(title, artist, duration)
+        except Exception as e:
+            print(f"[lyrics] Musixmatch error: {e}", flush=True)
+
+    # 5. SimpMusic (videoId-only — search endpoint is currently unavailable)
     if not result and source in ("auto", "simp") and video_id:
         try:
             r = req.get(f"https://api-lyrics.simpmusic.org/v1/{video_id}", timeout=8)
@@ -1281,6 +1366,53 @@ def get_home():
             if items:
                 sections.append({"title": title, "items": items})
         return jsonify({"sections": sections})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/mood/categories")
+def get_mood_categories():
+    try:
+        cats = get_ytmusic().get_mood_categories()
+        chips = []
+        seen_params = set()
+        for section_title, items in cats.items():
+            # Only include moods & moments, skip everything else
+            if "mood" not in section_title.lower() and "moment" not in section_title.lower():
+                continue
+            for item in items:
+                params = item.get("params", "")
+                if params in seen_params:
+                    continue
+                seen_params.add(params)
+                chips.append({
+                    "title": item.get("title", ""),
+                    "params": params,
+                })
+        return jsonify(chips)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/mood/playlists")
+def get_mood_playlists():
+    try:
+        params = request.args.get("params", "")
+        if not params:
+            return jsonify({"error": "params required"}), 400
+        playlists = get_ytmusic().get_mood_playlists(params)
+        result = []
+        for pl in playlists:
+            thumbs = pl.get("thumbnails", [])
+            t = thumbs[-1].get("url", "") if thumbs else ""
+            artists = ", ".join(a["name"] for a in pl.get("artists", []))
+            result.append({
+                "playlistId": pl.get("playlistId", ""),
+                "title": pl.get("title", ""),
+                "subtitle": artists or pl.get("description", ""),
+                "thumbnail": t,
+            })
+        return jsonify(result)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
