@@ -24,24 +24,10 @@
 
 ---
 
-## Features
 
-| Feature | Status |
-|---|---|
-| Home feed (Mixes, Quick Picks, Listen Again) | ✅ Available |
-| Synced Library and Playlists | ✅ Available |
-| Global Search | ✅ Available |
-| Artist & Album pages | ✅ Available |
-| Synced Lyrics from multiple Providers (Better Lyrics, LRCLIB, SimpMuisc & KuGou) | ✅ Available |
-| In-playlist search & total duration | ✅ Available |
-| Download Songs for Offline Play | ✅ Available |
-| Multilingual UI (English & German)* | ✅ Available |
-| Keyboard shortcuts | ✅ Available |
-| Community translations (Crowdin) | 🔄 In progress |
-| WebNowPlaying support | 🔜 Planned |
-| Local Account (No Log-in required) | 🔜 Planned |
 
-*More languages available soon. Want to contribute? Check out our [Crowdin](https://crowdin.com/project/kiyoshi-music)
+Help translate the App in your Language!
+Check out the [Crowdin-Page](https://crowdin.com/project/kiyoshi-music)!
 
 If you have suggestions or ideas on how the player could be improved, do not hesitate to give feedback! (⁠≧⁠▽⁠≦⁠)
 
