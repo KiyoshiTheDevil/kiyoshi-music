@@ -41,6 +41,8 @@ If you have suggestions or ideas on how the player could be improved, do not hes
 
 If you find more issues and bugs, please report then in the Issues-Tab! Thank you!
 
+A Google Account is required to use this app in order to sync the library and playlists with YouTube Music! 
+
 ---
 
 ## Download
