@@ -231,7 +231,7 @@ fn kill_existing_server(child: &mut Option<std::process::Child>) {
         std::thread::sleep(std::time::Duration::from_millis(200));
     }
 
-    // 3. Kill by process name + port as fallback on Windows
+    // 3. Kill by process name + port as fallback (platform-specific)
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
@@ -265,6 +265,18 @@ fn kill_existing_server(child: &mut Option<std::process::Child>) {
         }
         std::thread::sleep(std::time::Duration::from_millis(200));
     }
+
+    #[cfg(target_os = "linux")]
+    {
+        let _ = std::process::Command::new("pkill")
+            .args(["-f", "kiyoshi-server"])
+            .output();
+        // Kill any remaining process on port 9847
+        let _ = std::process::Command::new("fuser")
+            .args(["-k", "9847/tcp"])
+            .output();
+        std::thread::sleep(std::time::Duration::from_millis(200));
+    }
 }
 
 fn main() {
@@ -287,31 +299,43 @@ fn main() {
         .setup(|app| {
             #[cfg(not(debug_assertions))]
             {
-                use std::os::windows::process::CommandExt;
-                const CREATE_NO_WINDOW: u32 = 0x08000000;
-
                 // Kill any leftover server from a previous run
                 let mut none: Option<std::process::Child> = None;
                 kill_existing_server(&mut none);
 
-                // Find server binary next to our own executable
-                let server_exe = app.path()
-                    .resource_dir()
-                    .ok()
-                    .and_then(|p| {
-                        // resource_dir may point inside the bundle; walk up to exe dir
-                        let exe_dir = std::env::current_exe().ok()
-                            .and_then(|e| e.parent().map(|p| p.to_path_buf()));
-                        exe_dir
-                    })
-                    .unwrap_or_else(|| std::path::PathBuf::from("."))
-                    .join("kiyoshi-server-x86_64-pc-windows-msvc.exe");
+                // Server binary name matches the Tauri externalBin target-triple convention
+                #[cfg(all(target_os = "windows", target_arch = "x86_64"))]
+                let server_bin = "kiyoshi-server-x86_64-pc-windows-msvc.exe";
+                #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+                let server_bin = "kiyoshi-server-x86_64-unknown-linux-gnu";
+                #[cfg(all(target_os = "linux", target_arch = "aarch64"))]
+                let server_bin = "kiyoshi-server-aarch64-unknown-linux-gnu";
+                #[cfg(all(target_os = "macos", target_arch = "x86_64"))]
+                let server_bin = "kiyoshi-server-x86_64-apple-darwin";
+                #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+                let server_bin = "kiyoshi-server-aarch64-apple-darwin";
 
-                if let Ok(child) = std::process::Command::new(&server_exe)
-                    .creation_flags(CREATE_NO_WINDOW)
-                    .spawn()
+                let exe_dir = std::env::current_exe().ok()
+                    .and_then(|e| e.parent().map(|p| p.to_path_buf()))
+                    .unwrap_or_else(|| std::path::PathBuf::from("."));
+                let server_exe = exe_dir.join(server_bin);
+
+                #[cfg(windows)]
                 {
-                    *app.state::<ServerProcess>().0.lock().unwrap() = Some(child);
+                    use std::os::windows::process::CommandExt;
+                    const CREATE_NO_WINDOW: u32 = 0x08000000;
+                    if let Ok(child) = std::process::Command::new(&server_exe)
+                        .creation_flags(CREATE_NO_WINDOW)
+                        .spawn()
+                    {
+                        *app.state::<ServerProcess>().0.lock().unwrap() = Some(child);
+                    }
+                }
+                #[cfg(not(windows))]
+                {
+                    if let Ok(child) = std::process::Command::new(&server_exe).spawn() {
+                        *app.state::<ServerProcess>().0.lock().unwrap() = Some(child);
+                    }
                 }
 
                 wait_for_server(10000);

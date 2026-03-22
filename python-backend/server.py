@@ -12,15 +12,22 @@ import sys, os, json, glob, threading, time, requests
 app = Flask(__name__)
 CORS(app)
 
-# When frozen as a PyInstaller --onefile bundle store all user data in
-# %LOCALAPPDATA%\dev.kiyoshi.music so the NSIS uninstaller can clean it up
-# automatically when the user checks "Delete personal data".
+# When frozen as a PyInstaller --onefile bundle store all user data in a
+# platform-appropriate location so uninstallers can clean it up cleanly.
 # In dev mode, keep data next to server.py for convenience.
 if getattr(sys, 'frozen', False):
-    _base_dir = os.path.join(
-        os.environ.get('LOCALAPPDATA', os.path.dirname(sys.executable)),
-        'dev.kiyoshi.music'
-    )
+    if sys.platform == 'win32':
+        # Windows: %LOCALAPPDATA%\dev.kiyoshi.music
+        _base_dir = os.path.join(
+            os.environ.get('LOCALAPPDATA', os.path.dirname(sys.executable)),
+            'dev.kiyoshi.music'
+        )
+    else:
+        # Linux / macOS: follow XDG Base Directory spec
+        _base_dir = os.path.join(
+            os.environ.get('XDG_DATA_HOME', os.path.expanduser('~/.local/share')),
+            'dev.kiyoshi.music'
+        )
 else:
     _base_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -1672,21 +1679,21 @@ _export_status = {}  # video_id -> "exporting" | "done" | "error"
 
 def _find_ffmpeg():
     """Find ffmpeg binary — check bundled location first, then PATH."""
+    bin_name = "ffmpeg.exe" if sys.platform == "win32" else "ffmpeg"
     candidates = []
     if getattr(sys, 'frozen', False):
         # Next to the server executable (primary install-dir location)
-        candidates.append(os.path.join(os.path.dirname(sys.executable), "ffmpeg.exe"))
+        candidates.append(os.path.join(os.path.dirname(sys.executable), bin_name))
         # PyInstaller _MEIPASS temp dir (in case user bundled ffmpeg inside)
         meipass = getattr(sys, '_MEIPASS', None)
         if meipass:
-            candidates.append(os.path.join(meipass, "ffmpeg.exe"))
+            candidates.append(os.path.join(meipass, bin_name))
             # One level up from _MEIPASS (install dir)
-            candidates.append(os.path.join(os.path.dirname(meipass), "ffmpeg.exe"))
+            candidates.append(os.path.join(os.path.dirname(meipass), bin_name))
     else:
-        candidates.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), "ffmpeg.exe"))
+        candidates.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), bin_name))
 
     for bundled in candidates:
-        print(f"[ffmpeg] checking: {bundled} → {'FOUND' if os.path.exists(bundled) else 'not found'}")
         if os.path.exists(bundled):
             return os.path.dirname(bundled)
 

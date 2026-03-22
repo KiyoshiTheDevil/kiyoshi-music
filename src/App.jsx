@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, createContext, useContext } from "react";
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, createContext, useContext } from "react";
 import { createPortal } from "react-dom";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 const appWindow = getCurrentWebviewWindow();
@@ -42,8 +42,8 @@ import {
 const API = "http://localhost:9847";
 
 // ─── App Version ─────────────────────────────────────────────────────────────
-const APP_VERSION = "0.9.0-alpha";
-const BUILD_NUMBER = 20825; // Erhöhe diese Zahl bei jeder Änderung
+const APP_VERSION = "0.9.1-alpha";
+const BUILD_NUMBER = 20920; // Erhöhe diese Zahl bei jeder Änderung
 
 // ─── Update Checker (GitHub Releases) ───────────────────────────────────────
 const APP_TAG = "v0.9.0";
@@ -2863,8 +2863,24 @@ function parseTtml(ttml) {
 
   // Detect timing mode: "Line" = one timestamp per line, "Word" = per-word timestamps
   const ttEl = doc.querySelector("tt");
-  const timingMode = ttEl?.getAttribute("itunes:timing") || "Word";
+  const timingMode = ttEl?.getAttribute("itunes:timing") || ttEl?.getAttribute("composer:timing") || "Word";
   const isLineSync = timingMode === "Line";
+
+  // Parse agents from <head><metadata><ttm:agent>
+  const TTM_NS = "http://www.w3.org/ns/ttml#metadata";
+  const agents = {};
+  let leadAgentId = null;
+  const agentEls = doc.getElementsByTagNameNS(TTM_NS, "agent");
+  for (const a of agentEls) {
+    const id = a.getAttribute("xml:id");
+    const type = a.getAttribute("type");
+    const nameEls = a.getElementsByTagNameNS(TTM_NS, "name");
+    const name = nameEls[0]?.textContent?.trim();
+    if (id) {
+      agents[id] = { id, type, name };
+      if (!leadAgentId && type === "person") leadAgentId = id;
+    }
+  }
 
   const lines = [];
   for (const p of doc.querySelectorAll("p")) {
@@ -2874,10 +2890,20 @@ function parseTtml(ttml) {
     const time = ttmlTimeToSeconds(begin);
     const endTime = end ? ttmlTimeToSeconds(end) : null;
 
+    // Resolve agent and role
+    const agentId = p.getAttribute("ttm:agent");
+    const agent = agentId ? (agents[agentId] || null) : null;
+    let agentRole = null;
+    if (agent) {
+      if (agent.type === "group") agentRole = "group";
+      else if (agentId === leadAgentId) agentRole = "lead";
+      else agentRole = "featured";
+    }
+
     if (isLineSync) {
       // Line-sync: treat entire <p> text as one unit, wipe smoothly over [time, endTime]
       const text = p.textContent?.trim();
-      if (text) lines.push({ time, endTime, text, wordSync: false, lineSync: true });
+      if (text) lines.push({ time, endTime, text, wordSync: false, lineSync: true, agent, agentRole });
       continue;
     }
 
@@ -2900,7 +2926,7 @@ function parseTtml(ttml) {
     };
 
     for (const child of p.childNodes) processNode(child, begin, end);
-    if (words.length) lines.push({ time, endTime, words, wordSync: true });
+    if (words.length) lines.push({ time, endTime, words, wordSync: true, agent, agentRole });
   }
   return lines;
 }
@@ -3038,12 +3064,7 @@ async function _fetchLyrics_unused(title, artist, album, duration) {
     const r = await fetch(`https://lyrics-api.boidu.dev/getLyrics?${params}`);
     if (r.ok) {
       const d = await r.json();
-      if (d?.ttml) {
-        console.log("TTML sample:", d.ttml.slice(0, 2000));
-        const lrc = parseTtml(d.ttml);
-        console.log("Parsed lines sample:", JSON.stringify(lrc.slice(0, 3), null, 2));
-        if (lrc.length) return { source: "Better Lyrics", lrc };
-      }
+      if (d?.ttml) { const lrc = parseTtml(d.ttml); if (lrc.length) return { source: "Better Lyrics", lrc }; }
     }
   } catch {}
 
@@ -3068,18 +3089,119 @@ function LyricsOverlay({ track, audioRef, onClose, fontSize = 32, providers = DE
   const t = useLang();
   const containerRef = useRef(null);
   const rafRef = useRef(null);
+  const lyricsDataRef = useRef(null); // rAF loop reads lyrics without closure
+  const lastIdxRef = useRef(-1);      // tracks active line to detect changes
+  const wordElsRef = useRef([]);      // DOM refs to active line's word spans
+  const activeWordIdxRef = useRef(-1); // tracks active word within line
+  // High-resolution playback time: interpolate between timeupdate events
+  const audioSnapRef = useRef({ ct: 0, pt: 0, playing: false });
 
-  // Drive re-renders at 60fps, but read currentTime directly (no lag from setState)
+  // Keep lyricsDataRef in sync with state
+  useEffect(() => { lyricsDataRef.current = lyrics; }, [lyrics]);
+
+  // Sync audio snap so the rAF loop can interpolate currentTime at 60 fps
   useEffect(() => {
-    let last = -1;
+    const audio = audioRef.current;
+    if (!audio) return;
+    const snap = () => {
+      audioSnapRef.current = { ct: audio.currentTime, pt: performance.now(), playing: !audio.paused };
+    };
+    audio.addEventListener("timeupdate", snap);
+    audio.addEventListener("play",       snap);
+    audio.addEventListener("pause",      snap);
+    audio.addEventListener("seeked",     snap);
+    snap(); // initial
+    return () => {
+      audio.removeEventListener("timeupdate", snap);
+      audio.removeEventListener("play",       snap);
+      audio.removeEventListener("pause",      snap);
+      audio.removeEventListener("seeked",     snap);
+    };
+  }, [audioRef]);
+
+  // rAF loop: line changes trigger React re-render; word highlighting is direct DOM manipulation
+  useEffect(() => {
     const loop = () => {
-      const t = audioRef.current?.currentTime ?? 0;
-      if (Math.abs(t - last) > 0.01) { last = t; setTick(n => n + 1); }
+      const { ct, pt, playing } = audioSnapRef.current;
+      const t = playing ? ct + (performance.now() - pt) / 1000 : ct;
+      const lyr = lyricsDataRef.current;
+
+      // Line detection — React re-render only when line changes
+      const newIdx = lyr ? lyr.reduce((b, l, i) => l.time <= t ? i : b, -1) : -1;
+      if (newIdx !== lastIdxRef.current) {
+        lastIdxRef.current = newIdx;
+        activeWordIdxRef.current = -1;
+        wordElsRef.current = []; // cleared until useLayoutEffect repopulates after render
+        setTick(n => n + 1);
+      }
+
+      // Word highlighting — direct DOM, bypasses React entirely
+      const lyrLine = lyr?.[newIdx];
+      if (lyrLine?.wordSync && wordElsRef.current.length > 0) {
+        const words = lyrLine.words.filter(w => !w.isSpace);
+        let curWordIdx = -1;
+        for (let wi = 0; wi < words.length; wi++) {
+          if (t >= words[wi].time) curWordIdx = wi;
+          else break;
+        }
+        // Update non-active words only on word change (cheap)
+        if (curWordIdx !== activeWordIdxRef.current) {
+          activeWordIdxRef.current = curWordIdx;
+          const els = wordElsRef.current;
+          for (let wi = 0; wi < els.length; wi++) {
+            const el = els[wi];
+            if (!el) continue;
+            const dimEl = el.previousElementSibling;
+            if (wi === curWordIdx) {
+              // Fade-in: bright span was opacity=0 (future state) → animate to 1
+              el.style.transition = "opacity 0.15s ease-out";
+              el.style.opacity = "1";
+            } else if (wi < curWordIdx) {
+              // Past: keep bright span fully visible (same white as active)
+              el.style.transition = "";
+              el.style.WebkitMaskImage = "";
+              el.style.maskImage = "";
+              el.style.opacity = "1";
+            } else {
+              // Future: instant reset
+              el.style.transition = "";
+              el.style.opacity = "0";
+              el.style.WebkitMaskImage = "linear-gradient(to right, black -6px, transparent 6px)";
+              el.style.maskImage = "linear-gradient(to right, black -6px, transparent 6px)";
+              if (dimEl) { dimEl.style.transition = ""; dimEl.style.color = "rgba(255,255,255,0.25)"; }
+            }
+          }
+        }
+        // Update active word mask every frame for smooth wipe (opacity handled by CSS transition)
+        if (curWordIdx >= 0 && curWordIdx < wordElsRef.current.length) {
+          const el = wordElsRef.current[curWordIdx];
+          const word = words[curWordIdx];
+          if (el && word) {
+            const pct = Math.min(100, (t - word.time) / Math.max(word.end - word.time, 0.001) * 100);
+            el.style.WebkitMaskImage = `linear-gradient(to right, black calc(${pct.toFixed(1)}% - 6px), transparent calc(${pct.toFixed(1)}% + 6px))`;
+            el.style.maskImage = `linear-gradient(to right, black calc(${pct.toFixed(1)}% - 6px), transparent calc(${pct.toFixed(1)}% + 6px))`;
+          }
+        }
+      }
+
       rafRef.current = requestAnimationFrame(loop);
     };
     rafRef.current = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(rafRef.current);
-  }, [audioRef]);
+  }, [audioRef]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // After React renders, cache word span elements for the active line
+  useLayoutEffect(() => {
+    const idx = lastIdxRef.current;
+    if (idx >= 0) {
+      const lineEl = document.querySelector(`[data-lyric-idx="${idx}"]`);
+      wordElsRef.current = lineEl
+        ? Array.from(lineEl.querySelectorAll("[data-word-bright]"))
+        : [];
+    } else {
+      wordElsRef.current = [];
+    }
+  }, [tick]);
 
   useEffect(() => {
     if (!track) return;
@@ -3115,11 +3237,7 @@ function LyricsOverlay({ track, audioRef, onClose, fontSize = 32, providers = DE
     });
   }, [track, refetchKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const now = audioRef.current?.currentTime ?? 0;
-
-  const activeIdx = lyrics
-    ? lyrics.reduce((best, line, i) => line.time <= now ? i : best, -1)
-    : -1;
+  const activeIdx = lastIdxRef.current;
 
   useEffect(() => {
     if (activeIdx < 0 || !containerRef.current) return;
@@ -3211,40 +3329,6 @@ function LyricsOverlay({ track, audioRef, onClose, fontSize = 32, providers = DE
             ? line.words.map(w => w.text).join("")
             : (line.text || "\u00A0");
 
-          // Wipe progress: wordSync only — per-word timing
-          let wipePercent = 0;
-          if (isActive) {
-            if (line.wordSync && line.words) {
-              const nonSpaceWords = line.words.filter(w => !w.isSpace);
-              if (nonSpaceWords.length) {
-                const last = nonSpaceWords[nonSpaceWords.length - 1];
-                if (now >= last.end) {
-                  wipePercent = 100;
-                } else {
-                  for (let wi = 0; wi < nonSpaceWords.length; wi++) {
-                    const w = nonSpaceWords[wi];
-                    const nextW = nonSpaceWords[wi + 1];
-                    if (now < w.time) {
-                      // Before this word starts — freeze at previous word's end
-                      wipePercent = wi / nonSpaceWords.length * 100;
-                      break;
-                    } else if (now <= w.end) {
-                      // Inside this word — wipe proportionally through it
-                      const wordPct = (now - w.time) / Math.max(w.end - w.time, 0.001);
-                      // ease-out: fast start, slow finish
-                      const eased = 1 - Math.pow(1 - Math.min(1, wordPct), 2);
-                      wipePercent = (wi + eased) / nonSpaceWords.length * 100;
-                      break;
-                    } else if (nextW && now < nextW.time) {
-                      // In the gap between words — freeze at this word's end
-                      wipePercent = (wi + 1) / nonSpaceWords.length * 100;
-                      break;
-                    }
-                  }
-                }
-              }
-            }
-          }
 
           let blur, opacity;
           if (isActive)     { blur = 0;   opacity = 1; }
@@ -3252,10 +3336,13 @@ function LyricsOverlay({ track, audioRef, onClose, fontSize = 32, providers = DE
           else              { blur = 0;   opacity = 0.35; }
 
           const seekable = line.time >= 0;
+          const agentRole = line.agentRole; // "lead", "featured", "group", or null
+          const textAlign = agentRole === "featured" ? "right" : agentRole === "group" ? "center" : "left";
           return (
             <div
               key={i}
               data-lyric="true"
+              data-lyric-idx={i}
               onClick={seekable ? () => { audioRef.current.currentTime = line.time; } : undefined}
               onMouseEnter={seekable ? e => { e.currentTarget.style.opacity = Math.min(1, opacity + 0.25); } : undefined}
               onMouseLeave={seekable ? e => { e.currentTarget.style.opacity = opacity; } : undefined}
@@ -3272,19 +3359,36 @@ function LyricsOverlay({ track, audioRef, onClose, fontSize = 32, providers = DE
                 borderRadius: 8,
                 padding: "2px 8px",
                 margin: "0 -8px 24px",
+                textAlign,
               }}
             >
+              {agentRole === "featured" && line.agent?.name && (
+                <div style={{
+                  fontSize: 10, fontWeight: 600, letterSpacing: "0.04em",
+                  color: "rgba(255,255,255,0.45)", marginBottom: 3,
+                  textTransform: "uppercase",
+                }}>{line.agent.name}</div>
+              )}
               {isActive && line.wordSync ? (
-                <span style={{ display: "inline-grid" }}>
-                  <span style={{ gridArea: "1/1", color: "rgba(255,255,255,0.25)", whiteSpace: "pre-wrap" }}>{lineText}</span>
-                  <span style={{
-                    gridArea: "1/1",
-                    color: "#fff",
-                    whiteSpace: "pre-wrap",
-                    WebkitMaskImage: `linear-gradient(to right, black calc(${wipePercent}% - 8px), transparent calc(${wipePercent}% + 8px))`,
-                    maskImage: `linear-gradient(to right, black calc(${wipePercent}% - 8px), transparent calc(${wipePercent}% + 8px))`,
-                    pointerEvents: "none",
-                  }}>{lineText}</span>
+                <span style={{ whiteSpace: "pre-wrap" }}>
+                  {line.words.map((word, wi) =>
+                    word.isSpace
+                      ? <span key={wi}>{word.text}</span>
+                      : <span key={wi} style={{ position: "relative", display: "inline-block" }}>
+                          <span style={{ color: "rgba(255,255,255,0.25)" }}>{word.text}</span>
+                          <span
+                            data-word-bright="true"
+                            style={{
+                              position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
+                              color: "white",
+                              opacity: 0,
+                              WebkitMaskImage: "linear-gradient(to right, black -6px, transparent 6px)",
+                              maskImage: "linear-gradient(to right, black -6px, transparent 6px)",
+                              pointerEvents: "none",
+                            }}
+                          >{word.text}</span>
+                        </span>
+                  )}
                 </span>
               ) : (
                 <span style={{ color: "#fff" }}>{lineText}</span>
