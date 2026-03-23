@@ -105,27 +105,41 @@ jobs:
           SCRIPT
           chmod +x "$OUT/kiyoshi-music.sh"
 
-          # Install-Script für Arch/SteamOS
+          # Install-Script für Arch/SteamOS (installiert nach ~/.local, kein sudo nötig)
           cat > "$OUT/install.sh" << 'SCRIPT'
           #!/bin/bash
           set -e
           SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-          if command -v pacman &>/dev/null; then
-            echo "Arch/SteamOS erkannt – installiere Abhängigkeiten..."
-            sudo pacman -S --needed --noconfirm webkit2gtk-4.1 libayatana-appindicator ffmpeg
-          elif command -v apt-get &>/dev/null; then
-            echo "Debian/Ubuntu erkannt – installiere Abhängigkeiten..."
-            sudo apt-get install -y libwebkit2gtk-4.1-0 libayatana-appindicator3-1 ffmpeg
-          else
-            echo "Unbekannte Distribution – bitte webkit2gtk-4.1 und ffmpeg manuell installieren."
+          mkdir -p "$HOME/.local/bin"
+
+          # Hauptbinary
+          cp "$SCRIPT_DIR/kiyoshi-music" "$HOME/.local/bin/kiyoshi-music"
+          chmod +x "$HOME/.local/bin/kiyoshi-music"
+
+          # Server-Binary – Tauri sucht nach dem Binary MIT Target-Triple-Suffix
+          # neben dem Hauptbinary
+          cp "$SCRIPT_DIR/kiyoshi-server" "$HOME/.local/bin/kiyoshi-server-x86_64-unknown-linux-gnu"
+          chmod +x "$HOME/.local/bin/kiyoshi-server-x86_64-unknown-linux-gnu"
+
+          # Launcher mit SteamOS-Env-Vars
+          cat > "$HOME/.local/bin/kiyoshi-music-launcher" << 'LAUNCHER'
+#!/bin/bash
+export WEBKIT_DISABLE_COMPOSITING_MODE=1
+export GDK_BACKEND=x11
+exec "$HOME/.local/bin/kiyoshi-music" "$@"
+LAUNCHER
+          chmod +x "$HOME/.local/bin/kiyoshi-music-launcher"
+
+          # ~/.local/bin in PATH eintragen falls nötig
+          if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
+            echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$HOME/.bashrc"
+            echo "PATH erweitert – bitte 'source ~/.bashrc' ausführen."
           fi
 
-          sudo install -Dm755 "$SCRIPT_DIR/kiyoshi-music" /usr/local/bin/kiyoshi-music
-          sudo install -Dm755 "$SCRIPT_DIR/kiyoshi-server" /usr/local/lib/kiyoshi-music/kiyoshi-server
-          sudo install -Dm755 "$SCRIPT_DIR/kiyoshi-music.sh" /usr/local/bin/kiyoshi-music-launcher
-
+          echo ""
           echo "Fertig! Starte mit: kiyoshi-music-launcher"
+          echo "(oder neu einloggen und dann: kiyoshi-music-launcher)"
           SCRIPT
           chmod +x "$OUT/install.sh"
 
