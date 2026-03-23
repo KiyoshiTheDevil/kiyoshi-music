@@ -83,3 +83,59 @@ jobs:
           releaseName: 'Kiyoshi Music ${{ github.ref_name }}'
           releaseDraft: true
           prerelease: ${{ contains(github.ref_name, 'alpha') || contains(github.ref_name, 'beta') }}
+
+      # ── Linux tarball (Arch / SteamOS) ────────────────────────────────────
+      - name: Package Linux tarball for Arch/SteamOS
+        if: runner.os == 'Linux'
+        run: |
+          TAG="${{ github.ref_name }}"
+          OUT="kiyoshi-music-${TAG}-linux-x86_64"
+          mkdir -p "$OUT"
+
+          cp src-tauri/target/release/kiyoshi-music "$OUT/"
+          cp src-tauri/binaries/kiyoshi-server-x86_64-unknown-linux-gnu "$OUT/kiyoshi-server"
+
+          # Launcher-Script mit SteamOS-kompatiblen Env-Vars
+          cat > "$OUT/kiyoshi-music.sh" << 'SCRIPT'
+          #!/bin/bash
+          DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+          export WEBKIT_DISABLE_COMPOSITING_MODE=1
+          export GDK_BACKEND=x11
+          exec "$DIR/kiyoshi-music" "$@"
+          SCRIPT
+          chmod +x "$OUT/kiyoshi-music.sh"
+
+          # Install-Script für Arch/SteamOS
+          cat > "$OUT/install.sh" << 'SCRIPT'
+          #!/bin/bash
+          set -e
+          SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+          if command -v pacman &>/dev/null; then
+            echo "Arch/SteamOS erkannt – installiere Abhängigkeiten..."
+            sudo pacman -S --needed --noconfirm webkit2gtk-4.1 libayatana-appindicator ffmpeg
+          elif command -v apt-get &>/dev/null; then
+            echo "Debian/Ubuntu erkannt – installiere Abhängigkeiten..."
+            sudo apt-get install -y libwebkit2gtk-4.1-0 libayatana-appindicator3-1 ffmpeg
+          else
+            echo "Unbekannte Distribution – bitte webkit2gtk-4.1 und ffmpeg manuell installieren."
+          fi
+
+          sudo install -Dm755 "$SCRIPT_DIR/kiyoshi-music" /usr/local/bin/kiyoshi-music
+          sudo install -Dm755 "$SCRIPT_DIR/kiyoshi-server" /usr/local/lib/kiyoshi-music/kiyoshi-server
+          sudo install -Dm755 "$SCRIPT_DIR/kiyoshi-music.sh" /usr/local/bin/kiyoshi-music-launcher
+
+          echo "Fertig! Starte mit: kiyoshi-music-launcher"
+          SCRIPT
+          chmod +x "$OUT/install.sh"
+
+          tar -czf "${OUT}.tar.gz" "$OUT/"
+
+      - name: Upload Linux tarball to release
+        if: runner.os == 'Linux'
+        run: |
+          gh release upload "${{ github.ref_name }}" \
+            kiyoshi-music-${{ github.ref_name }}-linux-x86_64.tar.gz \
+            --clobber
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
