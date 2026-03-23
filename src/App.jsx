@@ -8,9 +8,9 @@ import {
   IconContext,
   Minus, X, Play, Pause,
   House, Books, Heart,
-  ArrowLineRight, ArrowLineLeft,
+  CaretLineLeft, CaretLineRight,
   MagnifyingGlass, Gear, Palette, PlayCircle, Microphone,
-  VinylRecord, MusicNote, ImageSquare,
+  VinylRecord, MusicNote, Playlist, ImageSquare,
   DotsSixVertical,
   Shuffle, SkipBack, SkipForward, Repeat, RepeatOnce,
   SpeakerX, SpeakerLow, SpeakerHigh,
@@ -81,10 +81,10 @@ const FontScaleContext = createContext(1);
 const useFontScale = () => useContext(FontScaleContext);
 
 // Stepped values for the zoom and font-size sliders
-const ZOOM_STEPS      = [0.8, 0.9, 1.0, 1.1, 1.2];
-const ZOOM_LABELS     = ["80%", "90%", "100%", "110%", "120%"];
-const FONT_STEPS      = [0.85, 0.93, 1.0, 1.10, 1.20];
-const FONT_LABELS     = ["S", "M", "L", "XL", "XXL"];
+const ZOOM_STEPS      = [0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5];
+const ZOOM_LABELS     = ["80%", "90%", "100%", "110%", "120%", "130%", "140%", "150%"];
+const FONT_STEPS      = [0.85, 0.93, 1.0, 1.10, 1.20, 1.35, 1.50];
+const FONT_LABELS     = FONT_STEPS.map(s => `${Math.round(13 * s)}px`);
 
 // Spring physics: returns a CSS transition string
 function spring(prop, opts = {}) {
@@ -429,7 +429,7 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
             transition: "all 0.15s", position: "relative", zIndex: 201,
           }}
         >
-          {collapsed ? <ArrowLineRight size={16} /> : <ArrowLineLeft size={16} />}
+          {collapsed ? <CaretLineRight size={16} /> : <CaretLineLeft size={16} />}
         </div>
         {!collapsed && (
           <>
@@ -458,8 +458,8 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
         <div style={{ padding: "0 12px", marginBottom: 12 }}>
           <div style={{
             display: "flex", alignItems: "center", gap: 8,
-            background: "var(--bg-elevated)", borderRadius: "var(--radius)",
-            padding: "6px 10px", border: "0.5px solid var(--border)"
+            background: "rgba(0,0,0,0.25)", borderRadius: "var(--radius)",
+            padding: "6px 10px"
           }}>
             <MagnifyingGlass size={16} style={{ flexShrink: 0, color: "var(--text-muted)" }} />
             <input
@@ -515,7 +515,7 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
               fontSize: "var(--t13)",
             }}
           >
-            <span style={{ flexShrink: 0 }}>{item.iconEl}</span>
+            <span style={{ flexShrink: 0, display: "flex", alignItems: "center" }}>{item.iconEl}</span>
             {!collapsed && item.label}
           </div>
         </React.Fragment>
@@ -540,7 +540,7 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
                     ? <VinylRecord size={14} style={{ flexShrink: 0, color: "var(--accent)" }} />
                     : pl.type === "artist"
                     ? <Microphone size={14} style={{ flexShrink: 0, color: "var(--accent)" }} />
-                    : <MusicNote size={14} style={{ flexShrink: 0, color: "var(--accent)" }} />
+                    : <Playlist size={14} style={{ flexShrink: 0, color: "var(--accent)" }} />
                   }
                   <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{pl.title}</span>
                 </div>
@@ -562,7 +562,7 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
                     ? <VinylRecord size={14} style={{ flexShrink: 0, opacity: 0.4 }} />
                     : pl.type === "artist"
                     ? <Microphone size={14} style={{ flexShrink: 0, opacity: 0.4 }} />
-                    : <MusicNote size={14} style={{ flexShrink: 0, opacity: 0.4 }} />
+                    : <Playlist size={14} style={{ flexShrink: 0, opacity: 0.4 }} />
                   }
                   <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{pl.title}</span>
                 </div>
@@ -603,8 +603,11 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
             />
           )}
           <div style={{ margin: "0 16px 4px", borderTop: "0.5px solid var(--border)" }} />
-          <div ref={profileTriggerRef} style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 16px 8px", cursor: "pointer" }}
+          <div ref={profileTriggerRef}
+            style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", margin: "0 8px 4px", borderRadius: "var(--radius)", cursor: "pointer", transition: "background 0.15s", background: "transparent" }}
             onClick={() => setProfileDropdownOpen(o => !o)}
+            onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
+            onMouseLeave={e => e.currentTarget.style.background = "transparent"}
           >
             <div
               style={{
@@ -1564,10 +1567,10 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                   <Toggle value={animations} onChange={onAnimationsChange} />
                 </SettingRow>
                 <SettingRow label={t("uiZoom")} description={t("uiZoomDesc")}>
-                  <div style={{ width: 180 }}>
+                  <div style={{ width: 250 }}>
                     <Slider min={0} max={ZOOM_STEPS.length - 1} step={1}
                       value={Math.max(0, ZOOM_STEPS.indexOf(uiZoom))}
-                      onChange={i => onUiZoomChange(ZOOM_STEPS[i])} width={180} />
+                      onChange={i => onUiZoomChange(ZOOM_STEPS[i])} width={250} />
                     <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6 }}>
                       {ZOOM_LABELS.map((label, i) => (
                         <span key={i} style={{ fontSize: "var(--t10)", fontWeight: uiZoom === ZOOM_STEPS[i] ? 700 : 400, color: uiZoom === ZOOM_STEPS[i] ? "var(--accent)" : "var(--text-muted)" }}>{label}</span>
@@ -1576,10 +1579,10 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                   </div>
                 </SettingRow>
                 <SettingRow label={t("fontSize")} description={t("fontSizeDesc")}>
-                  <div style={{ width: 180 }}>
+                  <div style={{ width: 250 }}>
                     <Slider min={0} max={FONT_STEPS.length - 1} step={1}
                       value={Math.max(0, FONT_STEPS.indexOf(appFontScale))}
-                      onChange={i => onFontScaleChange(FONT_STEPS[i])} width={180} />
+                      onChange={i => onFontScaleChange(FONT_STEPS[i])} width={250} />
                     <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6 }}>
                       {FONT_LABELS.map((label, i) => (
                         <span key={i} style={{ fontSize: "var(--t10)", fontWeight: appFontScale === FONT_STEPS[i] ? 700 : 400, color: appFontScale === FONT_STEPS[i] ? "var(--accent)" : "var(--text-muted)" }}>{label}</span>
@@ -2422,8 +2425,6 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
           <div style={{
             width: 40, height: 40, borderRadius: 6, flexShrink: 0, overflow: "hidden", background: "var(--bg-elevated)",
             animation: anim && track ? "coverPop 0.5s cubic-bezier(0.34,1.56,0.64,1)" : "none",
-            transition: anim ? spring("box-shadow", { stiffness: "0.3s", fn: "ease" }) : "none",
-            boxShadow: isPlaying && anim ? `0 4px 16px color-mix(in srgb, var(--accent) 40%, transparent)` : "none",
           }}>
             {track?.thumbnail
               ? <img src={thumb(track.thumbnail)} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
@@ -2471,7 +2472,7 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
             }}
             style={{
               width: 42, height: 34, borderRadius: 10,
-              background: track ? "color-mix(in srgb, var(--accent) 18%, transparent)" : "transparent",
+              background: "transparent",
               border: "none", cursor: track ? "pointer" : "default",
               display: "flex", alignItems: "center", justifyContent: "center",
               color: track ? "var(--accent)" : "var(--text-muted)",
@@ -2480,11 +2481,11 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
               flexShrink: 0,
             }}
             onMouseEnter={e => { if (!track) return;
-              e.currentTarget.style.background = "color-mix(in srgb, var(--accent) 28%, transparent)";
+              e.currentTarget.style.background = "var(--bg-hover)";
               if (anim) e.currentTarget.style.transform = "scale(1.08)";
             }}
             onMouseLeave={e => { if (!track) return;
-              e.currentTarget.style.background = "color-mix(in srgb, var(--accent) 18%, transparent)";
+              e.currentTarget.style.background = "transparent";
               if (anim) e.currentTarget.style.transform = "scale(1)";
             }}
             onMouseDown={e => { if (track && anim) e.currentTarget.style.transform = "scale(0.93)"; }}
@@ -2513,7 +2514,7 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
             onClick={() => { const t = getAdjacentTrack("next"); if (t) setTrack(t); }}
             style={{
               width: 42, height: 34, borderRadius: 10,
-              background: track ? "color-mix(in srgb, var(--accent) 18%, transparent)" : "transparent",
+              background: "transparent",
               border: "none", cursor: track ? "pointer" : "default",
               display: "flex", alignItems: "center", justifyContent: "center",
               color: track ? "var(--accent)" : "var(--text-muted)",
@@ -2522,11 +2523,11 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
               flexShrink: 0,
             }}
             onMouseEnter={e => { if (!track) return;
-              e.currentTarget.style.background = "color-mix(in srgb, var(--accent) 28%, transparent)";
+              e.currentTarget.style.background = "var(--bg-hover)";
               if (anim) e.currentTarget.style.transform = "scale(1.08)";
             }}
             onMouseLeave={e => { if (!track) return;
-              e.currentTarget.style.background = "color-mix(in srgb, var(--accent) 18%, transparent)";
+              e.currentTarget.style.background = "transparent";
               if (anim) e.currentTarget.style.transform = "scale(1)";
             }}
             onMouseDown={e => { if (track && anim) e.currentTarget.style.transform = "scale(0.93)"; }}
