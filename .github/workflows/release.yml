@@ -10,16 +10,7 @@ permissions:
 
 jobs:
   release:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
-          - os: ubuntu-22.04
-            target: x86_64-unknown-linux-gnu
-
-    runs-on: ${{ matrix.os }}
+    runs-on: windows-latest
 
     steps:
       - uses: actions/checkout@v4
@@ -38,9 +29,9 @@ jobs:
         working-directory: python-backend
         run: >
           pyinstaller
-          kiyoshi-server-${{ matrix.target }}.spec
+          kiyoshi-server-x86_64-pc-windows-msvc.spec
           --distpath ../src-tauri/binaries
-          --workpath build_tmp/kiyoshi-server-${{ matrix.target }}
+          --workpath build_tmp/kiyoshi-server-x86_64-pc-windows-msvc
 
       # ── Node / frontend ───────────────────────────────────────────────────
       - name: Setup Node.js
@@ -61,18 +52,6 @@ jobs:
         with:
           workspaces: src-tauri
 
-      # ── Linux system dependencies for WebKitGTK ───────────────────────────
-      - name: Install Linux system dependencies
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libwebkit2gtk-4.1-dev \
-            librsvg2-dev \
-            patchelf \
-            libgtk-3-dev \
-            libayatana-appindicator3-dev
-
       # ── Tauri build + GitHub Release ──────────────────────────────────────
       - name: Build and publish release
         uses: tauri-apps/tauri-action@v0
@@ -84,67 +63,3 @@ jobs:
           releaseDraft: true
           prerelease: ${{ contains(github.ref_name, 'alpha') || contains(github.ref_name, 'beta') }}
 
-      # ── Linux tarball (Arch / SteamOS) ────────────────────────────────────
-      - name: Package Linux tarball for Arch/SteamOS
-        if: runner.os == 'Linux'
-        run: |
-          TAG="${{ github.ref_name }}"
-          OUT="kiyoshi-music-${TAG}-linux-x86_64"
-          mkdir -p "$OUT"
-
-          cp src-tauri/target/release/kiyoshi-music "$OUT/"
-          cp src-tauri/binaries/kiyoshi-server-x86_64-unknown-linux-gnu "$OUT/kiyoshi-server"
-
-          # Launcher-Script mit SteamOS-kompatiblen Env-Vars
-          cat > "$OUT/kiyoshi-music.sh" << 'SCRIPT'
-          #!/bin/bash
-          DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-          export WEBKIT_DISABLE_COMPOSITING_MODE=1
-          export GDK_BACKEND=x11
-          exec "$DIR/kiyoshi-music" "$@"
-          SCRIPT
-          chmod +x "$OUT/kiyoshi-music.sh"
-
-          # Install-Script für Arch/SteamOS (installiert nach ~/.local, kein sudo nötig)
-          cat > "$OUT/install.sh" << 'SCRIPT'
-          #!/bin/bash
-          set -e
-          SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-          mkdir -p "$HOME/.local/bin"
-
-          # Hauptbinary
-          cp "$SCRIPT_DIR/kiyoshi-music" "$HOME/.local/bin/kiyoshi-music"
-          chmod +x "$HOME/.local/bin/kiyoshi-music"
-
-          # Server-Binary – Tauri sucht nach dem Binary MIT Target-Triple-Suffix
-          # neben dem Hauptbinary
-          cp "$SCRIPT_DIR/kiyoshi-server" "$HOME/.local/bin/kiyoshi-server-x86_64-unknown-linux-gnu"
-          chmod +x "$HOME/.local/bin/kiyoshi-server-x86_64-unknown-linux-gnu"
-
-          # Launcher mit SteamOS-Env-Vars
-          printf '%s\n' '#!/bin/bash' 'export WEBKIT_DISABLE_COMPOSITING_MODE=1' 'export GDK_BACKEND=x11' 'exec "$HOME/.local/bin/kiyoshi-music" "$@"' > "$HOME/.local/bin/kiyoshi-music-launcher"
-          chmod +x "$HOME/.local/bin/kiyoshi-music-launcher"
-
-          # ~/.local/bin in PATH eintragen falls nötig
-          if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
-            echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$HOME/.bashrc"
-            echo "PATH erweitert – bitte 'source ~/.bashrc' ausführen."
-          fi
-
-          echo ""
-          echo "Fertig! Starte mit: kiyoshi-music-launcher"
-          echo "(oder neu einloggen und dann: kiyoshi-music-launcher)"
-          SCRIPT
-          chmod +x "$OUT/install.sh"
-
-          tar -czf "${OUT}.tar.gz" "$OUT/"
-
-      - name: Upload Linux tarball to release
-        if: runner.os == 'Linux'
-        run: |
-          gh release upload "${{ github.ref_name }}" \
-            kiyoshi-music-${{ github.ref_name }}-linux-x86_64.tar.gz \
-            --clobber
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
