@@ -123,12 +123,7 @@ jobs:
           chmod +x "$HOME/.local/bin/kiyoshi-server-x86_64-unknown-linux-gnu"
 
           # Launcher mit SteamOS-Env-Vars
-          cat > "$HOME/.local/bin/kiyoshi-music-launcher" << 'LAUNCHER'
-#!/bin/bash
-export WEBKIT_DISABLE_COMPOSITING_MODE=1
-export GDK_BACKEND=x11
-exec "$HOME/.local/bin/kiyoshi-music" "$@"
-LAUNCHER
+          printf '%s\n' '#!/bin/bash' 'export WEBKIT_DISABLE_COMPOSITING_MODE=1' 'export GDK_BACKEND=x11' 'exec "$HOME/.local/bin/kiyoshi-music" "$@"' > "$HOME/.local/bin/kiyoshi-music-launcher"
           chmod +x "$HOME/.local/bin/kiyoshi-music-launcher"
 
           # ~/.local/bin in PATH eintragen falls nötig
