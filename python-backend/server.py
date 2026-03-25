@@ -10,7 +10,11 @@ from ytmusicapi import YTMusic
 import sys, os, json, glob, threading, time, requests
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, origins=[
+    "http://localhost:1421",   # Tauri dev server
+    "tauri://localhost",        # Tauri production (Windows/Linux)
+    "https://tauri.localhost",  # Tauri production (Tauri 2.x)
+])
 
 # When frozen as a PyInstaller --onefile bundle store all user data in a
 # platform-appropriate location so uninstallers can clean it up cleanly.

@@ -706,6 +706,15 @@ fn send_audio(state: &tauri::State<AudioPlayer>, cmd: AudioCmd) -> Result<(), St
 
 #[tauri::command]
 fn audio_play(state: tauri::State<AudioPlayer>, url: String, seek_to: f64) -> Result<(), String> {
+    // Validate: only allow local temp files or http(s) URLs from localhost
+    let is_local = url.starts_with("file://") || {
+        let p = std::path::Path::new(&url);
+        p.is_absolute() && url.contains("kiyoshi-audio")
+    };
+    let is_local_http = url.starts_with("http://localhost:") || url.starts_with("http://127.0.0.1:");
+    if !is_local && !is_local_http {
+        return Err("audio_play: rejected non-local URL".into());
+    }
     send_audio(&state, AudioCmd::Play { url, seek_to })
 }
 
