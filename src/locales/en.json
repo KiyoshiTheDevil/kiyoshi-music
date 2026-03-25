@@ -89,6 +89,8 @@
 
   "fontSize": "Font Size",
   "fontSizeDesc": "Current size",
+  "translationFontSize": "Translation Font Size",
+  "romajiFontSize": "Romaji Font Size",
   "lyricsProviders": "Lyrics Providers",
   "lyricsProvidersDesc": "Order and activation of providers. Enabled providers are tried in order.",
 
@@ -181,7 +183,14 @@
 
   "goToAlbum": "Go to Album",
   "goToArtist": "Go to Artist",
+  "scrollToTop": "Scroll to top",
+  "refresh": "Refresh",
+  "pinToSidebar": "Pin to Sidebar",
+  "removeFromSidebar": "Remove from Sidebar",
   "refetchLyrics": "Refetch Lyrics",
+  "translateLyrics": "Translate Lyrics",
+  "romajiLyrics": "Show Romaji",
+  "lyricsSource": "Lyrics Source",
 
   "downloads": "Downloads",
   "saveAsMp3": "Save as MP3",
@@ -226,6 +235,16 @@
 
   "uiZoom": "Zoom",
   "uiZoomDesc": "User interface scaling",
+
+  "like": "Add to Liked Songs",
+  "unlike": "Remove from Liked Songs",
+
+  "shuffle": "Shuffle",
+  "repeat": "Repeat",
+  "repeatAll": "Repeat All",
+  "repeatOne": "Repeat One",
+  "mute": "Mute",
+  "unmute": "Unmute",
 
   "copyLyrics": "Copy Lyrics",
   "saveLrc": "Save as .lrc",

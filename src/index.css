@@ -27,6 +27,7 @@
   --text-secondary: #999;
   --text-muted: #555;
   --border: rgba(255,255,255,0.07);
+  --slider-track: #333333;
   --radius: 8px;
   --radius-lg: 12px;
   --font: 'MiSans Latin', system-ui, sans-serif;
@@ -42,6 +43,7 @@
   --text-secondary: #888;
   --text-muted: #444;
   --border: rgba(255,255,255,0.05);
+  --slider-track: #282828;
 }
 
 /* ─── Light Theme ──────────────────────────────────────────────────────── */
@@ -54,6 +56,7 @@
   --text-secondary: #555555;
   --text-muted: #999999;
   --border: rgba(0,0,0,0.10);
+  --slider-track: #b8b8b8;
 }
 
 [data-theme="light"] ::-webkit-scrollbar-thumb { background: #bbb; }

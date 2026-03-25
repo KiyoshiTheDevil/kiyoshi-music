@@ -37,13 +37,14 @@ import {
   CloudSun,
   Moon,
   MoonStars,
+  Translate,
 } from "@phosphor-icons/react";
 
 const API = "http://localhost:9847";
 
 // ─── App Version ─────────────────────────────────────────────────────────────
-const APP_VERSION = "0.9.1-alpha";
-const BUILD_NUMBER = 20920; // Erhöhe diese Zahl bei jeder Änderung
+const APP_VERSION = "0.9.2-alpha";
+const BUILD_NUMBER = 26031; // Erhöhe diese Zahl bei jeder Änderung
 
 // ─── Update Checker (GitHub Releases) ───────────────────────────────────────
 const APP_TAG = "v0.9.0";
@@ -96,6 +97,14 @@ function spring(prop, opts = {}) {
 const GLOBAL_KEYFRAMES = `
   @keyframes pulse { 0%,100%{opacity:.4} 50%{opacity:.9} }
   @keyframes flashbangFade { 0%,50%{opacity:1} 100%{opacity:0} }
+  @keyframes tetoSlideIn {
+    from { transform: translateX(110%); }
+    to   { transform: translateX(0); }
+  }
+  @keyframes tetoSlideOut {
+    from { transform: translateX(0); }
+    to   { transform: translateX(110%); }
+  }
   @keyframes fadeSlideIn {
     from { opacity: 0; transform: translateY(12px) scale(0.98); }
     to   { opacity: 1; transform: translateY(0)   scale(1); }
@@ -141,6 +150,246 @@ const winCtrl = {
   close: () => appWindow.close(),
   startDrag: () => appWindow.startDragging(),
 };
+
+// Inject tooltip keyframes once
+if (typeof document !== "undefined" && !document.getElementById("kiyoshi-tooltip-kf")) {
+  const s = document.createElement("style");
+  s.id = "kiyoshi-tooltip-kf";
+  s.textContent = `
+    @keyframes tooltipIn{from{opacity:0;transform:translate(-50%,calc(-100% + 4px))}to{opacity:1;transform:translate(-50%,-100%)}}
+    @keyframes tooltipOut{from{opacity:1;transform:translate(-50%,-100%)}to{opacity:0;transform:translate(-50%,calc(-100% + 4px))}}
+  `;
+  document.head.appendChild(s);
+}
+
+function Tooltip({ text, children }) {
+  const [visible, setVisible] = useState(false);
+  const [leaving, setLeaving] = useState(false);
+  const [pos, setPos] = useState({ x: 0, y: 0 });
+  const showTimer = useRef(null);
+  const hideTimer = useRef(null);
+  if (!text) return children;
+
+  const hide = () => {
+    clearTimeout(showTimer.current);
+    if (visible) {
+      setLeaving(true);
+      hideTimer.current = setTimeout(() => { setVisible(false); setLeaving(false); }, 120);
+    }
+  };
+
+  return (
+    <span style={{ display: "contents" }}
+      onMouseEnter={e => {
+        clearTimeout(hideTimer.current);
+        setLeaving(false);
+        const el = e.currentTarget.firstElementChild || e.target;
+        const r = el.getBoundingClientRect();
+        setPos({ x: r.left + r.width / 2, y: r.top });
+        clearTimeout(showTimer.current);
+        showTimer.current = setTimeout(() => setVisible(true), 350);
+      }}
+      onMouseLeave={hide}
+    >
+      {children}
+      {visible && createPortal(
+        <div style={{
+          position: "fixed", left: pos.x, top: pos.y - 6,
+          transform: "translate(-50%, -100%)",
+          background: "var(--bg-elevated)", color: "var(--text-primary)",
+          padding: "5px 9px", borderRadius: 6,
+          fontSize: "var(--t11)", fontWeight: 500,
+          pointerEvents: "none", zIndex: 99999,
+          border: "0.5px solid var(--border)",
+          whiteSpace: "nowrap",
+          boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
+          animation: `${leaving ? "tooltipOut" : "tooltipIn"} 0.12s ease forwards`,
+        }}>{text}</div>,
+        document.body
+      )}
+    </span>
+  );
+}
+
+// ── IpcAudio ─────────────────────────────────────────────────────────────────
+// Drop-in replacement for `new Audio()` that routes playback through the Rust
+// host process (kiyoshi-music.exe) instead of WebView2 / msedgewebview2.exe.
+// This makes the audio session visible to OBS Application Audio Capture as
+// "Kiyoshi Music".  The API surface mirrors the parts of HTMLAudioElement that
+// the Player component uses, so no other code changes are required.
+class IpcAudio {
+  constructor() {
+    this._src = "";
+    this._srcDirty = false;   // true when src was set but play() not called yet
+    this._pendingSeekTo = 0;  // seek target to use on the next play() call
+    this._currentTime = 0;
+    this._duration = 0;
+    this._paused = true;
+    this._volume = 0.16;      // same default as Rust thread (0.4² quadratic)
+    this._listeners = {};
+    this._invoke = null;      // resolved lazily on first use
+
+    // Fallback: if Rust commands don't exist (binary not recompiled),
+    // _fallback is set to a plain HTMLAudioElement and all calls route there.
+    this._fallback = null;       // null = not decided, false = Rust works, Audio = fallback
+    this._probePromise = null;   // dedup the one-time probe
+
+    // Resolve Tauri invoke/listen modules asynchronously on construction.
+    import("@tauri-apps/api/core").then(({ invoke }) => {
+      this._invoke = invoke;
+      // Probe immediately: try a harmless command to see if Rust audio exists.
+      this._probe(invoke);
+    });
+    import("@tauri-apps/api/event").then(({ listen }) => {
+      listen("audio-progress", ({ payload }) => {
+        if (this._fallback) return; // ignore Rust events when in fallback mode
+        this._currentTime = payload.position;
+        if (payload.duration > 0) this._duration = payload.duration;
+        if (payload.paused !== this._paused) this._paused = payload.paused;
+        this._fire("timeupdate");
+      });
+      listen("audio-ended", () => {
+        if (this._fallback) return;
+        this._paused = true;
+        this._fire("ended");
+      });
+      listen("audio-loaded", ({ payload }) => {
+        if (this._fallback) return;
+        if (payload.duration > 0) this._duration = payload.duration;
+        this._fire("loadedmetadata");
+        this._fire("canplay");
+      });
+      listen("audio-error", ({ payload }) => {
+        if (this._fallback) return;
+        console.error("[IpcAudio] Rust decode error:", payload);
+        this._fire("error");
+      });
+    });
+  }
+
+  // ── Fallback probe ──────────────────────────────────────────────────────────
+  // Calls audio_set_volume (side-effect-free) to check if the Rust command
+  // exists.  If it fails with "unknown command", switch to HTML5 Audio.
+  _probe(invoke) {
+    if (this._probePromise) return this._probePromise;
+    // Use audio_pause as a harmless no-op probe — it does nothing when no song
+    // is playing, and importantly does NOT touch volume state.
+    this._probePromise = invoke("audio_pause")
+      .then(() => {
+        this._fallback = false;
+        console.log("[IpcAudio] Rust audio commands available ✓");
+        // Now sync the stored volume to Rust so it's ready for first play
+        invoke("audio_set_volume", { volume: this._volume });
+      })
+      .catch(() => {
+        console.warn("[IpcAudio] Rust audio commands not found — falling back to HTML5 Audio");
+        this._fallback = this._createFallbackAudio();
+        if (this._src) this._fallback.src = this._src;
+        this._fallback.volume = this._volume;
+      });
+    return this._probePromise;
+  }
+
+  _createFallbackAudio() {
+    const a = new Audio();
+    // Wire native events → our listener system
+    for (const evt of ["timeupdate", "ended", "loadedmetadata", "canplay", "error", "volumechange"]) {
+      a.addEventListener(evt, () => this._fire(evt));
+    }
+    return a;
+  }
+
+  // ── Private helpers ────────────────────────────────────────────────────────
+  _cmd(name, args) {
+    if (this._fallback) return Promise.resolve(); // Rust path disabled
+    console.log("[IpcAudio] →", name, args?.url ? args.url.substring(0, 80) + "…" : "");
+    const go = (invoke) => invoke(name, args || {}).catch(e => console.error("[IpcAudio] ERROR", name, e));
+    if (this._invoke) { go(this._invoke); }
+    else { import("@tauri-apps/api/core").then(({ invoke }) => { this._invoke = invoke; go(invoke); }); }
+    return Promise.resolve();
+  }
+
+  _fire(type) {
+    (this._listeners[type] || []).forEach(h => { try { h({ type }); } catch (e) { console.error(e); } });
+  }
+
+  // ── HTMLAudioElement-compatible API ────────────────────────────────────────
+  // _fb() returns the fallback Audio if active, or false/null.
+  // null = probe still running (undecided), false = Rust is active, Audio = fallback
+  get _fb() { return this._fallback; }
+
+  get src() { return this._fb ? this._fb.src : this._src; }
+  set src(url) {
+    // Always store locally so we can replay onto fallback if probe hasn't finished
+    this._src = url;
+    this._srcDirty = true;
+    this._pendingSeekTo = 0;
+    if (this._fb) { this._fb.src = url; }
+    else if (this._fb === null && this._probePromise) {
+      // Probe still running — queue replay
+      this._probePromise.then(() => { if (this._fb) this._fb.src = url; });
+    }
+  }
+
+  get currentTime() { return this._fb ? this._fb.currentTime : this._currentTime; }
+  set currentTime(t) {
+    if (this._fb) { this._fb.currentTime = t; return; }
+    this._currentTime = t;
+    if (this._srcDirty) {
+      this._pendingSeekTo = t;
+    } else {
+      this._cmd("audio_seek", { position: t });
+    }
+  }
+
+  get duration() { return this._fb ? this._fb.duration : this._duration; }
+  get paused()   { return this._fb ? this._fb.paused   : this._paused; }
+
+  get volume() { return this._fb ? this._fb.volume : this._volume; }
+  set volume(v) {
+    this._volume = v; // always store for probe replay
+    if (this._fb) { this._fb.volume = v; this._fire("volumechange"); return; }
+    this._cmd("audio_set_volume", { volume: v });
+    this._fire("volumechange");
+  }
+
+  play() {
+    // If probe hasn't resolved yet, wait for it then play
+    if (this._fallback === null && this._probePromise) {
+      return this._probePromise.then(() => this.play());
+    }
+    if (this._fb) return this._fb.play();
+    if (this._srcDirty && this._src) {
+      this._srcDirty = false;
+      const seekTo = this._pendingSeekTo;
+      this._pendingSeekTo = 0;
+      this._paused = false;
+      console.log("[IpcAudio] play() → audio_play (new src)");
+      this._cmd("audio_play", { url: this._src, seekTo });
+    } else {
+      this._paused = false;
+      console.log("[IpcAudio] play() → audio_resume");
+      this._cmd("audio_resume");
+    }
+    return Promise.resolve();
+  }
+
+  pause() {
+    if (this._fb) { this._fb.pause(); return; }
+    this._paused = true;
+    this._cmd("audio_pause");
+  }
+
+  addEventListener(type, handler) {
+    if (!this._listeners[type]) this._listeners[type] = [];
+    this._listeners[type].push(handler);
+  }
+
+  removeEventListener(type, handler) {
+    if (!this._listeners[type]) return;
+    this._listeners[type] = this._listeners[type].filter(h => h !== handler);
+  }
+}
 
 function ExplicitBadge() {
   return (
@@ -332,6 +581,9 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
   const [query, setQuery] = useState("");
   const [tooltip, setTooltip] = useState(null);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
+  const [tetoVisible, setTetoVisible] = useState(false);
+  const [tetoLeaving, setTetoLeaving] = useState(false);
+  const tetoTimerRef = useRef(null);
   const profileTriggerRef = useRef(null);
   const t = useLang();
   const [pinnedPlaylists, setPinnedPlaylists] = useState([]);
@@ -366,11 +618,28 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
   const isPinned = (pl) => pinnedPlaylists.some(p => sidebarItemId(p) === sidebarItemId(pl));
   const openItem = (pl) => { if (pl.type === "album") onOpenAlbum?.(pl); else if (pl.type === "artist") onOpenArtist?.(pl); else onOpenPlaylist(pl); };
 
+  useEffect(() => {
+    if (tetoVisible && !query.toLowerCase().includes("teto")) hideTeto();
+  }, [query]);
+
+  const hideTeto = () => {
+    setTetoLeaving(true);
+    clearTimeout(tetoTimerRef.current);
+    tetoTimerRef.current = setTimeout(() => { setTetoVisible(false); setTetoLeaving(false); }, 450);
+  };
+
   const handleKey = e => {
     if (e.key === "Enter" && query.trim()) {
       onSearch(query.trim());
       setView("search");
       onCloseOverlay?.();
+      if (query.trim().toLowerCase().includes("teto")) {
+        clearTimeout(tetoTimerRef.current);
+        setTetoLeaving(false);
+        setTetoVisible(true);
+      } else if (tetoVisible) {
+        hideTeto();
+      }
     }
   };
 
@@ -697,6 +966,26 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
           </div>
         </div>
       )}
+      {/* 🎵 Easter Egg: Kasane Teto */}
+      {tetoVisible && createPortal(
+        <img
+          src="/teto.gif"
+          alt="Kasane Teto"
+          style={{
+            position: "fixed",
+            bottom: 72,
+            right: 0,
+            width: 180,
+            height: 180,
+            pointerEvents: "none",
+            zIndex: 9500,
+            animation: tetoLeaving
+              ? "tetoSlideOut 0.45s cubic-bezier(0.4,0,0.2,1) forwards"
+              : "tetoSlideIn 0.5s cubic-bezier(0.34,1.56,0.64,1) forwards",
+          }}
+        />,
+        document.body
+      )}
     </div>
   );
 }
@@ -897,7 +1186,7 @@ function Slider({ min, max, step = 1, value, onChange, onChangeCommit, width = 1
       onMouseLeave={e => e.currentTarget.querySelector(".slider-bar").style.height = "3px"}
       style={{ width, height: 16, display: "flex", alignItems: "center", cursor: "pointer", flexShrink: 0 }}
     >
-      <div className="slider-bar" style={{ width: "100%", height: 3, background: "var(--bg-base)", borderRadius: 2, overflow: "hidden", transition: "height 0.15s ease", pointerEvents: "none" }}>
+      <div className="slider-bar" style={{ width: "100%", height: 3, background: "var(--slider-track)", borderRadius: 2, overflow: "hidden", transition: "height 0.15s ease", pointerEvents: "none" }}>
         <div style={{ width: `${pct}%`, height: "100%", background: "var(--accent)", borderRadius: 2 }} />
       </div>
     </div>
@@ -1332,14 +1621,14 @@ function LyricsProviderList({ providers, onChange }) {
             const sync = PROVIDER_SYNC[p.id];
             return (
               <span style={{
-                fontSize: "var(--t10)", fontWeight: 600, lineHeight: 1,
-                padding: "3px 7px", borderRadius: 20,
-                background: p.enabled ? sync.bg : "var(--bg-base)",
+                display: "flex", alignItems: "center", gap: 6,
+                fontSize: "var(--t10)", whiteSpace: "nowrap", flexShrink: 0,
+                padding: "2px 6px", borderRadius: 4,
+                background: p.enabled ? sync.bg : "rgba(255,255,255,0.05)",
                 color: p.enabled ? sync.color : "var(--text-muted)",
-                border: `0.5px solid ${p.enabled ? sync.color + "55" : "var(--border)"}`,
-                letterSpacing: "0.02em", flexShrink: 0,
                 transition: "all 0.2s",
               }}>
+                {sync.icon && <span style={{ display: "inline-block", width: 16, height: 16, flexShrink: 0, alignSelf: "center", backgroundColor: "currentColor", maskImage: `url(${sync.icon})`, WebkitMaskImage: `url(${sync.icon})`, maskSize: "contain", WebkitMaskSize: "contain", maskRepeat: "no-repeat", WebkitMaskRepeat: "no-repeat", maskPosition: "center", WebkitMaskPosition: "center" }} />}
                 {sync.label}
               </span>
             );
@@ -1353,7 +1642,7 @@ function LyricsProviderList({ providers, onChange }) {
   );
 }
 
-function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, animations, onAnimationsChange, lyricsFontSize, onLyricsFontSizeChange, lyricsProviders, onLyricsProvidersChange, autoplay, onAutoplayChange, crossfade, onCrossfadeChange, discordRpc, onDiscordRpcChange, language, onLanguageChange, updateInfo, onCheckUpdate, updateDownloading, updateDownloadProgress, updateDownloaded, onDownloadUpdate, onInstallUpdate, onCancelDownload, initialTab, onTabOpened, hideExplicit, onHideExplicitChange, uiZoom, onUiZoomChange, appFontScale, onFontScaleChange }) {
+function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, animations, onAnimationsChange, lyricsFontSize, onLyricsFontSizeChange, lyricsTranslationFontSize, onLyricsTranslationFontSizeChange, lyricsRomajiFontSize, onLyricsRomajiFontSizeChange, lyricsProviders, onLyricsProvidersChange, autoplay, onAutoplayChange, crossfade, onCrossfadeChange, discordRpc, onDiscordRpcChange, language, onLanguageChange, updateInfo, onCheckUpdate, updateDownloading, updateDownloadProgress, updateDownloaded, onDownloadUpdate, onInstallUpdate, onCancelDownload, initialTab, onTabOpened, hideExplicit, onHideExplicitChange, uiZoom, onUiZoomChange, appFontScale, onFontScaleChange }) {
   const anim = useAnimations();
   const t = useLang();
   const [tab, setTab] = useState(initialTab || "darstellung");
@@ -1532,18 +1821,18 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                           gap: GAP, flex: 1,
                         }}>
                           {ACCENT_PRESETS.map(p => (
-                            <div key={p.value} onClick={() => onAccentChange(p.value)} title={p.label} style={{
+                            <Tooltip key={p.value} text={p.label}><div onClick={() => onAccentChange(p.value)} style={{
                               borderRadius: 7, background: p.value, cursor: "pointer",
                               transition: anim ? spring("transform") : "none",
                               outline: accent === p.value ? `2.5px solid ${p.value}` : "2.5px solid transparent", outlineOffset: 2,
                             }}
                             onMouseEnter={e => { if (anim) e.currentTarget.style.transform = "scale(1.06)"; }}
                             onMouseLeave={e => { if (anim) e.currentTarget.style.transform = "scale(1)"; }}
-                            />
+                            /></Tooltip>
                           ))}
                         </div>
                         {/* Custom color box — stretches to full grid height */}
-                        <div title={t("customColor")} style={{
+                        <Tooltip text={t("customColor")}><div style={{
                           width: 36, flexShrink: 0, borderRadius: 7,
                           background: isCustom ? accent : "var(--bg-elevated)",
                           border: `0.5px solid ${isCustom ? "transparent" : "var(--border)"}`,
@@ -1551,7 +1840,7 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                           display: "flex", alignItems: "center", justifyContent: "center",
                         }}>
                           <PencilSimple size={14} style={{ color: isCustom ? "#fff" : "var(--text-muted)" }} />
-                        </div>
+                        </div></Tooltip>
                       </div>
                       {/* Right: color picker — always visible inline */}
                       <ColorPickerPopover
@@ -1621,6 +1910,18 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <Slider min={18} max={52} step={2} value={lyricsFontSize} onChange={onLyricsFontSizeChange} width={120} />
                     <span style={{ fontSize: "var(--t12)", color: "var(--text-muted)", width: 36 }}>{lyricsFontSize}px</span>
+                  </div>
+                </SettingRow>
+                <SettingRow label={t("translationFontSize")} description={`${t("fontSizeDesc")}: ${lyricsTranslationFontSize}px`}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <Slider min={12} max={40} step={2} value={lyricsTranslationFontSize} onChange={onLyricsTranslationFontSizeChange} width={120} />
+                    <span style={{ fontSize: "var(--t12)", color: "var(--text-muted)", width: 36 }}>{lyricsTranslationFontSize}px</span>
+                  </div>
+                </SettingRow>
+                <SettingRow label={t("romajiFontSize")} description={`${t("fontSizeDesc")}: ${lyricsRomajiFontSize}px`}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <Slider min={12} max={40} step={2} value={lyricsRomajiFontSize} onChange={onLyricsRomajiFontSizeChange} width={120} />
+                    <span style={{ fontSize: "var(--t12)", color: "var(--text-muted)", width: 36 }}>{lyricsRomajiFontSize}px</span>
                   </div>
                 </SettingRow>
                 <SectionLabel>{t("lyricsProviders")}</SectionLabel>
@@ -2017,7 +2318,7 @@ function QueuePanel({ queue, setQueue, currentTrack, setTrack, onClose }) {
 
       {/* Scroll-to-top button — appears after scrolling down */}
       {showScrollTop && (
-        <button
+        <Tooltip text={t("scrollToTop")}><button
           onClick={() => {
             const target = nowPlayingRef.current;
             const container = listRef.current;
@@ -2041,14 +2342,13 @@ function QueuePanel({ queue, setQueue, currentTrack, setTrack, onClose }) {
           }}
           onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.1)"; }}
           onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)"; }}
-          title="Nach oben"
-        ><CaretLineUp size={20} /></button>
+        ><CaretLineUp size={20} /></button></Tooltip>
       )}
     </div>
   );
 }
 
-function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPlaying, expanded, onExpandToggle, showLyrics, onToggleLyrics, queueOpen, onToggleQueue, fullscreen, onToggleFullscreen, crossfade = 0, onOpenAlbum, onOpenArtist, onExportSong, onRefetchLyrics, language = "de" }) {
+function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPlaying, expanded, onExpandToggle, showLyrics, onToggleLyrics, queueOpen, onToggleQueue, fullscreen, onToggleFullscreen, crossfade = 0, onOpenAlbum, onOpenArtist, onExportSong, onRefetchLyrics, lyricsProviders = DEFAULT_LYRICS_PROVIDERS, currentLyricsSource = "", onSwitchLyricsProvider, failedLyricsProviders = new Set(), language = "de", showLyricsTranslation = false, onToggleLyricsTranslation, lyricsTranslationLang = "DE", onSetLyricsTranslationLang, showRomaji = false, onToggleRomaji }) {
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(() => {
@@ -2061,6 +2361,7 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
   const [songStats, setSongStats] = useState(null);
   const [moreOpen, setMoreOpen] = useState(false);
   const [morePos, setMorePos] = useState({ right: 0, bottom: 0 });
+  const [langSubmenuOpen, setLangSubmenuOpen] = useState(false);
   const [fetchedBrowseIds, setFetchedBrowseIds] = useState({});
   const moreRef = useRef(null);
   const zoom = useZoom();
@@ -2136,6 +2437,9 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
     const onVolumeChange = () => {
       const raw = audio.volume;
       const v = Math.sqrt(raw); // reverse the v² curve to get display value
+      // Only update if the volume actually differs from current state to avoid
+      // feedback loops (IpcAudio fires volumechange after every set volume).
+      if (Math.abs(v - volumeRef.current) < 0.005) return;
       setVolume(v);
       if (v > 0) prevVolumeRef.current = v;
       localStorage.setItem("kiyoshi-volume", v);
@@ -2159,7 +2463,7 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
 
   const fetchUrl = useCallback(async (videoId) => {
     if (urlCache.current[videoId]) return urlCache.current[videoId];
-    // Prefer locally cached song
+    // Prefer locally cached song (served via backend, works for both Rust & HTML5)
     try {
       const cr = await fetch(`${API}/song/cached/${videoId}`, { method: "HEAD" });
       if (cr.ok) {
@@ -2168,6 +2472,22 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
         return cachedUrl;
       }
     } catch {}
+    // When Rust audio is active, download via yt-dlp to disk and return file path.
+    // Rust reads from disk — no HTTP proxy overhead.
+    const useRust = audioRef.current && audioRef.current._fallback === false;
+    if (useRust) {
+      try {
+        const r = await fetch(`${API}/stream-prepare/${videoId}`);
+        const d = await r.json();
+        if (d.path) {
+          // Prefix with file:// so Rust knows it's a local path
+          const fileUrl = `file://${d.path.replace(/\\/g, "/")}`;
+          urlCache.current[videoId] = fileUrl;
+          return fileUrl;
+        }
+      } catch (e) { console.error("[fetchUrl] stream-prepare failed:", e); }
+    }
+    // HTML5 fallback: fetch direct googlevideo URL (browser handles cookies)
     for (let i = 1; i <= 3; i++) {
       try {
         const r = await fetch(`${API}/stream/${videoId}`);
@@ -2233,15 +2553,21 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
     cf.pause();
     cf.volume = 0;
 
+    console.log("[Player] streamUrl →", streamUrl?.substring(0, 80));
     a.src = streamUrl;
     a.volume = volCurve(volume);
     volumeRef.current = volume;
-    a.play().catch(console.error);
+    a.play().catch(e => console.error("[Player] play() error:", e));
     setIsPlaying(true);
     setProgress(0);
 
     const onTime = () => setProgress(a.currentTime);
-    const onDur = () => setDuration(a.duration);
+    // IpcAudio may return 0 when Rust can't determine duration from metadata;
+    // fall back to the track's formatted duration string in that case.
+    const onDur = () => {
+      const d = a.duration > 0 ? a.duration : (parseDurationToSeconds(track?.duration) || 0);
+      setDuration(d);
+    };
 
     const onEnd = () => {
       if (crossfadeActiveRef.current && crossfadeNextTrackRef.current) {
@@ -2392,17 +2718,20 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
   const anim = useAnimations();
   const pct = dragPct !== null ? dragPct : (duration ? (progress / duration) * 100 : 0);
 
-  const ctrlBtn = (onClick, active, children) => (
-    <button onClick={onClick} style={{
-      background: "none", border: "none", cursor: "pointer", padding: 6, borderRadius: "50%",
-      display: "flex", alignItems: "center", justifyContent: "center",
-      color: active ? "var(--accent)" : "var(--text-secondary)",
-      transition: anim ? `color 0.15s, transform 0.18s cubic-bezier(0.34,1.56,0.64,1)` : "color 0.15s",
-    }}
-    onMouseEnter={e => { e.currentTarget.style.color = active ? "var(--accent)" : "var(--text-primary)"; if (anim) e.currentTarget.style.transform = "scale(1.2)"; }}
-    onMouseLeave={e => { e.currentTarget.style.color = active ? "var(--accent)" : "var(--text-secondary)"; if (anim) e.currentTarget.style.transform = "scale(1)"; }}
-    >{children}</button>
-  );
+  const ctrlBtn = (onClick, active, children, tooltip) => {
+    const btn = (
+      <button onClick={onClick} style={{
+        background: "none", border: "none", cursor: "pointer", padding: 6, borderRadius: "50%",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        color: active ? "var(--accent)" : "var(--text-secondary)",
+        transition: anim ? `color 0.15s, transform 0.18s cubic-bezier(0.34,1.56,0.64,1)` : "color 0.15s",
+      }}
+      onMouseEnter={e => { e.currentTarget.style.color = active ? "var(--accent)" : "var(--text-primary)"; if (anim) e.currentTarget.style.transform = "scale(1.2)"; }}
+      onMouseLeave={e => { e.currentTarget.style.color = active ? "var(--accent)" : "var(--text-secondary)"; if (anim) e.currentTarget.style.transform = "scale(1)"; }}
+      >{children}</button>
+    );
+    return tooltip ? <Tooltip text={tooltip}>{btn}</Tooltip> : btn;
+  };
 
   return (
     <div style={{ background: fullscreen ? "rgba(13,13,13,0.6)" : "var(--bg-surface)", backdropFilter: fullscreen ? "blur(20px)" : "none", flexShrink: 0, borderTop: fullscreen ? "none" : "0.5px solid var(--border)", position: "relative", zIndex: 50, height: 69 }}>
@@ -2443,7 +2772,7 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
             </div>
           </div>
           {/* Like button */}
-          <button onClick={track ? toggleLike : undefined} style={{ visibility: track ? "visible" : "hidden",
+          <Tooltip text={isLiked ? t("unlike") : t("like")}><button onClick={track ? toggleLike : undefined} style={{ visibility: track ? "visible" : "hidden",
             background: "none", border: "none", cursor: "pointer", padding: 6, flexShrink: 0,
             color: isLiked ? "var(--accent)" : "var(--text-muted)",
             display: "flex", alignItems: "center", justifyContent: "center",
@@ -2453,14 +2782,15 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
           onMouseLeave={e => { e.currentTarget.style.color = isLiked ? "var(--accent)" : "var(--text-muted)"; if (anim) e.currentTarget.style.transform = "scale(1)"; }}
           >
             {isLiked ? <Heart size={16} weight="fill" /> : <Heart size={16} />}
-          </button>
+          </button></Tooltip>
         </div>
 
         <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
           {ctrlBtn(() => setShuffle(s => !s), shuffle,
-            <Shuffle size={16} />
+            <Shuffle size={16} />,
+            t("shuffle")
           )}
-          <button
+          <Tooltip text={t("scPrev")}><button
             disabled={!track}
             onClick={() => {
               const audio = audioRef.current;
@@ -2492,7 +2822,7 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
             onMouseUp={e => { if (track && anim) e.currentTarget.style.transform = "scale(1.05)"; }}
           >
             <SkipBack size={22} />
-          </button>
+          </button></Tooltip>
           <button disabled={!track} onClick={track ? togglePlay : undefined} style={{
             width: 42, height: 42, borderRadius: "50%",
             background: track ? "var(--accent)" : "var(--bg-elevated)",
@@ -2509,7 +2839,7 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
           >
             {isPlaying ? <Pause size={16} style={{ color: track ? "white" : "var(--text-muted)" }} /> : <Play size={16} style={{ color: track ? "white" : "var(--text-muted)" }} />}
           </button>
-          <button
+          <Tooltip text={t("scNext")}><button
             disabled={!track}
             onClick={() => { const t = getAdjacentTrack("next"); if (t) setTrack(t); }}
             style={{
@@ -2534,18 +2864,19 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
             onMouseUp={e => { if (track && anim) e.currentTarget.style.transform = "scale(1.05)"; }}
           >
             <SkipForward size={22} />
-          </button>
+          </button></Tooltip>
           {ctrlBtn(cycleRepeat, repeat !== "none",
             repeat === "one"
               ? <RepeatOnce size={16} />
-              : <Repeat size={16} />
+              : <Repeat size={16} />,
+            repeat === "one" ? t("repeatOne") : repeat === "all" ? t("repeatAll") : t("repeat")
           )}
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: 6, width: 340, justifyContent: "flex-end" }}>
           {/* Volume icon + slider */}
           <div data-volume-area style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <button onClick={() => {
+          <Tooltip text={volume === 0 ? t("unmute") : t("mute")}><button onClick={() => {
             const a = audioRef.current;
             if (!a) return;
             const newVol = volume > 0 ? 0 : prevVolumeRef.current;
@@ -2564,7 +2895,7 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
               ? <SpeakerLow size={15} />
               : <SpeakerHigh size={15} />
             }
-          </button>
+          </button></Tooltip>
           {/* Volume slider */}
           <div
             onMouseDown={e => {
@@ -2700,6 +3031,108 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
                     {translate(language, "refetchLyrics")}
                   </div>
 
+                  {/* Translate Lyrics toggle */}
+                  <div
+                    onClick={() => onToggleLyricsTranslation?.()}
+                    style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: showLyricsTranslation ? "var(--text-primary)" : "var(--text-secondary)" }}
+                    onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
+                    onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                  >
+                    <Translate size={14} />
+                    <span style={{ flex: 1 }}>{translate(language, "translateLyrics")}</span>
+                    {showLyricsTranslation && <Check size={12} style={{ color: "var(--accent)", flexShrink: 0 }} />}
+                  </div>
+
+                  {/* Romaji toggle */}
+                  <div
+                    onClick={() => onToggleRomaji?.()}
+                    style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: showRomaji ? "var(--text-primary)" : "var(--text-secondary)" }}
+                    onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
+                    onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                  >
+                    <span style={{ fontSize: 14, lineHeight: 1 }}>あ</span>
+                    <span style={{ flex: 1 }}>{translate(language, "romajiLyrics")}</span>
+                    {showRomaji && <Check size={12} style={{ color: "var(--accent)", flexShrink: 0 }} />}
+                  </div>
+
+                  {/* Translation language submenu — only visible when translation is on */}
+                  {showLyricsTranslation && (() => {
+                    const LANGS = [
+                      { code: "DE", name: "Deutsch" }, { code: "EN", name: "English" },
+                      { code: "FR", name: "Français" }, { code: "ES", name: "Español" },
+                      { code: "IT", name: "Italiano" }, { code: "PT", name: "Português" },
+                      { code: "NL", name: "Nederlands" }, { code: "PL", name: "Polski" },
+                      { code: "RU", name: "Русский" }, { code: "JA", name: "日本語" },
+                      { code: "KO", name: "한국어" }, { code: "ZH", name: "中文" },
+                    ];
+                    const activeLang = LANGS.find(l => l.code === lyricsTranslationLang);
+                    return (
+                      <div style={{ position: "relative" }}
+                        onMouseEnter={() => setLangSubmenuOpen(true)}
+                        onMouseLeave={() => setLangSubmenuOpen(false)}
+                      >
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "7px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "var(--text-primary)" }}
+                          onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
+                          onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                        >
+                          <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                            <Translate size={14} />
+                            {activeLang?.name || lyricsTranslationLang}
+                          </span>
+                          <CaretDown size={10} style={{ transform: "rotate(-90deg)", color: "var(--text-muted)" }} />
+                        </div>
+                        {langSubmenuOpen && (
+                          <div style={{
+                            position: "absolute", right: "calc(100% - 4px)", bottom: 0,
+                            background: "var(--bg-elevated)", border: "0.5px solid var(--border)",
+                            borderRadius: "var(--radius-lg)", padding: "4px 4px 4px 8px", minWidth: 150,
+                            boxShadow: "0 8px 24px rgba(0,0,0,0.4)", zIndex: 100000,
+                          }}>
+                            {LANGS.map(({ code, name }) => (
+                              <div key={code}
+                                onClick={e => { e.stopPropagation(); onSetLyricsTranslationLang?.(code); setLangSubmenuOpen(false); }}
+                                style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "7px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t12)", color: lyricsTranslationLang === code ? "var(--text-primary)" : "var(--text-secondary)" }}
+                                onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
+                                onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                              >
+                                <span>{name}</span>
+                                {lyricsTranslationLang === code && <Check size={12} style={{ color: "var(--accent)", flexShrink: 0 }} />}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+
+                  {/* Separator before provider switcher */}
+                  <div style={{ height: "0.5px", background: "var(--border)", margin: "2px 8px" }} />
+
+                  {/* Lyrics Provider Switcher */}
+                  <div style={{ fontSize: "var(--t10)", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", padding: "6px 12px 2px" }}>
+                    {translate(language, "lyricsSource") || "Lyrics Quelle"}
+                  </div>
+                  {lyricsProviders.filter(p => p.enabled).map(p => {
+                    const sync = PROVIDER_SYNC[p.id];
+                    const isActive = currentLyricsSource === p.label;
+                    const isFailed = failedLyricsProviders.has(p.id);
+                    return (
+                      <div key={p.id}
+                        onClick={() => { if (isFailed) return; setMoreOpen(false); onSwitchLyricsProvider?.(p.id); }}
+                        style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 12px", borderRadius: "var(--radius)", cursor: isFailed ? "not-allowed" : "pointer", fontSize: "var(--t12)", color: isFailed ? "var(--text-muted)" : isActive ? "var(--text-primary)" : "var(--text-secondary)", background: "transparent", opacity: isFailed ? 0.45 : 1 }}
+                        onMouseEnter={e => { if (!isFailed) e.currentTarget.style.background = "var(--bg-hover)"; }}
+                        onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                      >
+                        <span style={{ flex: 1 }}>{p.label}</span>
+                        {sync && <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "var(--t10)", color: sync.color, background: sync.bg, padding: "2px 6px", borderRadius: 4, whiteSpace: "nowrap" }}>
+                          {sync.icon && <span style={{ display: "inline-block", width: 16, height: 16, flexShrink: 0, alignSelf: "center", backgroundColor: "currentColor", maskImage: `url(${sync.icon})`, WebkitMaskImage: `url(${sync.icon})`, maskSize: "contain", WebkitMaskSize: "contain", maskRepeat: "no-repeat", WebkitMaskRepeat: "no-repeat", maskPosition: "center", WebkitMaskPosition: "center" }} />}
+                          {sync.label}
+                        </span>}
+                        {isActive && <Check size={12} style={{ color: "var(--accent)", flexShrink: 0 }} />}
+                      </div>
+                    );
+                  })}
+
                   {/* Separator before export */}
                   <div style={{ height: "0.5px", background: "var(--border)", margin: "2px 8px" }} />
 
@@ -2724,7 +3157,7 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
           )}
 
           {/* Queue toggle */}
-          <button onClick={onToggleQueue} title={t("queueTooltip")} style={{
+          <Tooltip text={t("queueTooltip")}><button onClick={onToggleQueue} style={{
             background: "none", border: "none", cursor: "pointer", padding: 6,
             color: queueOpen ? "var(--accent)" : "var(--text-secondary)",
             display: "flex", alignItems: "center", justifyContent: "center", transition: "color 0.15s",
@@ -2733,9 +3166,9 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
           onMouseLeave={e => e.currentTarget.style.color = queueOpen ? "var(--accent)" : "var(--text-secondary)"}
           >
             <Queue size={16} />
-          </button>
+          </button></Tooltip>
           {/* Lyrics toggle */}
-          <button onClick={onToggleLyrics} title={t("lyricsTooltip")} style={{
+          <Tooltip text={t("lyricsTooltip")}><button onClick={onToggleLyrics} style={{
             background: "none", border: "none", cursor: "pointer", padding: 6,
             color: (expanded && showLyrics) ? "var(--accent)" : "var(--text-secondary)",
             display: "flex", alignItems: "center", justifyContent: "center", transition: "color 0.15s",
@@ -2744,7 +3177,7 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
           onMouseLeave={e => e.currentTarget.style.color = (expanded && showLyrics) ? "var(--accent)" : "var(--text-secondary)"}
           >
             <ChatText size={16} />
-          </button>
+          </button></Tooltip>
           {/* Expand toggle */}
           <button onClick={onExpandToggle} style={{
             background: "none", border: "none", cursor: "pointer", padding: 6,
@@ -2758,7 +3191,7 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
             <CaretUp size={16} style={{ transform: expanded ? "rotate(180deg)" : "none", transition: "transform 0.3s cubic-bezier(0.4,0,0.2,1)" }} />
           </button>
           {/* Fullscreen toggle */}
-          <button onClick={onToggleFullscreen} title={t("fullscreenTooltip")} style={{
+          <Tooltip text={t("fullscreenTooltip")}><button onClick={onToggleFullscreen} style={{
             background: "none", border: "none", cursor: "pointer", padding: 6,
             color: fullscreen ? "var(--accent)" : "var(--text-secondary)",
             display: "flex", alignItems: "center", justifyContent: "center",
@@ -2768,7 +3201,7 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
           onMouseLeave={e => e.currentTarget.style.color = fullscreen ? "var(--accent)" : "var(--text-secondary)"}
           >
             {fullscreen ? <ArrowsIn size={18} /> : <ArrowsOut size={18} />}
-          </button>
+          </button></Tooltip>
 
         </div>
 
@@ -2973,11 +3406,11 @@ const DEFAULT_LYRICS_PROVIDERS = [
 
 // Sync-type tags shown next to each provider in settings
 const PROVIDER_SYNC = {
-  better:     { label: "Syllable-Sync", color: "#ce93d8", bg: "rgba(206,147,216,0.12)" },
-  musixmatch: { label: "Word-Sync",     color: "#f48fb1", bg: "rgba(244,143,177,0.12)" },
-  lrclib:     { label: "Line-Sync",     color: "#81c784", bg: "rgba(129,199,132,0.12)" },
-  kugou:      { label: "Line-Sync",     color: "#81c784", bg: "rgba(129,199,132,0.12)" },
-  simp:       { label: "Line-Sync",     color: "#81c784", bg: "rgba(129,199,132,0.12)" },
+  better:     { label: "Syllable", icon: "/sync-syllable.svg", color: "#ce93d8", bg: "rgba(206,147,216,0.12)" },
+  musixmatch: { label: "Word",     icon: "/sync-word.svg",     color: "#f48fb1", bg: "rgba(244,143,177,0.12)" },
+  lrclib:     { label: "Line",     icon: "/sync-line.svg",     color: "#81c784", bg: "rgba(129,199,132,0.12)" },
+  kugou:      { label: "Line",     icon: "/sync-line.svg",     color: "#81c784", bg: "rgba(129,199,132,0.12)" },
+  simp:       { label: "Line",     icon: "/sync-line.svg",     color: "#81c784", bg: "rgba(129,199,132,0.12)" },
 };
 
 async function fetchLyrics(title, artist, album, duration, providers = DEFAULT_LYRICS_PROVIDERS, videoId = "") {
@@ -3036,14 +3469,23 @@ async function fetchLyrics(title, artist, album, duration, providers = DEFAULT_L
   };
 
   const tryFns = { better: tryBetter, lrclib: tryLrclib, kugou: tryKugou, simp: trySimp, musixmatch: tryMusixmatch };
-  try {
-    for (const p of providers) {
-      if (!p.enabled) continue;
-      const fn = tryFns[p.id];
-      if (fn) { const r = await fn(); if (r) return r; }
-    }
-  } catch {}
-  return null;
+  const enabledProviders = providers.filter(p => p.enabled && tryFns[p.id]);
+
+  // Fetch all providers in parallel — so we know which ones have no lyrics
+  const settled = await Promise.all(
+    enabledProviders.map(p => tryFns[p.id]().catch(() => null).then(r => ({ id: p.id, result: r })))
+  );
+
+  // Pick best result in priority order, collect failures
+  const failedIds = [];
+  let bestResult = null;
+  for (const p of enabledProviders) {
+    const { result } = settled.find(s => s.id === p.id);
+    if (result) { if (!bestResult) bestResult = result; }
+    else failedIds.push(p.id);
+  }
+
+  return bestResult ? { ...bestResult, failedIds } : { failedIds };
 }
 
 // LEGACY - replaced above
@@ -3082,11 +3524,14 @@ async function _fetchLyrics_unused(title, artist, album, duration) {
   return null;
 }
 
-function LyricsOverlay({ track, audioRef, onClose, fontSize = 32, providers = DEFAULT_LYRICS_PROVIDERS, refetchKey = 0, onAddToast, language = "de" }) {
+function LyricsOverlay({ track, audioRef, onClose, fontSize = 32, providers = DEFAULT_LYRICS_PROVIDERS, refetchKey = 0, onAddToast, language = "de", forcedProvider = null, onSourceChange, onProviderFailed, showTranslation = false, translationLang = "DE", translationFontSize = 20, showRomaji = false, romajiFontSize = 18 }) {
   const [lyrics, setLyrics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [source, setSource] = useState("");
   const [tick, setTick] = useState(0);
+  const [translations, setTranslations] = useState(null); // array of strings, one per lyric line
+  const [translating, setTranslating] = useState(false);
+  const [romajiLines, setRomajiLines] = useState(null); // array of romaji strings
   const t = useLang();
   const containerRef = useRef(null);
   const rafRef = useRef(null);
@@ -3099,6 +3544,47 @@ function LyricsOverlay({ track, audioRef, onClose, fontSize = 32, providers = DE
 
   // Keep lyricsDataRef in sync with state
   useEffect(() => { lyricsDataRef.current = lyrics; }, [lyrics]);
+
+  // Fetch translations when showTranslation is enabled, lyrics change, or target language changes
+  useEffect(() => {
+    if (!showTranslation || !lyrics || lyrics.length === 0) {
+      if (!showTranslation) setTranslations(null);
+      return;
+    }
+    const lines = lyrics.map(line =>
+      line.wordSync ? line.words.map(w => w.text).join("") : (line.text || "")
+    );
+    setTranslating(true);
+    setTranslations(null);
+    fetch("http://localhost:9847/translate-lyrics", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ lines, target_lang: translationLang }),
+    })
+      .then(r => r.json())
+      .then(d => { setTranslations(d.translations || null); })
+      .catch(() => setTranslations(null))
+      .finally(() => setTranslating(false));
+  }, [showTranslation, lyrics, translationLang]);
+
+  // Fetch Romaji when toggle is enabled or lyrics change
+  useEffect(() => {
+    if (!showRomaji || !lyrics || lyrics.length === 0) {
+      if (!showRomaji) setRomajiLines(null);
+      return;
+    }
+    const lines = lyrics.map(line =>
+      line.wordSync ? line.words.map(w => w.text).join("") : (line.text || "")
+    );
+    fetch("http://localhost:9847/romanize-lyrics", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ lines }),
+    })
+      .then(r => r.json())
+      .then(d => { setRomajiLines(d.romanizations || null); })
+      .catch(() => setRomajiLines(null));
+  }, [showRomaji, lyrics]);
 
   // Sync audio snap so the rAF loop can interpolate currentTime at 60 fps
   useEffect(() => {
@@ -3209,16 +3695,41 @@ function LyricsOverlay({ track, audioRef, onClose, fontSize = 32, providers = DE
     setLoading(true);
     setLyrics(null);
 
-    // Check localStorage cache first (keyed by videoId), skip if refetching
     const cacheKey = `kiyoshi-lyrics-${track.videoId}`;
+
+    // Forced provider: skip cache, fetch only that one provider
+    if (forcedProvider) {
+      const singleProviders = DEFAULT_LYRICS_PROVIDERS.map(p => ({ ...p, enabled: p.id === forcedProvider }));
+      fetchLyrics(track.title, track.artists, track.album, parseDurationToSeconds(track.duration), singleProviders, track.videoId || "").then(res => {
+        if (res?.lrc) { setLyrics(res.lrc); setSource(res.source); onSourceChange?.(res.source); }
+        else { setLyrics(null); onSourceChange?.(""); onProviderFailed?.(forcedProvider); }
+        setLoading(false);
+      });
+      return;
+    }
+
+    // Check localStorage cache first (keyed by videoId), skip if refetching
     if (refetchKey === 0) {
       try {
         const cached = localStorage.getItem(cacheKey);
         if (cached) {
-          const { lrc, source } = JSON.parse(cached);
+          const parsed = JSON.parse(cached);
+          const { lrc, source } = parsed;
           setLyrics(lrc);
           setSource(source);
+          onSourceChange?.(source);
           setLoading(false);
+          if (Array.isArray(parsed.failedIds)) {
+            // Already have availability info — use immediately
+            parsed.failedIds.forEach(id => onProviderFailed?.(id));
+          } else {
+            // Old cache entry — check availability silently in background
+            fetchLyrics(track.title, track.artists, track.album, parseDurationToSeconds(track.duration), providers, track.videoId || "").then(res => {
+              const ids = res?.failedIds || [];
+              ids.forEach(id => onProviderFailed?.(id));
+              try { localStorage.setItem(cacheKey, JSON.stringify({ lrc, source, failedIds: ids })); } catch {}
+            });
+          }
           return;
         }
       } catch {}
@@ -3228,15 +3739,17 @@ function LyricsOverlay({ track, audioRef, onClose, fontSize = 32, providers = DE
     }
 
     fetchLyrics(track.title, track.artists, track.album, parseDurationToSeconds(track.duration), providers, track.videoId || "").then(res => {
-      if (res) {
+      if (res?.lrc) {
         setLyrics(res.lrc);
         setSource(res.source);
-        // Store in cache for next time
-        try { localStorage.setItem(cacheKey, JSON.stringify({ lrc: res.lrc, source: res.source })); } catch {}
+        onSourceChange?.(res.source);
+        try { localStorage.setItem(cacheKey, JSON.stringify({ lrc: res.lrc, source: res.source, failedIds: res.failedIds || [] })); } catch {}
       }
+      // Mark providers that were tried but failed
+      res?.failedIds?.forEach(id => onProviderFailed?.(id));
       setLoading(false);
     });
-  }, [track, refetchKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [track, refetchKey, forcedProvider]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const activeIdx = lastIdxRef.current;
 
@@ -3393,6 +3906,28 @@ function LyricsOverlay({ track, audioRef, onClose, fontSize = 32, providers = DE
                 </span>
               ) : (
                 <span style={{ color: "#fff" }}>{lineText}</span>
+              )}
+              {showRomaji && romajiLines?.[i] && (
+                <div style={{
+                  fontSize: romajiFontSize,
+                  fontWeight: 500,
+                  color: "rgba(255,255,255,0.55)",
+                  opacity: isActive ? 1 : 0.6,
+                  marginTop: 4,
+                  lineHeight: 1.4,
+                  textAlign,
+                }}>{romajiLines[i]}</div>
+              )}
+              {showTranslation && translations?.[i] && translations[i] !== lineText && (
+                <div style={{
+                  fontSize: translationFontSize,
+                  fontWeight: 600,
+                  color: "var(--accent)",
+                  opacity: isActive ? 0.9 : 0.45,
+                  marginTop: 6,
+                  lineHeight: 1.4,
+                  textAlign,
+                }}>{translations[i]}</div>
               )}
             </div>
           );
@@ -3743,29 +4278,26 @@ function PlaylistLayout({ title, thumbnail, tracks, total, loading, progress, ca
                     {t("downloaded")}
                   </div>
                 ) : (
-                  <button
+                  <Tooltip text={t("downloadAll")}><button
                     onClick={() => onDownloadAll(tracks)}
-                    title={t("downloadAll")}
                     disabled={someDownloading}
                     style={{
                       background: "rgba(255,255,255,0.1)", border: "0.5px solid rgba(255,255,255,0.2)",
-                      borderRadius: 20, height: 36, display: "flex", alignItems: "center",
+                      borderRadius: "50%", width: 36, height: 36, display: "flex", alignItems: "center",
                       justifyContent: "center", cursor: someDownloading ? "default" : "pointer", transition: "background 0.15s",
-                      color: "rgba(255,255,255,0.8)", padding: "0 14px", gap: 6, fontSize: "var(--t12)", fontWeight: 500,
+                      color: "rgba(255,255,255,0.8)", padding: 0,
                       opacity: someDownloading ? 0.6 : 1,
                     }}
                     onMouseEnter={e => { if (!someDownloading) e.currentTarget.style.background = "rgba(255,255,255,0.2)"; }}
                     onMouseLeave={e => e.currentTarget.style.background = "rgba(255,255,255,0.1)"}
                   >
                     {someDownloading ? <DownloadSimple size={14} style={{ animation: "pulse 1s ease-in-out infinite" }} /> : <DownloadSimple size={14} />}
-                    {t("downloadAll")}
-                  </button>
+                  </button></Tooltip>
                 );
               })()}
               {cached && onRefresh && (
-                <button
+                <Tooltip text={t("refresh")}><button
                   onClick={onRefresh}
-                  title="Aktualisieren"
                   style={{
                     background: "rgba(255,255,255,0.1)", border: "0.5px solid rgba(255,255,255,0.2)",
                     borderRadius: "50%", width: 36, height: 36, display: "flex", alignItems: "center",
@@ -3776,12 +4308,11 @@ function PlaylistLayout({ title, thumbnail, tracks, total, loading, progress, ca
                   onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.1)"; e.currentTarget.style.transform = "rotate(0deg)"; }}
                 >
                   <ArrowClockwise size={14} />
-                </button>
+                </button></Tooltip>
               )}
               {/* Search toggle */}
-              <button
+              <Tooltip text={t("searchInPlaylist")}><button
                 onClick={() => { setSearchVisible(v => !v); if (searchVisible) setTrackSearch(""); }}
-                title={t("searchInPlaylist")}
                 style={{
                   background: searchVisible ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.1)",
                   border: "0.5px solid rgba(255,255,255,0.2)",
@@ -3793,11 +4324,13 @@ function PlaylistLayout({ title, thumbnail, tracks, total, loading, progress, ca
                 onMouseLeave={e => e.currentTarget.style.background = searchVisible ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.1)"}
               >
                 <MagnifyingGlass size={14} />
-              </button>
-            </div>
-            {/* Inline search input */}
-            {searchVisible && (
-              <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 8 }}>
+              </button></Tooltip>
+              {/* Inline search input — slides in next to buttons */}
+              <div style={{
+                width: searchVisible ? 220 : 0, overflow: "hidden",
+                transition: "width 0.25s cubic-bezier(0.4,0,0.2,1)",
+                display: "flex", alignItems: "center", gap: 8,
+              }}>
                 <input
                   ref={searchInputRef}
                   value={trackSearch}
@@ -3806,16 +4339,16 @@ function PlaylistLayout({ title, thumbnail, tracks, total, loading, progress, ca
                   style={{
                     background: "rgba(0,0,0,0.35)", border: "0.5px solid rgba(255,255,255,0.2)",
                     borderRadius: 20, padding: "7px 14px", fontSize: "var(--t13)", color: "#fff",
-                    outline: "none", width: 240, fontFamily: "var(--font)",
+                    outline: "none", width: 220, flexShrink: 0, fontFamily: "var(--font)",
                   }}
                 />
-                {trackSearch && (
-                  <span style={{ fontSize: "var(--t12)", color: "rgba(255,255,255,0.55)" }}>
-                    {visibleTracks.length} {t("xOfY")} {tracks.length}
-                  </span>
-                )}
               </div>
-            )}
+              {searchVisible && trackSearch && (
+                <span style={{ fontSize: "var(--t12)", color: "rgba(255,255,255,0.55)", whiteSpace: "nowrap" }}>
+                  {visibleTracks.length} {t("xOfY")} {tracks.length}
+                </span>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -4608,9 +5141,8 @@ function ArtistView({ browseId, onPlay, currentTrack, isPlaying, onOpenAlbum, on
               {artist.name}
             </div>
             {onTogglePin && (
-              <button
+              <Tooltip text={t(isPinned ? "removeFromSidebar" : "pinToSidebar")}><button
                 onClick={() => onTogglePin({ browseId, title: artist.name, thumbnail: artist.thumbnail, type: "artist" })}
-                title={isPinned ? "Aus Sidebar entfernen" : "In Sidebar anpinnen"}
                 style={{
                   background: isPinned ? "var(--accent)" : "rgba(255,255,255,0.15)",
                   border: "none", borderRadius: "50%",
@@ -4620,7 +5152,7 @@ function ArtistView({ browseId, onPlay, currentTrack, isPlaying, onOpenAlbum, on
                 }}
               >
                 <PushPin size={15} weight={isPinned ? "fill" : "regular"} />
-              </button>
+              </button></Tooltip>
             )}
           </div>
           {artist.subscribers && (
@@ -5250,7 +5782,11 @@ export default function App() {
   }, []);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsInitialTab, setSettingsInitialTab] = useState(null);
-  const [accent, setAccent] = useState("#e040fb");
+  const [accent, setAccent] = useState(() => {
+    const saved = localStorage.getItem("kiyoshi-accent");
+    if (saved) document.documentElement.style.setProperty("--accent", saved);
+    return saved || "#e040fb";
+  });
   const [theme, setTheme] = useState(() => localStorage.getItem("kiyoshi-theme") || "dark");
   const [flashbang, setFlashbang] = useState(false);
   const lightClickRef = useRef({ count: 0, lastTime: 0 });
@@ -5258,6 +5794,7 @@ export default function App() {
   const handleAccentChange = useCallback((color) => {
     setAccent(color);
     document.documentElement.style.setProperty("--accent", color);
+    localStorage.setItem("kiyoshi-accent", color);
   }, []);
 
   const handleThemeChange = useCallback((t) => {
@@ -5291,6 +5828,25 @@ export default function App() {
   const [queue, setQueue] = useState([]);
   const [overlayOpen, setOverlayOpen] = useState(false);
   const [lyricsRefetchKey, setLyricsRefetchKey] = useState(0);
+  const [forcedLyricsProvider, setForcedLyricsProvider] = useState(null);
+  const [currentLyricsSource, setCurrentLyricsSource] = useState("");
+  const [failedLyricsProviders, setFailedLyricsProviders] = useState(new Set());
+  const [showLyricsTranslation, setShowLyricsTranslation] = useState(() =>
+    localStorage.getItem("kiyoshi-lyrics-translation") === "true"
+  );
+  const [lyricsTranslationLang, setLyricsTranslationLang] = useState(() =>
+    localStorage.getItem("kiyoshi-lyrics-translation-lang") || "DE"
+  );
+  const [showRomaji, setShowRomaji] = useState(() =>
+    localStorage.getItem("kiyoshi-lyrics-romaji") === "true"
+  );
+
+  // Reset lyrics state on every track change (incl. auto-advance / prev-next)
+  useEffect(() => {
+    setFailedLyricsProviders(new Set());
+    setForcedLyricsProvider(null);
+    setCurrentLyricsSource("");
+  }, [currentTrack?.videoId]); // eslint-disable-line react-hooks/exhaustive-deps
   const [showLyrics, setShowLyrics] = useState(true);
   const [queueOpen, setQueueOpen] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
@@ -5329,7 +5885,8 @@ export default function App() {
   }, [fullscreen]);
 
   const [collection, setCollection] = useState(null); // { title, thumbnail, tracks }
-  const audioRef = useRef(new Audio());
+  const audioRef = useRef(null);
+  if (!audioRef.current) audioRef.current = new IpcAudio();
 
   // Update native window title (= taskbar) whenever the playing track or state changes.
   // When paused for >30 s, revert to "Kiyoshi Music".
@@ -5431,6 +5988,9 @@ export default function App() {
 
   const handlePlay = useCallback((track, trackList) => {
     setCurrentTrack(track);
+    setForcedLyricsProvider(null);
+    setCurrentLyricsSource("");
+    setFailedLyricsProviders(new Set());
     if (trackList) {
       const seen = new Set();
       const deduped = trackList.filter(t => {
@@ -5592,8 +6152,19 @@ export default function App() {
     setCollection(c => ({ ...c, title: d.title, thumbnail: d.thumbnail || c.thumbnail, tracks: d.tracks || [], total: d.tracks?.length || 0, albumArtists: d.artists, albumArtistBrowseId: d.artistBrowseId, year: d.year, cached: !refresh && !!d.cached }));
   }, [addRecentPlaylist]);
 
-  const [animations, setAnimations] = useState(true);
-  const [lyricsFontSize, setLyricsFontSize] = useState(32);
+  const [animations, setAnimations] = useState(() => localStorage.getItem("kiyoshi-animations") !== "false");
+  const [lyricsFontSize, setLyricsFontSize] = useState(() => {
+    const s = parseInt(localStorage.getItem("kiyoshi-lyrics-font-size"));
+    return isNaN(s) ? 32 : s;
+  });
+  const [lyricsTranslationFontSize, setLyricsTranslationFontSize] = useState(() => {
+    const s = parseInt(localStorage.getItem("kiyoshi-lyrics-translation-font-size"));
+    return isNaN(s) ? 20 : s;
+  });
+  const [lyricsRomajiFontSize, setLyricsRomajiFontSize] = useState(() => {
+    const s = parseInt(localStorage.getItem("kiyoshi-lyrics-romaji-font-size"));
+    return isNaN(s) ? 18 : s;
+  });
   const [hideExplicit, setHideExplicit] = useState(() => localStorage.getItem("kiyoshi-hide-explicit") === "true");
   const [uiZoom, setUiZoom] = useState(() => {
     const saved = parseFloat(localStorage.getItem("kiyoshi-ui-zoom"));
@@ -5647,8 +6218,11 @@ export default function App() {
       return merged;
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  const [autoplay, setAutoplay] = useState(true);
-  const [crossfade, setCrossfade] = useState(0); // seconds
+  const [autoplay, setAutoplay] = useState(() => localStorage.getItem("kiyoshi-autoplay") !== "false");
+  const [crossfade, setCrossfade] = useState(() => {
+    const s = parseInt(localStorage.getItem("kiyoshi-crossfade"));
+    return isNaN(s) ? 0 : s;
+  });
 
   // ── Profile / Auth ──
   const [profiles, setProfiles] = useState([]);
@@ -6001,8 +6575,29 @@ export default function App() {
             onOpenAlbum={openAlbum}
             onOpenArtist={openArtist}
             onExportSong={handleExportSong}
-            onRefetchLyrics={() => setLyricsRefetchKey(k => k + 1)}
+            onRefetchLyrics={() => { setForcedLyricsProvider(null); setLyricsRefetchKey(k => k + 1); }}
+            lyricsProviders={lyricsProviders}
+            currentLyricsSource={currentLyricsSource}
+            onSwitchLyricsProvider={(id) => setForcedLyricsProvider(id)}
+            failedLyricsProviders={failedLyricsProviders}
             language={language}
+            showLyricsTranslation={showLyricsTranslation}
+            onToggleLyricsTranslation={() => {
+              const next = !showLyricsTranslation;
+              setShowLyricsTranslation(next);
+              localStorage.setItem("kiyoshi-lyrics-translation", String(next));
+            }}
+            lyricsTranslationLang={lyricsTranslationLang}
+            onSetLyricsTranslationLang={(lang) => {
+              setLyricsTranslationLang(lang);
+              localStorage.setItem("kiyoshi-lyrics-translation-lang", lang);
+            }}
+            showRomaji={showRomaji}
+            onToggleRomaji={() => {
+              const next = !showRomaji;
+              setShowRomaji(next);
+              localStorage.setItem("kiyoshi-lyrics-romaji", String(next));
+            }}
           />
           </div>
         </div>
@@ -6015,7 +6610,7 @@ export default function App() {
           pointerEvents: overlayOpen ? "all" : "none",
         }}>
           {currentTrack && (showLyrics
-            ? <LyricsOverlay track={currentTrack} audioRef={audioRef} onClose={() => setOverlayOpen(false)} fontSize={lyricsFontSize} providers={lyricsProviders} refetchKey={lyricsRefetchKey} onAddToast={addToast} language={language} />
+            ? <LyricsOverlay track={currentTrack} audioRef={audioRef} onClose={() => setOverlayOpen(false)} fontSize={lyricsFontSize} providers={lyricsProviders} refetchKey={lyricsRefetchKey} onAddToast={addToast} language={language} forcedProvider={forcedLyricsProvider} onSourceChange={setCurrentLyricsSource} onProviderFailed={(id) => setFailedLyricsProviders(s => new Set([...s, id]))} showTranslation={showLyricsTranslation} translationLang={lyricsTranslationLang} translationFontSize={lyricsTranslationFontSize} showRomaji={showRomaji} romajiFontSize={lyricsRomajiFontSize} />
             : <CoverView track={currentTrack} isPlaying={isPlaying} onClose={() => setOverlayOpen(false)} />
           )}
         </div>
@@ -6067,15 +6662,19 @@ export default function App() {
             theme={theme}
             onThemeChange={handleThemeChange}
             animations={animations}
-            onAnimationsChange={setAnimations}
+            onAnimationsChange={v => { setAnimations(v); localStorage.setItem("kiyoshi-animations", v); }}
             lyricsFontSize={lyricsFontSize}
-            onLyricsFontSizeChange={setLyricsFontSize}
+            onLyricsFontSizeChange={v => { setLyricsFontSize(v); localStorage.setItem("kiyoshi-lyrics-font-size", v); }}
+            lyricsTranslationFontSize={lyricsTranslationFontSize}
+            onLyricsTranslationFontSizeChange={v => { setLyricsTranslationFontSize(v); localStorage.setItem("kiyoshi-lyrics-translation-font-size", v); }}
+            lyricsRomajiFontSize={lyricsRomajiFontSize}
+            onLyricsRomajiFontSizeChange={v => { setLyricsRomajiFontSize(v); localStorage.setItem("kiyoshi-lyrics-romaji-font-size", v); }}
             lyricsProviders={lyricsProviders}
             onLyricsProvidersChange={v => { setLyricsProviders(v); localStorage.setItem("kiyoshi-lyrics-providers", JSON.stringify(v)); }}
             autoplay={autoplay}
-            onAutoplayChange={setAutoplay}
+            onAutoplayChange={v => { setAutoplay(v); localStorage.setItem("kiyoshi-autoplay", v); }}
             crossfade={crossfade}
-            onCrossfadeChange={setCrossfade}
+            onCrossfadeChange={v => { setCrossfade(v); localStorage.setItem("kiyoshi-crossfade", v); }}
             discordRpc={discordRpc}
             onDiscordRpcChange={(v) => { setDiscordRpc(v); localStorage.setItem("kiyoshi-discord-rpc", v); if (!v) import("@tauri-apps/api/core").then(({ invoke }) => invoke("clear_discord_rpc").catch(() => {})); }}
             language={language}

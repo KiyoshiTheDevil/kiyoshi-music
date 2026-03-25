@@ -89,6 +89,8 @@
 
   "fontSize": "Schriftgröße",
   "fontSizeDesc": "Aktuelle Größe",
+  "translationFontSize": "Übersetzungs-Schriftgröße",
+  "romajiFontSize": "Romaji-Schriftgröße",
   "lyricsProviders": "Lyrics-Anbieter",
   "lyricsProvidersDesc": "Reihenfolge und Aktivierung der Anbieter. Aktivierte Anbieter werden der Reihe nach versucht.",
 
@@ -181,7 +183,14 @@
 
   "goToAlbum": "Zum Album",
   "goToArtist": "Zum Künstler",
+  "scrollToTop": "Nach oben",
+  "refresh": "Aktualisieren",
+  "pinToSidebar": "In Sidebar anpinnen",
+  "removeFromSidebar": "Aus Sidebar entfernen",
   "refetchLyrics": "Lyrics neu laden",
+  "translateLyrics": "Lyrics übersetzen",
+  "romajiLyrics": "Romaji anzeigen",
+  "lyricsSource": "Lyrics Quelle",
 
   "downloads": "Downloads",
   "saveAsMp3": "Als MP3 speichern",
@@ -225,6 +234,16 @@
 
   "uiZoom": "Zoom",
   "uiZoomDesc": "Skalierung der Oberfläche",
+
+  "like": "Zu Liked Songs hinzufügen",
+  "unlike": "Aus Liked Songs entfernen",
+
+  "shuffle": "Shuffle",
+  "repeat": "Wiederholen",
+  "repeatAll": "Alle wiederholen",
+  "repeatOne": "Einmal wiederholen",
+  "mute": "Stummschalten",
+  "unmute": "Stummschaltung aufheben",
 
   "copyLyrics": "Lyrics kopieren",
   "saveLrc": "Als .lrc speichern",

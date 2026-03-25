@@ -4,7 +4,7 @@ Lokaler API-Server der ytmusicapi nutzt.
 Starte mit: python server.py
 """
 
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, Response
 from flask_cors import CORS
 from ytmusicapi import YTMusic
 import sys, os, json, glob, threading, time, requests
@@ -752,6 +752,128 @@ def shutdown():
 def status():
     return jsonify({"ok": True, "message": "Kiyoshi Music Backend laeuft"})
 
+# In-memory cache für Lyrics-Übersetzungen
+_translation_cache = {}
+
+# Romaji-Konverter (lazy init)
+_kakasi = None
+_romaji_cache = {}
+_JP_RE = __import__('re').compile(r'[\u3040-\u309f\u30a0-\u30ff\u4e00-\u9fff\uff66-\uff9f]')
+
+def _get_kakasi():
+    global _kakasi
+    if _kakasi is None:
+        import pykakasi
+        _kakasi = pykakasi.kakasi()
+    return _kakasi
+
+@app.route("/romanize-lyrics", methods=["POST"])
+def romanize_lyrics():
+    """Konvertiert japanische Lyrics-Zeilen zu Romaji via pykakasi."""
+    data = request.get_json()
+    lines = data.get("lines", [])
+
+    if not lines:
+        return jsonify({"romanizations": []})
+
+    try:
+        kks = _get_kakasi()
+    except ImportError:
+        return jsonify({"error": "pykakasi nicht installiert.", "romanizations": [""] * len(lines)}), 503
+
+    result = []
+    for line in lines:
+        if not line.strip() or not _JP_RE.search(line):
+            result.append("")
+            continue
+        cache_key = f"romaji:{line}"
+        if cache_key in _romaji_cache:
+            result.append(_romaji_cache[cache_key])
+            continue
+        converted = kks.convert(line)
+        romaji = " ".join(
+            item.get('hepburn') or item.get('orig', '')
+            for item in converted
+            if (item.get('hepburn') or item.get('orig', '')).strip()
+        )
+        _romaji_cache[cache_key] = romaji
+        result.append(romaji)
+
+    return jsonify({"romanizations": result})
+
+# Google Translate language code mapping (DeepL uppercase → Google lowercase)
+_GOOGLE_LANG = {
+    "DE": "de", "EN": "en", "FR": "fr", "ES": "es", "IT": "it",
+    "PT": "pt", "NL": "nl", "PL": "pl", "RU": "ru",
+    "JA": "ja", "KO": "ko", "ZH": "zh-CN",
+}
+
+def _google_translate_batch(lines, target_lang):
+    """Übersetzt eine Liste von Strings via inoffizielle Google Translate API.
+    Nutzt \n als Trennzeichen um mit einem Request auszukommen."""
+    gl = _GOOGLE_LANG.get(target_lang, target_lang.lower())
+    # Zeilen mit seltener Zeichenfolge verbinden damit Google sie nicht zusammenzieht
+    separator = "\n"
+    text = separator.join(lines)
+    params = {
+        "client": "gtx",
+        "sl": "auto",
+        "tl": gl,
+        "dt": "t",
+        "q": text,
+    }
+    resp = requests.get(
+        "https://translate.googleapis.com/translate_a/single",
+        params=params,
+        timeout=30,
+        headers={"User-Agent": "Mozilla/5.0"},
+    )
+    resp.raise_for_status()
+    data = resp.json()
+    # data[0] enthält [[übersetzt, original, ...], ...] Chunks
+    translated = "".join(chunk[0] for chunk in data[0] if chunk and chunk[0])
+    translated_lines = translated.split("\n")
+    # Auf gleiche Länge bringen
+    while len(translated_lines) < len(lines):
+        translated_lines.append("")
+    return translated_lines[:len(lines)]
+
+@app.route("/translate-lyrics", methods=["POST"])
+def translate_lyrics():
+    """Übersetzt Lyrics-Zeilen via Google Translate (kein API-Key nötig)."""
+    data = request.get_json()
+    lines = data.get("lines", [])
+    target_lang = data.get("target_lang", "DE").upper()
+
+    if not lines:
+        return jsonify({"translations": []})
+
+    # Leere Zeilen (Pausen/Leerzeilen) direkt durchlassen
+    non_empty_indices = [i for i, l in enumerate(lines) if l.strip()]
+    non_empty_lines = [lines[i] for i in non_empty_indices]
+
+    if not non_empty_lines:
+        return jsonify({"translations": list(lines)})
+
+    cache_key = f"{target_lang}:{hash(tuple(non_empty_lines))}"
+    if cache_key in _translation_cache:
+        cached = _translation_cache[cache_key]
+        result = list(lines)
+        for idx, translated in zip(non_empty_indices, cached):
+            result[idx] = translated
+        return jsonify({"translations": result})
+
+    try:
+        translated_lines = _google_translate_batch(non_empty_lines, target_lang)
+        _translation_cache[cache_key] = translated_lines
+        result = list(lines)
+        for idx, translated in zip(non_empty_indices, translated_lines):
+            result[idx] = translated
+        return jsonify({"translations": result})
+    except Exception as e:
+        print(f"[Translation] Error: {e}")
+        return jsonify({"error": str(e), "translations": list(lines)}), 500
+
 @app.route("/cache/stats")
 def cache_stats():
     pl_size, pl_count = _dir_size_and_count(PLAYLIST_CACHE_DIR)
@@ -835,8 +957,10 @@ def liked_songs():
 def stream_url(video_id):
     try:
         import yt_dlp
+        # Prefer M4A/AAC: supported by the Rust audio player (rodio+symphonia).
+        # Falls back to any bestaudio if M4A is unavailable.
         ydl_opts = {
-            "format": "bestaudio",
+            "format": "bestaudio[ext=m4a]/bestaudio[acodec=aac]/bestaudio",
             "quiet": True,
             "no_warnings": True,
             "skip_download": True,
@@ -858,6 +982,44 @@ def stream_url(video_id):
         return jsonify({"url": url})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/stream-prepare/<video_id>")
+def stream_prepare(video_id):
+    """Download audio via yt-dlp to a temp file and return the local path.
+    Rust reads from disk — no HTTP proxy overhead, no truncation."""
+    import tempfile, glob as _glob
+    cache_dir = os.path.join(tempfile.gettempdir(), "kiyoshi-audio")
+    os.makedirs(cache_dir, exist_ok=True)
+
+    # Check if already downloaded
+    existing = _glob.glob(os.path.join(cache_dir, f"{video_id}.*"))
+    if existing and os.path.getsize(existing[0]) > 0:
+        print(f"[stream-prepare] Cache hit: {existing[0]}", flush=True)
+        return jsonify({"path": existing[0]})
+
+    try:
+        import yt_dlp
+        outtmpl = os.path.join(cache_dir, "%(id)s.%(ext)s")
+        ydl_opts = {
+            "format": "bestaudio[ext=m4a]/bestaudio[acodec=aac]/bestaudio",
+            "outtmpl": outtmpl,
+            "quiet": True,
+            "no_warnings": True,
+        }
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(
+                f"https://music.youtube.com/watch?v={video_id}",
+                download=True
+            )
+            path = ydl.prepare_filename(info)
+
+        print(f"[stream-prepare] Downloaded: {path} ({os.path.getsize(path)} bytes)", flush=True)
+        return jsonify({"path": path})
+    except Exception as e:
+        print(f"[stream-prepare] Error: {e}", flush=True)
+        return jsonify({"error": str(e)}), 500
+
 
 @app.route("/library/playlists")
 def library_playlists():
@@ -1579,7 +1741,7 @@ def _download_song_bg(video_id, meta):
         safe = video_id.replace("/", "_").replace("\\", "_")
         output_tpl = os.path.join(SONG_CACHE_DIR, safe + ".%(ext)s")
         ydl_opts = {
-            "format": "bestaudio",
+            "format": "bestaudio[ext=m4a]/bestaudio[acodec=aac]/bestaudio",
             "quiet": True,
             "no_warnings": True,
             "outtmpl": output_tpl,
