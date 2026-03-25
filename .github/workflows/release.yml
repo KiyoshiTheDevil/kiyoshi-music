@@ -70,52 +70,5 @@ jobs:
           prerelease: ${{ contains(github.ref_name, 'alpha') || contains(github.ref_name, 'beta') }}
           args: --target x86_64-unknown-linux-gnu
 
-  build-windows:
-    runs-on: windows-latest
 
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Python 3.11
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install Python dependencies
-        working-directory: python-backend
-        run: pip install -r requirements.txt pyinstaller
-
-      - name: Build Python backend (Windows)
-        working-directory: python-backend
-        run: |
-          pyinstaller kiyoshi-server-x86_64-pc-windows-msvc.spec `
-            --distpath ../src-tauri/binaries `
-            --workpath build_tmp/kiyoshi-server-x86_64-pc-windows-msvc
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install Node.js dependencies
-        run: npm install
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Cache Rust build
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: src-tauri
-
-      - name: Build and publish release
-        uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tagName: ${{ github.ref_name }}
-          releaseName: 'Kiyoshi Music ${{ github.ref_name }}'
-          releaseDraft: true
-          prerelease: ${{ contains(github.ref_name, 'alpha') || contains(github.ref_name, 'beta') }}
 
