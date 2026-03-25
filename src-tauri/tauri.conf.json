@@ -29,7 +29,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": ["nsis"],
     "icon": ["icons/icon_32.png", "icons/icon_128.png", "icons/icon_256.png", "icons/icon.ico"],
     "externalBin": [
       "binaries/kiyoshi-server"

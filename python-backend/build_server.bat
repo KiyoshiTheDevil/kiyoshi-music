@@ -3,7 +3,7 @@ echo === Kiyoshi Music - Server Build ===
 echo.
 
 REM Install PyInstaller and dependencies if needed
-pip install pyinstaller yt-dlp --quiet
+pip install pyinstaller yt-dlp pykakasi --quiet
 
 REM Build the server executable with the correct Tauri platform suffix
 echo Kompiliere server.py...
@@ -16,8 +16,10 @@ pyinstaller --onefile ^
   --hidden-import=flask ^
   --hidden-import=flask_cors ^
   --hidden-import=yt_dlp ^
+  --hidden-import=pykakasi ^
   --collect-all ytmusicapi ^
   --collect-all yt_dlp ^
+  --collect-all pykakasi ^
   --add-data "%LOCALAPPDATA%\Programs\Python\Python313\Lib\site-packages\ytmusicapi\locales;ytmusicapi/locales" ^
   server.py
 
