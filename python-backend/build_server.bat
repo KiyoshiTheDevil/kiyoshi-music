@@ -2,6 +2,13 @@
 echo === Kiyoshi Music - Server Build ===
 echo.
 
+python -m venv .venv
+call .venv\Scripts\activate
+
+pip install --upgrade pip --quiet
+
+pip install -r requirements.txt --quiet
+
 REM Install PyInstaller and dependencies if needed
 pip install pyinstaller yt-dlp pykakasi --quiet
 
@@ -20,7 +27,7 @@ pyinstaller --onefile ^
   --collect-all ytmusicapi ^
   --collect-all yt_dlp ^
   --collect-all pykakasi ^
-  --add-data "%LOCALAPPDATA%\Programs\Python\Python313\Lib\site-packages\ytmusicapi\locales;ytmusicapi/locales" ^
+  --add-data "..\.venv\Lib\site-packages\ytmusicapi\locales;ytmusicapi/locales" ^
   server.py
 
 echo.
