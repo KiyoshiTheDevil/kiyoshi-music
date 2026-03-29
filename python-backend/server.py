@@ -410,7 +410,7 @@ def fetch_account_info(profile_name):
                     meta = json.load(f)
             meta["displayName"] = info.get("accountName", profile_name)
             meta["handle"] = info.get("channelHandle", "")
-            meta["avatar"] = (info.get("accountPhoto") or [{}])[-1].get("url", "")
+            meta["avatar"] = info.get("accountPhotoUrl", "")
             with open(meta_path, "w") as f:
                 json.dump(meta, f)
     except Exception as e:
@@ -1866,12 +1866,12 @@ def img_proxy():
             resp.headers["X-Cache"] = "HIT"
             return resp
 
-    # Fetch from YouTube CDN
+    # Fetch from CDN (omit YouTube-specific Referer for non-ytimg domains)
     try:
-        req = urllib.request.Request(url, headers={
-            "User-Agent": "Mozilla/5.0",
-            "Referer": "https://music.youtube.com/",
-        })
+        headers = {"User-Agent": "Mozilla/5.0"}
+        if "ytimg.com" in url or "yt3.ggpht.com" in url or "youtube.com" in url:
+            headers["Referer"] = "https://music.youtube.com/"
+        req = urllib.request.Request(url, headers=headers)
         with urllib.request.urlopen(req, timeout=10) as r:
             data = r.read()
             content_type = r.headers.get("Content-Type", "image/jpeg")

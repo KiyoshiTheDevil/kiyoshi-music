@@ -893,7 +893,7 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
                 overflow: "hidden",
               }}>
               {currentProfileData?.avatar
-                ? <img src={currentProfileData.avatar} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                ? <img src={thumb(currentProfileData.avatar)} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                 : (currentProfileData?.displayName || "?")[0].toUpperCase()}
             </div>
             <div style={{ overflow: "hidden", flex: 1 }}>
@@ -1203,17 +1203,18 @@ function Slider({ min, max, step = 1, value, onChange, onChangeCommit, width = 1
 function Toggle({ value, onChange }) {
   return (
     <div onClick={() => onChange(!value)} style={{
-      width: 40, height: 22, borderRadius: 11,
+      width: 44, height: 24, borderRadius: 7,
       background: value ? "var(--accent)" : "var(--bg-elevated)",
       border: "0.5px solid var(--border)",
       position: "relative", cursor: "pointer",
-      transition: "background 0.2s ease", flexShrink: 0,
+      transition: "background 0.25s ease-in-out", flexShrink: 0,
     }}>
       <div style={{
-        position: "absolute", top: 2, left: value ? 20 : 2,
-        width: 16, height: 16, borderRadius: "50%", background: "#fff",
-        transition: "left 0.2s cubic-bezier(0.34,1.56,0.64,1)",
-        boxShadow: "0 1px 4px rgba(0,0,0,0.3)",
+        position: "absolute", top: "50%", transform: "translateY(-50%)",
+        left: value ? 23 : 3,
+        width: 18, height: 18, borderRadius: 4, background: "#fff",
+        transition: "left 0.25s ease-in-out",
+        boxShadow: "0 1px 4px rgba(0,0,0,0.25)",
       }} />
     </div>
   );
@@ -1662,7 +1663,7 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
   const navItems = [
     { id: "darstellung",    label: t("appearance"),    iconEl: <PaintBrushBroad size={18} /> },
     { id: "wiedergabe",     label: t("playback"),      iconEl: <Play size={18} /> },
-    { id: "lyrics",         label: t("lyrics"),        iconEl: <Microphone size={18} /> },
+    { id: "lyrics",         label: t("lyrics"),        iconEl: <ChatText size={18} /> },
     { id: "accessibility",  label: t("accessibility"), iconEl: <PersonArmsSpread size={18} /> },
     { id: "shortcuts",   label: t("shortcuts"),   iconEl: <Keyboard size={18} /> },
     { id: "language",    label: t("language"),    iconEl: <Translate size={18} /> },
@@ -2411,11 +2412,65 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
   const [isLiked, setIsLiked] = useState(false);
   const [songStats, setSongStats] = useState(null);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [moreClosing, setMoreClosing] = useState(false);
   const [morePos, setMorePos] = useState({ right: 0, bottom: 0 });
   const [langSubmenuOpen, setLangSubmenuOpen] = useState(false);
   const [fetchedBrowseIds, setFetchedBrowseIds] = useState({});
   const moreRef = useRef(null);
   const zoom = useZoom();
+
+  const closeMoreMenu = useCallback(() => {
+    setMoreClosing(true);
+    setTimeout(() => { setMoreOpen(false); setMoreClosing(false); }, 140);
+  }, []);
+
+  // ── Sleep Timer ────────────────────────────────────────────────────────────
+  const [sleepTimerEnd, setSleepTimerEnd] = useState(null); // ms timestamp
+  const [sleepRemaining, setSleepRemaining] = useState(null); // seconds
+  const [sleepMenuOpen, setSleepMenuOpen] = useState(false);
+  const [sleepMenuClosing, setSleepMenuClosing] = useState(false);
+  const sleepMenuRef = useRef(null);
+  const sleepDropdownRef = useRef(null);
+
+  const closeSleepMenu = useCallback(() => {
+    setSleepMenuClosing(true);
+    setTimeout(() => { setSleepMenuOpen(false); setSleepMenuClosing(false); }, 140);
+  }, []);
+
+  useEffect(() => {
+    if (!sleepTimerEnd) { setSleepRemaining(null); return; }
+    const tick = () => {
+      const r = Math.max(0, Math.ceil((sleepTimerEnd - Date.now()) / 1000));
+      setSleepRemaining(r);
+      if (r <= 0) {
+        audioRef.current?.pause();
+        setIsPlaying(false);
+        setSleepTimerEnd(null);
+      }
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [sleepTimerEnd]);
+
+  // Close sleep menu on outside click (check both trigger div AND portal dropdown)
+  useEffect(() => {
+    if (!sleepMenuOpen) return;
+    const handler = (e) => {
+      if (
+        sleepMenuRef.current && !sleepMenuRef.current.contains(e.target) &&
+        sleepDropdownRef.current && !sleepDropdownRef.current.contains(e.target)
+      ) closeSleepMenu();
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [sleepMenuOpen]);
+
+  const formatSleepRemaining = (s) => {
+    if (s === null) return null;
+    const m = Math.floor(s / 60), sec = s % 60;
+    return `${m}:${String(sec).padStart(2, "0")}`;
+  };
 
   useEffect(() => {
     if (!track?.videoId) { setSongStats(null); return; }
@@ -2448,7 +2503,7 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
       if (
         moreRef.current && !moreRef.current.contains(e.target) &&
         moreDropdownRef.current && !moreDropdownRef.current.contains(e.target)
-      ) setMoreOpen(false);
+      ) closeMoreMenu();
     };
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
@@ -2985,6 +3040,88 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
             </div>
           </div>
           </div>
+          {/* Sleep Timer */}
+          <div ref={sleepMenuRef} style={{ position: "relative", flexShrink: 0 }}>
+            <Tooltip text={sleepRemaining !== null ? `${translate(language, "sleepTimer")}: ${formatSleepRemaining(sleepRemaining)}` : translate(language, "sleepTimer")}>
+            <button onClick={() => { sleepMenuOpen ? closeSleepMenu() : setSleepMenuOpen(true); }} style={{
+              background: "none", border: "none", cursor: "pointer", padding: 6, borderRadius: "50%",
+              color: sleepRemaining !== null ? "var(--accent)" : (sleepMenuOpen ? "var(--text-primary)" : "var(--text-secondary)"),
+              display: "flex", alignItems: "center", justifyContent: "center",
+              transition: "color 0.15s", position: "relative",
+            }}
+            onMouseEnter={e => e.currentTarget.style.color = sleepRemaining !== null ? "var(--accent)" : "var(--text-primary)"}
+            onMouseLeave={e => e.currentTarget.style.color = sleepRemaining !== null ? "var(--accent)" : (sleepMenuOpen ? "var(--text-primary)" : "var(--text-secondary)")}
+            >
+              <Moon size={15} weight={sleepRemaining !== null ? "fill" : "regular"} />
+              {sleepRemaining !== null && (
+                <span style={{
+                  position: "absolute", top: 0, right: -2,
+                  fontSize: 8, fontWeight: 700, lineHeight: 1,
+                  color: "var(--accent)", pointerEvents: "none",
+                }}>●</span>
+              )}
+            </button>
+            </Tooltip>
+            {(sleepMenuOpen || sleepMenuClosing) && createPortal((() => {
+              const btn = sleepMenuRef.current?.getBoundingClientRect();
+              const pos = btn ? { right: window.innerWidth - btn.right, bottom: window.innerHeight - btn.top + 8 } : { right: 80, bottom: 80 };
+              const PRESETS = [5, 10, 15, 20, 30, 45, 60];
+              return (
+                <div ref={sleepDropdownRef} style={{
+                  position: "fixed", right: pos.right, bottom: pos.bottom,
+                  background: "var(--bg-elevated)", border: "0.5px solid var(--border)",
+                  borderRadius: 10, padding: 4, minWidth: 170, zIndex: 99999,
+                  boxShadow: "0 8px 32px rgba(0,0,0,0.5)", zoom,
+                  animation: sleepMenuClosing ? "ctxMenuOut 0.14s ease-in forwards" : "ctxMenuIn 0.14s ease-out",
+                  transformOrigin: "bottom right",
+                }}>
+                  <div style={{ padding: "6px 12px 6px", fontSize: "var(--t11)", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.07em" }}>
+                    {translate(language, "sleepTimer")}
+                  </div>
+                  <div style={{ height: "0.5px", background: "var(--border)", margin: "0 0 4px" }} />
+                  {PRESETS.map(min => (
+                    <div key={min}
+                      onClick={() => { setSleepTimerEnd(Date.now() + min * 60 * 1000); closeSleepMenu(); }}
+                      style={{
+                        display: "flex", alignItems: "center", justifyContent: "space-between",
+                        padding: "7px 12px", borderRadius: "var(--radius)", cursor: "pointer",
+                        fontSize: "var(--t13)", color: "var(--text-primary)",
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
+                      onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                    >
+                      <span>{min} {translate(language, "minutes")}</span>
+                      {sleepTimerEnd && Math.abs((sleepTimerEnd - Date.now()) / 60000 - min) < 1 && (
+                        <Check size={12} style={{ color: "var(--accent)" }} />
+                      )}
+                    </div>
+                  ))}
+                  {sleepRemaining !== null && (
+                    <>
+                      <div style={{ height: "0.5px", background: "var(--border)", margin: "4px 0" }} />
+                      <div
+                        onClick={() => { setSleepTimerEnd(null); closeSleepMenu(); }}
+                        style={{
+                          display: "flex", alignItems: "center", gap: 10,
+                          padding: "7px 12px", borderRadius: "var(--radius)", cursor: "pointer",
+                          fontSize: "var(--t13)", color: "#f44336",
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
+                        onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                      >
+                        <X size={13} />
+                        {translate(language, "cancelSleepTimer")}
+                        <span style={{ marginLeft: "auto", fontSize: "var(--t12)", color: "var(--accent)", fontWeight: 600 }}>
+                          {formatSleepRemaining(sleepRemaining)}
+                        </span>
+                      </div>
+                    </>
+                  )}
+                </div>
+              );
+            })(), document.body)}
+          </div>
+
           {/* More Info dropdown */}
           {track && (
             <div ref={moreRef} style={{ position: "relative", flexShrink: 0 }}>
@@ -2996,7 +3133,7 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
                   // aber Größe muss mit zoom skaliert werden.
                   setMorePos({ right: window.innerWidth - r.right, bottom: window.innerHeight - r.top + 8 });
                 }
-                setMoreOpen(o => !o);
+                moreOpen ? closeMoreMenu() : setMoreOpen(true);
               }} style={{
                 background: "none", border: "none", cursor: "pointer", padding: 6,
                 color: moreOpen ? "var(--accent)" : "var(--text-secondary)",
@@ -3008,13 +3145,15 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
                 <DotsThreeVertical size={18} />
               </button>
 
-              {moreOpen && createPortal(
+              {(moreOpen || moreClosing) && createPortal(
                 <div ref={moreDropdownRef} style={{
                   position: "fixed", right: morePos.right, bottom: morePos.bottom,
                   background: "var(--bg-elevated)", border: "0.5px solid var(--border)",
                   borderRadius: 10, padding: "4px", minWidth: 220, zIndex: 99999,
                   boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
                   display: "flex", flexDirection: "column", gap: 2,
+                  animation: moreClosing ? "ctxMenuOut 0.14s ease-in forwards" : "ctxMenuIn 0.14s ease-out",
+                  transformOrigin: "bottom right",
                   zoom,
                 }}>
                   {/* Stats */}
@@ -3052,7 +3191,7 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
                     return (<>
                       {albumId && onOpenAlbum && (
                         <div
-                          onClick={() => { setMoreOpen(false); if (expanded) onExpandToggle(); onOpenAlbum({ browseId: albumId, title: track.album }); }}
+                          onClick={() => { closeMoreMenu(); if (expanded) onExpandToggle(); onOpenAlbum({ browseId: albumId, title: track.album }); }}
                           style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "var(--text-primary)" }}
                           onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
                           onMouseLeave={e => e.currentTarget.style.background = "transparent"}
@@ -3063,7 +3202,7 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
                       )}
                       {artistId && onOpenArtist && (
                         <div
-                          onClick={() => { setMoreOpen(false); if (expanded) onExpandToggle(); onOpenArtist({ browseId: artistId, artist: track.artists }); }}
+                          onClick={() => { closeMoreMenu(); if (expanded) onExpandToggle(); onOpenArtist({ browseId: artistId, artist: track.artists }); }}
                           style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "var(--text-primary)" }}
                           onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
                           onMouseLeave={e => e.currentTarget.style.background = "transparent"}
@@ -3080,7 +3219,7 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
 
                   {/* Refetch Lyrics */}
                   <div
-                    onClick={() => { setMoreOpen(false); onRefetchLyrics?.(); }}
+                    onClick={() => { closeMoreMenu(); onRefetchLyrics?.(); }}
                     style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "var(--text-primary)" }}
                     onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
                     onMouseLeave={e => e.currentTarget.style.background = "transparent"}
@@ -3091,7 +3230,7 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
 
                   {/* Import Lyrics */}
                   <div
-                    onClick={() => { setMoreOpen(false); onImportLyrics?.(); }}
+                    onClick={() => { closeMoreMenu(); onImportLyrics?.(); }}
                     style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "var(--text-primary)" }}
                     onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
                     onMouseLeave={e => e.currentTarget.style.background = "transparent"}
@@ -3103,7 +3242,7 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
                   {/* Remove Custom Lyrics — only visible when custom lyrics are active */}
                   {isCustomLyrics && (
                     <div
-                      onClick={() => { setMoreOpen(false); onRemoveCustomLyrics?.(); }}
+                      onClick={() => { closeMoreMenu(); onRemoveCustomLyrics?.(); }}
                       style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "#f44336" }}
                       onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
                       onMouseLeave={e => e.currentTarget.style.background = "transparent"}
@@ -3188,7 +3327,7 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
                     const isFailed = failedLyricsProviders.has(p.id);
                     return (
                       <div key={p.id}
-                        onClick={() => { if (isFailed) return; setMoreOpen(false); onSwitchLyricsProvider?.(p.id); }}
+                        onClick={() => { if (isFailed) return; closeMoreMenu(); onSwitchLyricsProvider?.(p.id); }}
                         style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 12px", borderRadius: "var(--radius)", cursor: isFailed ? "not-allowed" : "pointer", fontSize: "var(--t12)", color: isFailed ? "var(--text-muted)" : isActive ? "var(--text-primary)" : "var(--text-secondary)", background: "transparent", opacity: isFailed ? 0.45 : 1 }}
                         onMouseEnter={e => { if (!isFailed) e.currentTarget.style.background = "var(--bg-hover)"; }}
                         onMouseLeave={e => e.currentTarget.style.background = "transparent"}
@@ -3212,7 +3351,7 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
                     { label: translate(language, "saveAsOpus"), fmt: "opus", icon: <MusicNote size={14} /> },
                   ].map(item => (
                     <div key={item.fmt}
-                      onClick={async () => { setMoreOpen(false); await onExportSong?.(track, item.fmt); }}
+                      onClick={async () => { closeMoreMenu(); await onExportSong?.(track, item.fmt); }}
                       style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "var(--text-primary)" }}
                       onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
                       onMouseLeave={e => e.currentTarget.style.background = "transparent"}
@@ -3710,14 +3849,25 @@ function LyricsOverlay({ track, audioRef, onClose, fontSize = 32, providers = DE
 
       // Line detection — React re-render only when line changes
       const newIdx = lyr ? lyr.reduce((b, l, i) => l.time <= t ? i : b, -1) : -1;
-      if (newIdx !== lastIdxRef.current) {
-        lastIdxRef.current = newIdx;
+
+      // Gap detection: if gap between line's endTime and next line's start > 3s, deactivate at endTime
+      let displayIdx = newIdx;
+      if (newIdx >= 0 && lyr) {
+        const line = lyr[newIdx];
+        if (line.endTime != null) {
+          const nextStart = lyr[newIdx + 1]?.time ?? Infinity;
+          if (nextStart - line.endTime > 3 && t >= line.endTime) displayIdx = -1;
+        }
+      }
+
+      if (displayIdx !== lastIdxRef.current) {
+        lastIdxRef.current = displayIdx;
         activeWordIdxRef.current = -1;
         wordElsRef.current = []; // cleared until useLayoutEffect repopulates after render
         setTick(n => n + 1);
       }
 
-      // Word highlighting — direct DOM, bypasses React entirely
+      // Word highlighting — direct DOM, bypasses React entirely (uses newIdx, not displayIdx)
       const lyrLine = lyr?.[newIdx];
       if (lyrLine?.wordSync && wordElsRef.current.length > 0) {
         const words = lyrLine.words.filter(w => !w.isSpace);
@@ -4007,13 +4157,13 @@ function LyricsOverlay({ track, audioRef, onClose, fontSize = 32, providers = DE
             const key = agent.id || agent.name;
             const isActive = (activeAgent?.id || activeAgent?.name) === key;
             return (
-              <span key={key} style={{
+              <span key={key} className={isActive ? "agent-tag-active" : ""} style={{
                 fontSize: 10, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase",
-                padding: "4px 12px", borderRadius: 20,
-                background: isActive ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.05)",
+                padding: "4px 12px", borderRadius: 8,
+                background: isActive ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.06)",
+                backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)",
                 color: isActive ? "#fff" : "rgba(255,255,255,0.3)",
-                border: `0.5px solid ${isActive ? "rgba(255,255,255,0.35)" : "rgba(255,255,255,0.1)"}`,
-                transition: "background 0.25s, color 0.25s, border-color 0.25s",
+                transition: "background 0.25s, color 0.25s",
                 whiteSpace: "nowrap",
               }}>{agent.name}</span>
             );
@@ -4036,51 +4186,46 @@ function LyricsOverlay({ track, audioRef, onClose, fontSize = 32, providers = DE
               <button
                 onClick={() => openUrl("https://lrc-maker.github.io").catch(console.error)}
                 style={{
-                  background: "rgba(255,255,255,0.08)", border: "0.5px solid rgba(255,255,255,0.18)",
+                  background: "rgba(255,255,255,0.08)", border: "none",
                   borderRadius: 10, padding: "8px 16px", cursor: "pointer",
                   color: "#fff", fontSize: "var(--t13)", fontFamily: "var(--font)",
                   display: "flex", alignItems: "center", gap: 8,
-                  transition: "background 0.15s, border-color 0.15s",
+                  transition: "background 0.15s",
                 }}
-                onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.16)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.32)"; }}
-                onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.08)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.18)"; }}
+                onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.16)"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.08)"; }}
               >
-                <ArrowSquareOut size={14} />
+                <img src="/Akari's LRC Icon.svg" style={{ width: 26, height: 26 }} alt="" />
                 {"Akari's LRC Maker"}
               </button>
               {/* Boidu's Composer */}
               <button
                 onClick={() => openUrl("https://composer.boidu.dev").catch(console.error)}
                 style={{
-                  background: "rgba(255,255,255,0.08)", border: "0.5px solid rgba(255,255,255,0.18)",
+                  background: "rgba(255,255,255,0.08)", border: "none",
                   borderRadius: 10, padding: "8px 16px", cursor: "pointer",
                   color: "#fff", fontSize: "var(--t13)", fontFamily: "var(--font)",
                   display: "flex", alignItems: "center", gap: 8,
-                  transition: "background 0.15s, border-color 0.15s",
+                  transition: "background 0.15s",
                 }}
-                onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.16)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.32)"; }}
-                onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.08)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.18)"; }}
+                onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.16)"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.08)"; }}
               >
-                <ArrowSquareOut size={14} />
+                <img src="/Boidu Composer Icon.svg" style={{ width: 26, height: 26 }} alt="" />
                 {"Boidu's Composer"}
-                <span style={{
-                  fontSize: 9, fontWeight: 600, background: "rgba(255,180,0,0.2)", color: "rgb(255,200,80)",
-                  border: "0.5px solid rgba(255,180,0,0.35)", borderRadius: 5, padding: "1px 5px", letterSpacing: "0.03em",
-                  fontFamily: "var(--font)",
-                }}>BETA</span>
               </button>
             </div>
             <button
               onClick={importCustomLyrics}
               style={{
-                background: "rgba(255,255,255,0.06)", border: "0.5px solid rgba(255,255,255,0.18)",
+                background: "rgba(255,255,255,0.06)", border: "none",
                 borderRadius: 10, padding: "8px 20px", cursor: "pointer",
                 color: "#fff", fontSize: "var(--t13)", fontFamily: "var(--font)",
                 display: "flex", alignItems: "center", gap: 8,
-                transition: "background 0.15s, border-color 0.15s",
+                transition: "background 0.15s",
               }}
-              onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.12)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.32)"; }}
-              onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.18)"; }}
+              onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.12)"; }}
+              onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; }}
             >
               <UploadSimple size={14} />
               {t("importLyrics")}
@@ -5836,7 +5981,7 @@ function ProfileSwitcher({ profiles, currentProfile, onSwitch, onAdd, onDelete, 
               fontSize: "var(--t14)", fontWeight: 700, color: "#fff", overflow: "hidden", flexShrink: 0,
             }}>
               {confirmProfile?.avatar
-                ? <img src={confirmProfile.avatar} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                ? <img src={thumb(confirmProfile.avatar)} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                 : (confirmProfile?.displayName || confirmProfile?.name || "?")[0].toUpperCase()}
             </div>
             <div style={{ overflow: "hidden" }}>
@@ -5890,7 +6035,7 @@ function ProfileSwitcher({ profiles, currentProfile, onSwitch, onAdd, onDelete, 
                   {p.type === "local"
                     ? <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/></svg>
                     : p.avatar
-                      ? <img src={p.avatar} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                      ? <img src={thumb(p.avatar)} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                       : (p.displayName || p.name)[0].toUpperCase()}
                 </div>
                 <div style={{ flex: 1, overflow: "hidden" }}>
@@ -6003,9 +6148,13 @@ export default function App() {
   const [appKey, setAppKey] = useState(0); // increment to force full re-render
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [globalContextMenu, setGlobalContextMenu] = useState(null); // { x, y, playlist }
+  const [globalCtxData, setGlobalCtxData] = useState(null);
+  const [globalCtxClosing, setGlobalCtxClosing] = useState(false);
   const [pinnedIds, setPinnedIds] = useState([]);
   const [createPlaylistOpen, setCreatePlaylistOpen] = useState(false);
   const [trackContextMenu, setTrackContextMenu] = useState(null); // { x, y, track, playlistId? }
+  const [trackCtxData, setTrackCtxData] = useState(null);
+  const [trackCtxClosing, setTrackCtxClosing] = useState(false);
   const [trackCtxPlaylists, setTrackCtxPlaylists] = useState(null); // loaded playlists for submenu
   const [renameDialog, setRenameDialog] = useState(null); // { playlistId, title }
   const [deleteDialog, setDeleteDialog] = useState(null); // { playlistId, title }
@@ -6119,6 +6268,31 @@ export default function App() {
     e.preventDefault();
     setGlobalContextMenu({ x: e.clientX, y: e.clientY, playlist: pl });
   }, []);
+
+  // Animate track context menu open/close
+  useEffect(() => {
+    if (trackContextMenu) {
+      setTrackCtxData(trackContextMenu);
+      setTrackCtxClosing(false);
+    } else if (trackCtxData) {
+      setTrackCtxClosing(true);
+      const t = setTimeout(() => { setTrackCtxData(null); setTrackCtxClosing(false); }, 140);
+      return () => clearTimeout(t);
+    }
+  }, [trackContextMenu]);
+
+  // Animate global context menu open/close
+  useEffect(() => {
+    if (globalContextMenu) {
+      setGlobalCtxData(globalContextMenu);
+      setGlobalCtxClosing(false);
+    } else if (globalCtxData) {
+      setGlobalCtxClosing(true);
+      const t = setTimeout(() => { setGlobalCtxData(null); setGlobalCtxClosing(false); }, 140);
+      return () => clearTimeout(t);
+    }
+  }, [globalContextMenu]);
+
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsInitialTab, setSettingsInitialTab] = useState(null);
   const [accent, setAccent] = useState(() => {
@@ -6637,6 +6811,8 @@ export default function App() {
           setShowLogin(true);
         } else {
           fetchProfiles();
+          // Re-fetch after a short delay to pick up background avatar writes
+          setTimeout(() => fetchProfiles(), 4000);
         }
       } catch {
         // Backend not ready yet - retry
@@ -7097,15 +7273,17 @@ export default function App() {
         )}
 
         {/* Track context menu */}
-        {trackContextMenu && (
+        {trackCtxData && (
           <>
             <div onClick={() => { setTrackContextMenu(null); setTrackCtxPlaylists(null); }} style={{ position: "fixed", inset: 0, zIndex: 9998 }} />
             <div style={{
-              position: "fixed", ...clampMenu(trackContextMenu.x / uiZoom, trackContextMenu.y / uiZoom, 220, 360), zIndex: 9999,
+              position: "fixed", ...clampMenu(trackCtxData.x / uiZoom, trackCtxData.y / uiZoom, 220, 360), zIndex: 9999,
               background: "var(--bg-elevated)", border: "0.5px solid var(--border)",
               borderRadius: "var(--radius-lg)", padding: "4px", minWidth: 200,
               boxShadow: "0 8px 24px rgba(0,0,0,0.4)",
               display: "flex", flexDirection: "column", gap: 2,
+              animation: trackCtxClosing ? "ctxMenuOut 0.14s ease-in forwards" : "ctxMenuIn 0.14s ease-out",
+              transformOrigin: "top left",
             }}>
               {/* Add to Playlist */}
               <div style={{ position: "relative" }}
@@ -7141,7 +7319,7 @@ export default function App() {
                             await fetch(`${API}/playlist/${pl.playlistId}/add`, {
                               method: "POST",
                               headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ videoIds: [trackContextMenu.track.videoId], tracks: [trackContextMenu.track] }),
+                              body: JSON.stringify({ videoIds: [trackCtxData.track.videoId], tracks: [trackCtxData.track] }),
                             });
                           } catch {}
                           setTrackContextMenu(null);
@@ -7167,17 +7345,17 @@ export default function App() {
               </div>
 
               {/* Remove from Playlist (only if viewing a user playlist) */}
-              {trackContextMenu.playlistId && trackContextMenu.track.setVideoId && (
+              {trackCtxData.playlistId && trackCtxData.track.setVideoId && (
                 <div
                   onClick={async () => {
                     try {
-                      await fetch(`${API}/playlist/${trackContextMenu.playlistId}/remove`, {
+                      await fetch(`${API}/playlist/${trackCtxData.playlistId}/remove`, {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ videos: [{ videoId: trackContextMenu.track.videoId, setVideoId: trackContextMenu.track.setVideoId }] }),
+                        body: JSON.stringify({ videos: [{ videoId: trackCtxData.track.videoId, setVideoId: trackCtxData.track.setVideoId }] }),
                       });
                       // Optimistically remove from collection
-                      setCollection(c => c ? { ...c, tracks: c.tracks.filter(t => t.videoId !== trackContextMenu.track.videoId || t.setVideoId !== trackContextMenu.track.setVideoId) } : c);
+                      setCollection(c => c ? { ...c, tracks: c.tracks.filter(t => t.videoId !== trackCtxData.track.videoId || t.setVideoId !== trackCtxData.track.setVideoId) } : c);
                     } catch {}
                     setTrackContextMenu(null);
                     setTrackCtxPlaylists(null);
@@ -7192,10 +7370,10 @@ export default function App() {
               )}
 
               {/* Remove from History */}
-              {trackContextMenu.removeFromHistory && (
+              {trackCtxData.removeFromHistory && (
                 <div
                   onClick={() => {
-                    trackContextMenu.removeFromHistory();
+                    trackCtxData.removeFromHistory();
                     setTrackContextMenu(null); setTrackCtxPlaylists(null);
                   }}
                   style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "var(--text-danger, #e05252)" }}
@@ -7208,12 +7386,12 @@ export default function App() {
               )}
 
               {/* Navigate to Album / Artist */}
-              {(trackContextMenu.track.albumBrowseId || trackContextMenu.track.artistBrowseId) && (
+              {(trackCtxData.track.albumBrowseId || trackCtxData.track.artistBrowseId) && (
                 <div style={{ height: "0.5px", background: "var(--border)", margin: "2px 8px" }} />
               )}
-              {trackContextMenu.track.albumBrowseId && (
+              {trackCtxData.track.albumBrowseId && (
                 <div
-                  onClick={() => { const t = trackContextMenu.track; setTrackContextMenu(null); setTrackCtxPlaylists(null); openAlbum({ browseId: t.albumBrowseId, title: t.album }, view); }}
+                  onClick={() => { const t = trackCtxData.track; setTrackContextMenu(null); setTrackCtxPlaylists(null); openAlbum({ browseId: t.albumBrowseId, title: t.album }, view); }}
                   style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "var(--text-primary)" }}
                   onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
                   onMouseLeave={e => e.currentTarget.style.background = "transparent"}
@@ -7222,9 +7400,9 @@ export default function App() {
                   {translate(language, "goToAlbum")}
                 </div>
               )}
-              {trackContextMenu.track.artistBrowseId && (
+              {trackCtxData.track.artistBrowseId && (
                 <div
-                  onClick={() => { const t = trackContextMenu.track; setTrackContextMenu(null); setTrackCtxPlaylists(null); openArtist({ browseId: t.artistBrowseId }, view); }}
+                  onClick={() => { const t = trackCtxData.track; setTrackContextMenu(null); setTrackCtxPlaylists(null); openArtist({ browseId: t.artistBrowseId }, view); }}
                   style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "var(--text-primary)" }}
                   onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
                   onMouseLeave={e => e.currentTarget.style.background = "transparent"}
@@ -7235,12 +7413,12 @@ export default function App() {
               )}
 
               {/* Download / Remove download */}
-              {cachedSongIds.has(trackContextMenu.track.videoId) ? (
+              {cachedSongIds.has(trackCtxData.track.videoId) ? (
                 <div
                   onClick={async () => {
                     try {
-                      await fetch(`${API}/song/cached/${trackContextMenu.track.videoId}`, { method: "DELETE" });
-                      setCachedSongIds(prev => { const s = new Set(prev); s.delete(trackContextMenu.track.videoId); return s; });
+                      await fetch(`${API}/song/cached/${trackCtxData.track.videoId}`, { method: "DELETE" });
+                      setCachedSongIds(prev => { const s = new Set(prev); s.delete(trackCtxData.track.videoId); return s; });
                     } catch {}
                     setTrackContextMenu(null); setTrackCtxPlaylists(null);
                   }}
@@ -7251,10 +7429,10 @@ export default function App() {
                   <Trash size={14} />
                   {translate(language, "removeDownload")}
                 </div>
-              ) : !downloadingIds.has(trackContextMenu.track.videoId) && (
+              ) : !downloadingIds.has(trackCtxData.track.videoId) && (
                 <div
                   onClick={() => {
-                    handleDownloadSong(trackContextMenu.track);
+                    handleDownloadSong(trackCtxData.track);
                     setTrackContextMenu(null); setTrackCtxPlaylists(null);
                   }}
                   style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "var(--text-primary)" }}
@@ -7269,7 +7447,7 @@ export default function App() {
               {/* Save as MP3 */}
               <div
                 onClick={async () => {
-                  const track = trackContextMenu.track;
+                  const track = trackCtxData.track;
                   setTrackContextMenu(null); setTrackCtxPlaylists(null);
                   handleExportSong(track, "mp3");
                 }}
@@ -7284,7 +7462,7 @@ export default function App() {
               {/* Save as OPUS */}
               <div
                 onClick={async () => {
-                  const track = trackContextMenu.track;
+                  const track = trackCtxData.track;
                   setTrackContextMenu(null); setTrackCtxPlaylists(null);
                   handleExportSong(track, "opus");
                 }}
@@ -7300,7 +7478,7 @@ export default function App() {
               <div style={{ height: "0.5px", background: "var(--border)", margin: "2px 8px" }} />
               <div
                 onClick={() => {
-                  const track = trackContextMenu.track;
+                  const track = trackCtxData.track;
                   setTrackContextMenu(null); setTrackCtxPlaylists(null);
                   // Fetch lyrics for this track then copy
                   fetch(`${API}/lyrics/${track.videoId}`).then(r => r.json()).then(d => {
@@ -7318,7 +7496,7 @@ export default function App() {
               </div>
               <div
                 onClick={async () => {
-                  const track = trackContextMenu.track;
+                  const track = trackCtxData.track;
                   setTrackContextMenu(null); setTrackCtxPlaylists(null);
                   try {
                     const d = await fetch(`${API}/lyrics/${track.videoId}`).then(r => r.json());
@@ -7359,28 +7537,30 @@ export default function App() {
         )}
 
         {/* Global playlist context menu */}
-        {globalContextMenu && (
+        {globalCtxData && (
           <>
             <div onClick={() => setGlobalContextMenu(null)} style={{ position: "fixed", inset: 0, zIndex: 9998 }} />
             <div style={{
-              position: "fixed", ...clampMenu(globalContextMenu.x / uiZoom, globalContextMenu.y / uiZoom, 200, 280), zIndex: 9999,
+              position: "fixed", ...clampMenu(globalCtxData.x / uiZoom, globalCtxData.y / uiZoom, 200, 280), zIndex: 9999,
               background: "var(--bg-elevated)", border: "0.5px solid var(--border)",
               borderRadius: "var(--radius-lg)", padding: "4px", minWidth: 180,
               boxShadow: "0 8px 24px rgba(0,0,0,0.4)",
               display: "flex", flexDirection: "column", gap: 2,
+              animation: globalCtxClosing ? "ctxMenuOut 0.14s ease-in forwards" : "ctxMenuIn 0.14s ease-out",
+              transformOrigin: "top left",
             }}>
               <div
-                onClick={() => { togglePin(globalContextMenu.playlist); setGlobalContextMenu(null); }}
+                onClick={() => { togglePin(globalCtxData.playlist); setGlobalContextMenu(null); }}
                 style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "var(--text-primary)" }}
                 onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
                 onMouseLeave={e => e.currentTarget.style.background = "transparent"}
               >
                 <PushPin size={14} />
-                {pinnedIds.includes(itemId(globalContextMenu.playlist)) ? translate(language, "unpin") : translate(language, "pin")}
+                {pinnedIds.includes(itemId(globalCtxData.playlist)) ? translate(language, "unpin") : translate(language, "pin")}
               </div>
               <div
                 onClick={() => {
-                  const item = globalContextMenu.playlist;
+                  const item = globalCtxData.playlist;
                   if (item?.type === "album") openAlbum(item, view);
                   else if (item?.type === "artist") openArtist(item, view);
                   else openPlaylist(item, view);
@@ -7394,12 +7574,12 @@ export default function App() {
                 {translate(language, "open")}
               </div>
               {/* Navigation: View Album / View Artist — separator only if at least one button will render */}
-              {((globalContextMenu.playlist?.browseId && globalContextMenu.playlist?.type !== "artist") || globalContextMenu.playlist?.artistBrowseId) && (
+              {((globalCtxData.playlist?.browseId && globalCtxData.playlist?.type !== "artist") || globalCtxData.playlist?.artistBrowseId) && (
                 <div style={{ height: "0.5px", background: "var(--border)", margin: "2px 8px" }} />
               )}
-              {globalContextMenu.playlist?.browseId && globalContextMenu.playlist?.type !== "artist" && (
+              {globalCtxData.playlist?.browseId && globalCtxData.playlist?.type !== "artist" && (
                 <div
-                  onClick={() => { openAlbum(globalContextMenu.playlist, view); setGlobalContextMenu(null); }}
+                  onClick={() => { openAlbum(globalCtxData.playlist, view); setGlobalContextMenu(null); }}
                   style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "var(--text-primary)" }}
                   onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
                   onMouseLeave={e => e.currentTarget.style.background = "transparent"}
@@ -7408,9 +7588,9 @@ export default function App() {
                   {translate(language, "goToAlbum")}
                 </div>
               )}
-              {globalContextMenu.playlist?.artistBrowseId && (
+              {globalCtxData.playlist?.artistBrowseId && (
                 <div
-                  onClick={() => { openArtist({ browseId: globalContextMenu.playlist.artistBrowseId }, view); setGlobalContextMenu(null); }}
+                  onClick={() => { openArtist({ browseId: globalCtxData.playlist.artistBrowseId }, view); setGlobalContextMenu(null); }}
                   style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "var(--text-primary)" }}
                   onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
                   onMouseLeave={e => e.currentTarget.style.background = "transparent"}
@@ -7420,13 +7600,13 @@ export default function App() {
                 </div>
               )}
               {/* Destructive actions */}
-              {(globalContextMenu.playlist?.playlistId && globalContextMenu.playlist?.type !== "album") || !pinnedIds.includes(itemId(globalContextMenu.playlist)) ? (
+              {(globalCtxData.playlist?.playlistId && globalCtxData.playlist?.type !== "album") || !pinnedIds.includes(itemId(globalCtxData.playlist)) ? (
                 <div style={{ height: "0.5px", background: "var(--border)", margin: "2px 8px" }} />
               ) : null}
               {/* Rename Playlist (only for user playlists, not albums) */}
-              {globalContextMenu.playlist?.playlistId && globalContextMenu.playlist?.type !== "album" && (
+              {globalCtxData.playlist?.playlistId && globalCtxData.playlist?.type !== "album" && (
                 <div
-                  onClick={() => { setRenameDialog({ playlistId: globalContextMenu.playlist.playlistId, title: globalContextMenu.playlist.title }); setGlobalContextMenu(null); }}
+                  onClick={() => { setRenameDialog({ playlistId: globalCtxData.playlist.playlistId, title: globalCtxData.playlist.title }); setGlobalContextMenu(null); }}
                   style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "var(--text-primary)" }}
                   onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
                   onMouseLeave={e => e.currentTarget.style.background = "transparent"}
@@ -7436,9 +7616,9 @@ export default function App() {
                 </div>
               )}
               {/* Delete Playlist (only for user playlists, not albums) */}
-              {globalContextMenu.playlist?.playlistId && globalContextMenu.playlist?.type !== "album" && (
+              {globalCtxData.playlist?.playlistId && globalCtxData.playlist?.type !== "album" && (
                 <div
-                  onClick={() => { setDeleteDialog({ playlistId: globalContextMenu.playlist.playlistId, title: globalContextMenu.playlist.title }); setGlobalContextMenu(null); }}
+                  onClick={() => { setDeleteDialog({ playlistId: globalCtxData.playlist.playlistId, title: globalCtxData.playlist.title }); setGlobalContextMenu(null); }}
                   style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "var(--text-danger, #e05252)" }}
                   onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
                   onMouseLeave={e => e.currentTarget.style.background = "transparent"}
@@ -7447,9 +7627,9 @@ export default function App() {
                   {translate(language, "deletePlaylist")}
                 </div>
               )}
-              {!pinnedIds.includes(itemId(globalContextMenu.playlist)) && (
+              {!pinnedIds.includes(itemId(globalCtxData.playlist)) && (
                 <div
-                  onClick={() => { removeRecentPlaylist(itemId(globalContextMenu.playlist)); setGlobalContextMenu(null); }}
+                  onClick={() => { removeRecentPlaylist(itemId(globalCtxData.playlist)); setGlobalContextMenu(null); }}
                   style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "var(--text-danger, #e05252)" }}
                   onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
                   onMouseLeave={e => e.currentTarget.style.background = "transparent"}

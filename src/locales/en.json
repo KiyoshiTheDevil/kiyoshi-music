@@ -89,6 +89,9 @@
   "ambientVisualizer": "Ambient Visualizer",
   "ambientVisualizerDesc": "Subtle colour effect in the background of the lyrics overlay and cover view",
 
+  "sleepTimer": "Sleep Timer",
+  "cancelSleepTimer": "Cancel timer",
+  "minutes": "min",
   "autoplay": "Autoplay",
   "autoplayDesc": "Automatically play next song",
   "crossfade": "Crossfade",
