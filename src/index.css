@@ -4,6 +4,24 @@
   font-weight: 400;
 }
 @font-face {
+  font-family: 'OpenDyslexic';
+  src: url('./fonts/OpenDyslexic-Regular.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'OpenDyslexic';
+  src: url('./fonts/OpenDyslexic-Bold.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'OpenDyslexic';
+  src: url('./fonts/OpenDyslexic-Italic.otf') format('opentype');
+  font-weight: 400;
+  font-style: italic;
+}
+@font-face {
   font-family: 'MiSans Latin';
   src: url('./fonts/MiSansLatin-Medium.ttf') format('truetype');
   font-weight: 500;
@@ -59,6 +77,37 @@
   --slider-track: #b8b8b8;
 }
 
+/* ─── High Contrast Mode ───────────────────────────────────────────────── */
+/* Works on top of any theme. Maximises contrast for accessibility. */
+[data-highcontrast="true"] {
+  --text-secondary: #d8d8d8;
+  --text-muted:     #a0a0a0;
+  --border:         rgba(255,255,255,0.45);
+  --slider-track:   #505050;
+  --accent-dim:     rgba(255,255,255,0.12);
+}
+[data-highcontrast="true"]:not([data-theme="light"]) {
+  --bg-base:      #000000;
+  --bg-surface:   #0a0a0a;
+  --bg-elevated:  #141414;
+  --bg-hover:     #202020;
+  --text-primary: #ffffff;
+}
+[data-theme="light"][data-highcontrast="true"] {
+  --bg-base:      #ffffff;
+  --bg-surface:   #ffffff;
+  --bg-elevated:  #f0f0f0;
+  --bg-hover:     #e0e0e0;
+  --text-primary: #000000;
+  --text-secondary: #1a1a1a;
+  --text-muted:   #444444;
+  --border:       rgba(0,0,0,0.5);
+  --slider-track: #888888;
+}
+/* Stronger scrollbar thumb in high contrast */
+[data-highcontrast="true"] ::-webkit-scrollbar-thumb { background-color: #666; }
+[data-highcontrast="true"] ::-webkit-scrollbar-thumb:hover { background-color: #999; }
+
 [data-theme="light"] ::-webkit-scrollbar-thumb { background: #bbb; }
 [data-theme="light"] ::-webkit-scrollbar-thumb:hover { background: #888; }
 [data-theme="light"] .scrollable:hover::-webkit-scrollbar-thumb { background: #888; }
@@ -100,3 +149,29 @@ html, body, #root {
 /* Horizontal carousels — same treatment, vertical size stays 8px */
 .carousel::-webkit-scrollbar-thumb           { background-color: #2a2a2a; }
 .carousel:hover::-webkit-scrollbar-thumb     { background-color: #666; border-width: 1px; }
+
+/* ─── Ambient Visualizer ────────────────────────────────────────────────────
+   CSS-only effect — transform + opacity only for GPU compositing, zero reflow.
+   ambientBreathe:     LyricsOverlay bg (starts at scale 1.1)
+   ambientBreatheCover: CoverView bg    (starts at scale 1.15)
+   blobDrift1/2/3:     floating colour blobs, staggered timing               */
+@keyframes ambientBreathe {
+  0%,  100% { transform: scale(1.10); filter: blur(40px) brightness(0.35); }
+  50%        { transform: scale(1.18); filter: blur(45px) brightness(0.40); }
+}
+@keyframes ambientBreatheCover {
+  0%,  100% { transform: scale(1.15); filter: blur(60px) brightness(0.35); }
+  50%        { transform: scale(1.23); filter: blur(65px) brightness(0.41); }
+}
+@keyframes blobDrift1 {
+  0%,  100% { transform: scale(1.00); opacity: 0.22; }
+  50%        { transform: scale(1.18); opacity: 0.30; }
+}
+@keyframes blobDrift2 {
+  0%,  100% { transform: scale(1.00); opacity: 0.17; }
+  50%        { transform: scale(1.12); opacity: 0.24; }
+}
+@keyframes blobDrift3 {
+  0%,  100% { transform: scale(1.00); opacity: 0.12; }
+  50%        { transform: scale(1.20); opacity: 0.19; }
+}

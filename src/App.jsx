@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, createContext, useContext } from "react";
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo, createContext, useContext } from "react";
 import { createPortal } from "react-dom";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 const appWindow = getCurrentWebviewWindow();
@@ -38,6 +38,13 @@ import {
   Moon,
   MoonStars,
   Translate,
+  Link,
+  UploadSimple,
+  PersonArmsSpread,
+  Keyboard,
+  PaintBrushBroad,
+  HardDrives,
+  ArrowsClockwise,
 } from "@phosphor-icons/react";
 
 const API = "http://localhost:9847";
@@ -1642,7 +1649,7 @@ function LyricsProviderList({ providers, onChange }) {
   );
 }
 
-function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, animations, onAnimationsChange, lyricsFontSize, onLyricsFontSizeChange, lyricsTranslationFontSize, onLyricsTranslationFontSizeChange, lyricsRomajiFontSize, onLyricsRomajiFontSizeChange, lyricsProviders, onLyricsProvidersChange, autoplay, onAutoplayChange, crossfade, onCrossfadeChange, discordRpc, onDiscordRpcChange, language, onLanguageChange, updateInfo, onCheckUpdate, updateDownloading, updateDownloadProgress, updateDownloaded, onDownloadUpdate, onInstallUpdate, onCancelDownload, initialTab, onTabOpened, hideExplicit, onHideExplicitChange, uiZoom, onUiZoomChange, appFontScale, onFontScaleChange }) {
+function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, animations, onAnimationsChange, lyricsFontSize, onLyricsFontSizeChange, lyricsTranslationFontSize, onLyricsTranslationFontSizeChange, lyricsRomajiFontSize, onLyricsRomajiFontSizeChange, lyricsProviders, onLyricsProvidersChange, autoplay, onAutoplayChange, crossfade, onCrossfadeChange, discordRpc, onDiscordRpcChange, language, onLanguageChange, updateInfo, onCheckUpdate, updateDownloading, updateDownloadProgress, updateDownloaded, onDownloadUpdate, onInstallUpdate, onCancelDownload, initialTab, onTabOpened, hideExplicit, onHideExplicitChange, uiZoom, onUiZoomChange, appFontScale, onFontScaleChange, showRomaji, onToggleRomaji, showAgentTags, onToggleAgentTags, highContrast, onToggleHighContrast, appFont, onAppFontChange, ambientVisualizer, onToggleAmbientVisualizer }) {
   const anim = useAnimations();
   const t = useLang();
   const [tab, setTab] = useState(initialTab || "darstellung");
@@ -1653,14 +1660,15 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
   const chromiumVersion = window.navigator.userAgent.match(/Chrome\/([\d.]+)/)?.[1] ?? "—";
 
   const navItems = [
-    { id: "darstellung", label: t("appearance"),  iconEl: <Palette size={15} /> },
-    { id: "wiedergabe",  label: t("playback"),    iconEl: <PlayCircle size={15} /> },
-    { id: "lyrics",      label: t("lyrics"),      iconEl: <Microphone size={15} /> },
-    { id: "shortcuts",   label: t("shortcuts"),   icon: <path d="M14 5a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h12zM2 4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2H2zm4 5.5a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1zm2 0a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1zm2 0a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1zm2 0a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1zm-8 2a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1zm2 0a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1zm2 0a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1zm2 0a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1zm1-5a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1zm-10 0a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1z"/> },
-    { id: "language",    label: t("language"),    icon: <path d="M4.545 6.714 4.11 8H3l1.862-5h1.284L8 8H6.833l-.435-1.286H4.545zm1.634-.736L5.5 3.956h-.049l-.679 2.022H6.18z M0 2a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v3h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-3H2a2 2 0 0 1-2-2V2zm2-1a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h7a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H2zm7.138 9.995c.193.301.402.583.63.846-.748.575-1.673 1.001-2.768 1.292.178.217.451.635.555.867 1.125-.359 2.08-.844 2.886-1.494.777.665 1.739 1.165 2.93 1.472.133-.254.414-.673.629-.89-1.125-.253-2.057-.694-2.82-1.284.681-.747 1.222-1.651 1.621-2.757H14v-.75h-3v-.75h-.75v.75H7v.75h.174c.394 1.102.91 2.015 1.539 2.748l-.575.622z"/> },
-    { id: "cache",       label: t("cache"),       icon: <path d="M2 4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V4zm0 5a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V9zm0 5a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-2zm11 1.5a.5.5 0 1 0-1 0 .5.5 0 0 0 1 0zm-3 0a.5.5 0 1 0-1 0 .5.5 0 0 0 1 0z"/> },
-    { id: "downloads",  label: t("downloads"),   iconEl: <DownloadSimple size={15} /> },
-    { id: "update",     label: t("update"),      iconEl: <ArrowCircleUp size={15} /> },
+    { id: "darstellung",    label: t("appearance"),    iconEl: <PaintBrushBroad size={18} /> },
+    { id: "wiedergabe",     label: t("playback"),      iconEl: <Play size={18} /> },
+    { id: "lyrics",         label: t("lyrics"),        iconEl: <Microphone size={18} /> },
+    { id: "accessibility",  label: t("accessibility"), iconEl: <PersonArmsSpread size={18} /> },
+    { id: "shortcuts",   label: t("shortcuts"),   iconEl: <Keyboard size={18} /> },
+    { id: "language",    label: t("language"),    iconEl: <Translate size={18} /> },
+    { id: "cache",       label: t("cache"),       iconEl: <HardDrives size={18} /> },
+    { id: "downloads",  label: t("downloads"),   iconEl: <DownloadSimple size={18} /> },
+    { id: "update",     label: t("update"),      iconEl: <ArrowsClockwise size={18} /> },
   ];
 
   const shortcuts = [
@@ -1724,7 +1732,7 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
             onMouseEnter={e => { if (tab !== item.id) { e.currentTarget.style.background = "var(--bg-hover)"; e.currentTarget.style.color = "var(--text-primary)"; }}}
             onMouseLeave={e => { if (tab !== item.id) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--text-secondary)"; }}}
             >
-              <span style={{ flexShrink: 0 }}>{item.iconEl || <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor">{item.icon}</svg>}</span>
+              <span style={{ flexShrink: 0, display: "flex", alignItems: "center" }}>{item.iconEl || <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor">{item.icon}</svg>}</span>
               {item.label}
               {item.id === "update" && updateInfo && (
                 <span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--accent)", marginLeft: "auto", flexShrink: 0 }} />
@@ -1856,10 +1864,10 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                   <Toggle value={animations} onChange={onAnimationsChange} />
                 </SettingRow>
                 <SettingRow label={t("uiZoom")} description={t("uiZoomDesc")}>
-                  <div style={{ width: 250 }}>
+                  <div style={{ width: 360 }}>
                     <Slider min={0} max={ZOOM_STEPS.length - 1} step={1}
                       value={Math.max(0, ZOOM_STEPS.indexOf(uiZoom))}
-                      onChange={i => onUiZoomChange(ZOOM_STEPS[i])} width={250} />
+                      onChange={i => onUiZoomChange(ZOOM_STEPS[i])} width={360} />
                     <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6 }}>
                       {ZOOM_LABELS.map((label, i) => (
                         <span key={i} style={{ fontSize: "var(--t10)", fontWeight: uiZoom === ZOOM_STEPS[i] ? 700 : 400, color: uiZoom === ZOOM_STEPS[i] ? "var(--accent)" : "var(--text-muted)" }}>{label}</span>
@@ -1868,10 +1876,10 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                   </div>
                 </SettingRow>
                 <SettingRow label={t("fontSize")} description={t("fontSizeDesc")}>
-                  <div style={{ width: 250 }}>
+                  <div style={{ width: 360 }}>
                     <Slider min={0} max={FONT_STEPS.length - 1} step={1}
                       value={Math.max(0, FONT_STEPS.indexOf(appFontScale))}
-                      onChange={i => onFontScaleChange(FONT_STEPS[i])} width={250} />
+                      onChange={i => onFontScaleChange(FONT_STEPS[i])} width={360} />
                     <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6 }}>
                       {FONT_LABELS.map((label, i) => (
                         <span key={i} style={{ fontSize: "var(--t10)", fontWeight: appFontScale === FONT_STEPS[i] ? 700 : 400, color: appFontScale === FONT_STEPS[i] ? "var(--accent)" : "var(--text-muted)" }}>{label}</span>
@@ -1918,6 +1926,12 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                     <span style={{ fontSize: "var(--t12)", color: "var(--text-muted)", width: 36 }}>{lyricsTranslationFontSize}px</span>
                   </div>
                 </SettingRow>
+                <SettingRow label={t("showRomaji")} description={t("romajiLyrics")}>
+                  <Toggle value={showRomaji} onChange={onToggleRomaji} />
+                </SettingRow>
+                <SettingRow label={t("showAgentTags")} description={t("showAgentTagsDesc")}>
+                  <Toggle value={showAgentTags} onChange={onToggleAgentTags} />
+                </SettingRow>
                 <SettingRow label={t("romajiFontSize")} description={`${t("fontSizeDesc")}: ${lyricsRomajiFontSize}px`}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <Slider min={12} max={40} step={2} value={lyricsRomajiFontSize} onChange={onLyricsRomajiFontSizeChange} width={120} />
@@ -1927,6 +1941,43 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                 <SectionLabel>{t("lyricsProviders")}</SectionLabel>
                 <div style={{ fontSize: "var(--t11)", color: "var(--text-muted)", marginBottom: 10 }}>{t("lyricsProvidersDesc")}</div>
                 <LyricsProviderList providers={lyricsProviders || DEFAULT_LYRICS_PROVIDERS} onChange={onLyricsProvidersChange} />
+              </>
+            )}
+
+            {tab === "accessibility" && (
+              <>
+                <SectionLabel>{t("appearance")}</SectionLabel>
+                <SettingRow label={t("highContrast")} description={t("highContrastDesc")}>
+                  <Toggle value={highContrast} onChange={onToggleHighContrast} />
+                </SettingRow>
+                <SettingRow label={t("ambientVisualizer")} description={t("ambientVisualizerDesc")}>
+                  <Toggle value={ambientVisualizer} onChange={onToggleAmbientVisualizer} />
+                </SettingRow>
+
+                <SectionLabel>{t("appFont")}</SectionLabel>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {[
+                    { id: "default",    label: t("appFontDefault"),  preview: "MiSans Latin",   font: "'MiSans Latin', system-ui, sans-serif" },
+                    { id: "dyslexic",   label: t("appFontDyslexic"), preview: "OpenDyslexic",   font: "'OpenDyslexic', system-ui, sans-serif" },
+                  ].map(f => (
+                    <div key={f.id} onClick={() => onAppFontChange(f.id)} style={{
+                      display: "flex", alignItems: "center", justifyContent: "space-between",
+                      padding: "12px 16px", borderRadius: 10, cursor: "pointer",
+                      border: appFont === f.id ? "1.5px solid var(--accent)" : "1.5px solid var(--border)",
+                      background: appFont === f.id ? "var(--accent-dim)" : "var(--bg-elevated)",
+                      transition: "border-color 0.15s, background 0.15s",
+                    }}
+                    onMouseEnter={e => { if (appFont !== f.id) e.currentTarget.style.background = "var(--bg-hover)"; }}
+                    onMouseLeave={e => { if (appFont !== f.id) e.currentTarget.style.background = "var(--bg-elevated)"; }}
+                    >
+                      <div>
+                        <div style={{ fontSize: "var(--t13)", fontWeight: 600, color: "var(--text-primary)", fontFamily: f.font, marginBottom: 2 }}>{f.label}</div>
+                        <div style={{ fontSize: "var(--t12)", color: "var(--text-muted)", fontFamily: f.font }}>{language === "de" ? "Franz jagt im komplett verwahrlosten Taxi quer durch Bayern" : "The quick brown fox jumps over the lazy dog"}</div>
+                      </div>
+                      {appFont === f.id && <Check size={16} style={{ color: "var(--accent)", flexShrink: 0, marginLeft: 12 }} />}
+                    </div>
+                  ))}
+                </div>
               </>
             )}
 
@@ -2348,7 +2399,7 @@ function QueuePanel({ queue, setQueue, currentTrack, setTrack, onClose }) {
   );
 }
 
-function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPlaying, expanded, onExpandToggle, showLyrics, onToggleLyrics, queueOpen, onToggleQueue, fullscreen, onToggleFullscreen, crossfade = 0, onOpenAlbum, onOpenArtist, onExportSong, onRefetchLyrics, lyricsProviders = DEFAULT_LYRICS_PROVIDERS, currentLyricsSource = "", onSwitchLyricsProvider, failedLyricsProviders = new Set(), language = "de", showLyricsTranslation = false, onToggleLyricsTranslation, lyricsTranslationLang = "DE", onSetLyricsTranslationLang, showRomaji = false, onToggleRomaji }) {
+function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPlaying, expanded, onExpandToggle, showLyrics, onToggleLyrics, queueOpen, onToggleQueue, fullscreen, onToggleFullscreen, crossfade = 0, onOpenAlbum, onOpenArtist, onExportSong, onRefetchLyrics, lyricsProviders = DEFAULT_LYRICS_PROVIDERS, currentLyricsSource = "", onSwitchLyricsProvider, failedLyricsProviders = new Set(), language = "de", showLyricsTranslation = false, onToggleLyricsTranslation, lyricsTranslationLang = "DE", onSetLyricsTranslationLang, showRomaji = false, onToggleRomaji, isCustomLyrics = false, onImportLyrics, onRemoveCustomLyrics }) {
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(() => {
@@ -2698,7 +2749,14 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
       await fetch(`${API}/like/${track.videoId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rating: newRating }),
+        body: JSON.stringify({
+          rating: newRating,
+          title: track.title || "",
+          artists: track.artists || "",
+          album: track.album || "",
+          thumbnail: track.thumbnail || "",
+          duration: track.duration || "",
+        }),
       });
     } catch {
       setIsLiked(isLiked); // revert on error
@@ -3031,6 +3089,30 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
                     {translate(language, "refetchLyrics")}
                   </div>
 
+                  {/* Import Lyrics */}
+                  <div
+                    onClick={() => { setMoreOpen(false); onImportLyrics?.(); }}
+                    style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "var(--text-primary)" }}
+                    onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
+                    onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                  >
+                    <UploadSimple size={14} />
+                    {translate(language, "importLyrics")}
+                  </div>
+
+                  {/* Remove Custom Lyrics — only visible when custom lyrics are active */}
+                  {isCustomLyrics && (
+                    <div
+                      onClick={() => { setMoreOpen(false); onRemoveCustomLyrics?.(); }}
+                      style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "#f44336" }}
+                      onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
+                      onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                    >
+                      <Trash size={14} />
+                      {translate(language, "removeCustomLyrics")}
+                    </div>
+                  )}
+
                   {/* Translate Lyrics toggle */}
                   <div
                     onClick={() => onToggleLyricsTranslation?.()}
@@ -3041,18 +3123,6 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
                     <Translate size={14} />
                     <span style={{ flex: 1 }}>{translate(language, "translateLyrics")}</span>
                     {showLyricsTranslation && <Check size={12} style={{ color: "var(--accent)", flexShrink: 0 }} />}
-                  </div>
-
-                  {/* Romaji toggle */}
-                  <div
-                    onClick={() => onToggleRomaji?.()}
-                    style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: showRomaji ? "var(--text-primary)" : "var(--text-secondary)" }}
-                    onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
-                    onMouseLeave={e => e.currentTarget.style.background = "transparent"}
-                  >
-                    <span style={{ fontSize: 14, lineHeight: 1 }}>あ</span>
-                    <span style={{ flex: 1 }}>{translate(language, "romajiLyrics")}</span>
-                    {showRomaji && <Check size={12} style={{ color: "var(--accent)", flexShrink: 0 }} />}
                   </div>
 
                   {/* Translation language submenu — only visible when translation is on */}
@@ -3217,7 +3287,7 @@ function hiResThumb(url) {
   return url;
 }
 
-function CoverView({ track, isPlaying, onClose }) {
+function CoverView({ track, isPlaying, onClose, ambientVisualizer = true }) {
   const hq = hiResThumb(track.thumbnail);
 
   return (
@@ -3229,11 +3299,34 @@ function CoverView({ track, isPlaying, onClose }) {
         backgroundSize: "cover", backgroundPosition: "center",
         filter: "blur(60px) brightness(0.35)",
         transform: "scale(1.15)",
+        animation: ambientVisualizer ? "ambientBreatheCover 14s ease-in-out infinite" : "none",
       }} />
       <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 1 }} />
 
+      {/* Ambient colour blobs — negative inset keeps edges outside the visible area */}
+      {ambientVisualizer && (<>
+        <div style={{
+          position: "absolute", inset: "-30%", zIndex: 2, pointerEvents: "none",
+          background: "radial-gradient(ellipse 38% 32% at 44% 42%, var(--accent) 0%, transparent 70%)",
+          mixBlendMode: "screen",
+          animation: "blobDrift1 18s ease-in-out infinite",
+        }} />
+        <div style={{
+          position: "absolute", inset: "-30%", zIndex: 2, pointerEvents: "none",
+          background: "radial-gradient(ellipse 32% 38% at 62% 60%, #7b2ff7 0%, transparent 68%)",
+          mixBlendMode: "screen",
+          animation: "blobDrift2 23s ease-in-out infinite",
+        }} />
+        <div style={{
+          position: "absolute", inset: "-30%", zIndex: 2, pointerEvents: "none",
+          background: "radial-gradient(ellipse 44% 36% at 52% 48%, #1565c0 0%, transparent 65%)",
+          mixBlendMode: "screen",
+          animation: "blobDrift3 29s ease-in-out infinite",
+        }} />
+      </>)}
+
       {/* Content */}
-      <div style={{ position: "relative", zIndex: 2, display: "flex", flexDirection: "column", alignItems: "center", gap: 28 }}>
+      <div style={{ position: "relative", zIndex: 3, display: "flex", flexDirection: "column", alignItems: "center", gap: 28 }}>
         {/* Album cover */}
         <div style={{
           width: 260, height: 260, borderRadius: 16, overflow: "hidden",
@@ -3524,7 +3617,7 @@ async function _fetchLyrics_unused(title, artist, album, duration) {
   return null;
 }
 
-function LyricsOverlay({ track, audioRef, onClose, fontSize = 32, providers = DEFAULT_LYRICS_PROVIDERS, refetchKey = 0, onAddToast, language = "de", forcedProvider = null, onSourceChange, onProviderFailed, showTranslation = false, translationLang = "DE", translationFontSize = 20, showRomaji = false, romajiFontSize = 18 }) {
+function LyricsOverlay({ track, audioRef, onClose, fontSize = 32, providers = DEFAULT_LYRICS_PROVIDERS, refetchKey = 0, onAddToast, language = "de", forcedProvider = null, onSourceChange, onProviderFailed, showTranslation = false, translationLang = "DE", translationFontSize = 20, showRomaji = false, romajiFontSize = 18, onCustomLyricsStatusChange, importLyricsRef, removeCustomLyricsRef, showAgentTags = true, ambientVisualizer = true }) {
   const [lyrics, setLyrics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [source, setSource] = useState("");
@@ -3532,6 +3625,8 @@ function LyricsOverlay({ track, audioRef, onClose, fontSize = 32, providers = DE
   const [translations, setTranslations] = useState(null); // array of strings, one per lyric line
   const [translating, setTranslating] = useState(false);
   const [romajiLines, setRomajiLines] = useState(null); // array of romaji strings
+  const [isCustomLyrics, setIsCustomLyrics] = useState(false);
+  const [customLyricsKey, setCustomLyricsKey] = useState(0);
   const t = useLang();
   const containerRef = useRef(null);
   const rafRef = useRef(null);
@@ -3690,13 +3785,88 @@ function LyricsOverlay({ track, audioRef, onClose, fontSize = 32, providers = DE
     }
   }, [tick]);
 
+  // Sync isCustomLyrics to parent
+  useEffect(() => { onCustomLyricsStatusChange?.(isCustomLyrics); }, [isCustomLyrics]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Import lyrics: open file dialog, read content, POST to backend
+  const importCustomLyrics = async () => {
+    if (!track?.videoId) return;
+    try {
+      const { open } = await import("@tauri-apps/plugin-dialog");
+      const path = await open({ filters: [{ name: "Lyrics", extensions: ["lrc", "ttml"] }], title: "Lyrics importieren" });
+      if (!path) return;
+      const { readTextFile } = await import("@tauri-apps/plugin-fs");
+      const content = await readTextFile(path);
+      const fmt = path.toLowerCase().endsWith(".ttml") ? "ttml" : "lrc";
+      const r = await fetch(`${API}/lyrics/custom`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ videoId: track.videoId, content, format: fmt }),
+      });
+      if (!r.ok) throw new Error("Speichern fehlgeschlagen");
+      const parsed = fmt === "ttml" ? parseTtml(content) : parseLrc(content);
+      setLyrics(parsed.length ? parsed : null);
+      setSource("Custom");
+      onSourceChange?.("Custom");
+      setIsCustomLyrics(true);
+      setLoading(false);
+      onAddToast?.("Lyrics importiert", "success");
+    } catch (e) {
+      onAddToast?.("Import fehlgeschlagen", "error");
+      console.error(e);
+    }
+  };
+
+  // Remove custom lyrics
+  const removeCustomLyrics = async () => {
+    if (!track?.videoId) return;
+    try {
+      await fetch(`${API}/lyrics/custom/${track.videoId}`, { method: "DELETE" });
+    } catch {}
+    setIsCustomLyrics(false);
+    setLyrics(null);
+    setSource("");
+    onSourceChange?.("");
+    setLoading(true);
+    // Trigger a fresh provider fetch by bumping a local key
+    setCustomLyricsKey(k => k + 1);
+  };
+
+  // Expose functions via refs for parent
+  useEffect(() => {
+    if (importLyricsRef) importLyricsRef.current = importCustomLyrics;
+    if (removeCustomLyricsRef) removeCustomLyricsRef.current = removeCustomLyrics;
+  }); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (!track) return;
     setLoading(true);
     setLyrics(null);
+    setIsCustomLyrics(false);
 
     const cacheKey = `kiyoshi-lyrics-${track.videoId}`;
 
+    // Check for custom lyrics first
+    fetch(`${API}/lyrics/custom/${track.videoId}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.content) {
+          const parsed = data.format === "ttml" ? parseTtml(data.content) : parseLrc(data.content);
+          if (parsed.length) {
+            setLyrics(parsed);
+            setSource("Custom");
+            onSourceChange?.("Custom");
+            setIsCustomLyrics(true);
+            setLoading(false);
+            return;
+          }
+        }
+        // No custom lyrics — proceed with normal fetch
+        continueWithProviders();
+      })
+      .catch(() => continueWithProviders());
+
+    function continueWithProviders() {
     // Forced provider: skip cache, fetch only that one provider
     if (forcedProvider) {
       const singleProviders = DEFAULT_LYRICS_PROVIDERS.map(p => ({ ...p, enabled: p.id === forcedProvider }));
@@ -3749,9 +3919,27 @@ function LyricsOverlay({ track, audioRef, onClose, fontSize = 32, providers = DE
       res?.failedIds?.forEach(id => onProviderFailed?.(id));
       setLoading(false);
     });
-  }, [track, refetchKey, forcedProvider]); // eslint-disable-line react-hooks/exhaustive-deps
+    } // end continueWithProviders
+  }, [track, refetchKey, forcedProvider, customLyricsKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const activeIdx = lastIdxRef.current;
+
+  // Unique agents in order of first appearance (only when ≥2 distinct named agents)
+  const lyricsAgents = useMemo(() => {
+    if (!lyrics) return [];
+    const seen = new Set();
+    const result = [];
+    for (const line of lyrics) {
+      const key = line.agent?.id || line.agent?.name;
+      if (key && line.agent.name && !seen.has(key)) {
+        seen.add(key);
+        result.push(line.agent);
+      }
+    }
+    return result;
+  }, [lyrics]);
+
+  const activeAgent = lyrics?.[activeIdx]?.agent;
 
   useEffect(() => {
     if (activeIdx < 0 || !containerRef.current) return;
@@ -3778,13 +3966,60 @@ function LyricsOverlay({ track, audioRef, onClose, fontSize = 32, providers = DE
         backgroundSize: "cover", backgroundPosition: "center",
         filter: "blur(40px) brightness(0.35)",
         transform: "scale(1.1)",
+        animation: ambientVisualizer ? "ambientBreathe 12s ease-in-out infinite" : "none",
       }} />
       <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.5)" }} />
+
+      {/* Ambient colour blobs — negative inset keeps edges outside the visible area */}
+      {ambientVisualizer && (<>
+        <div style={{
+          position: "absolute", inset: "-30%", zIndex: 1, pointerEvents: "none",
+          background: "radial-gradient(ellipse 38% 30% at 44% 42%, var(--accent) 0%, transparent 70%)",
+          mixBlendMode: "screen",
+          animation: "blobDrift1 18s ease-in-out infinite",
+        }} />
+        <div style={{
+          position: "absolute", inset: "-30%", zIndex: 1, pointerEvents: "none",
+          background: "radial-gradient(ellipse 32% 38% at 63% 61%, #7b2ff7 0%, transparent 68%)",
+          mixBlendMode: "screen",
+          animation: "blobDrift2 23s ease-in-out infinite",
+        }} />
+        <div style={{
+          position: "absolute", inset: "-30%", zIndex: 1, pointerEvents: "none",
+          background: "radial-gradient(ellipse 44% 36% at 52% 46%, #1565c0 0%, transparent 65%)",
+          mixBlendMode: "screen",
+          animation: "blobDrift3 29s ease-in-out infinite",
+        }} />
+      </>)}
 
       {/* Source badge */}
       <div style={{ position: "absolute", bottom: 12, right: 16, zIndex: 2, display: "flex", alignItems: "center", gap: 6 }}>
         {source && <span style={{ fontSize: "var(--t10)", color: "var(--text-muted)", background: "rgba(255,255,255,0.08)", padding: "3px 8px", borderRadius: 10 }}>{source}</span>}
       </div>
+
+      {/* Agent tags — bottom center, only when ≥2 named agents and toggle is on */}
+      {showAgentTags && lyricsAgents.length >= 2 && (
+        <div style={{
+          position: "absolute", bottom: 14, left: "50%", transform: "translateX(-50%)",
+          zIndex: 2, display: "flex", gap: 8, pointerEvents: "none",
+        }}>
+          {lyricsAgents.map(agent => {
+            const key = agent.id || agent.name;
+            const isActive = (activeAgent?.id || activeAgent?.name) === key;
+            return (
+              <span key={key} style={{
+                fontSize: 10, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase",
+                padding: "4px 12px", borderRadius: 20,
+                background: isActive ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.05)",
+                color: isActive ? "#fff" : "rgba(255,255,255,0.3)",
+                border: `0.5px solid ${isActive ? "rgba(255,255,255,0.35)" : "rgba(255,255,255,0.1)"}`,
+                transition: "background 0.25s, color 0.25s, border-color 0.25s",
+                whiteSpace: "nowrap",
+              }}>{agent.name}</span>
+            );
+          })}
+        </div>
+      )}
 
       {/* Lyrics */}
       <div ref={containerRef} className="scrollable" style={{
@@ -3794,20 +4029,21 @@ function LyricsOverlay({ track, audioRef, onClose, fontSize = 32, providers = DE
         {loading && <div style={{ textAlign: "center", color: "var(--text-muted)", marginTop: 60 }}>{t("lyricsLoading")}</div>}
         {!loading && !lyrics && (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16, marginTop: 60 }}>
-            <div style={{ color: "var(--text-muted)", fontSize: "var(--t14)" }}>{t("noLyrics")}</div>
-            <div style={{ color: "var(--text-muted)", fontSize: "var(--t12)", opacity: 0.7 }}>{t("noLyricsHint")}</div>
+            <div style={{ color: "rgba(255,255,255,0.75)", fontSize: "var(--t14)" }}>{t("noLyrics")}</div>
+            <div style={{ color: "rgba(255,255,255,0.45)", fontSize: "var(--t12)" }}>{t("noLyricsHint")}</div>
             <div style={{ display: "flex", gap: 10 }}>
               {/* Akari's LRC Maker */}
               <button
                 onClick={() => openUrl("https://lrc-maker.github.io").catch(console.error)}
                 style={{
-                  background: "rgba(255,255,255,0.08)", border: "0.5px solid rgba(255,255,255,0.12)",
+                  background: "rgba(255,255,255,0.08)", border: "0.5px solid rgba(255,255,255,0.18)",
                   borderRadius: 10, padding: "8px 16px", cursor: "pointer",
-                  color: "rgba(255,255,255,0.8)", fontSize: "var(--t13)", display: "flex", alignItems: "center", gap: 8,
-                  transition: "background 0.15s, color 0.15s",
+                  color: "#fff", fontSize: "var(--t13)", fontFamily: "var(--font)",
+                  display: "flex", alignItems: "center", gap: 8,
+                  transition: "background 0.15s, border-color 0.15s",
                 }}
-                onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.16)"; e.currentTarget.style.color = "#fff"; }}
-                onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.08)"; e.currentTarget.style.color = "rgba(255,255,255,0.8)"; }}
+                onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.16)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.32)"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.08)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.18)"; }}
               >
                 <ArrowSquareOut size={14} />
                 {"Akari's LRC Maker"}
@@ -3816,22 +4052,39 @@ function LyricsOverlay({ track, audioRef, onClose, fontSize = 32, providers = DE
               <button
                 onClick={() => openUrl("https://composer.boidu.dev").catch(console.error)}
                 style={{
-                  background: "rgba(255,255,255,0.08)", border: "0.5px solid rgba(255,255,255,0.12)",
+                  background: "rgba(255,255,255,0.08)", border: "0.5px solid rgba(255,255,255,0.18)",
                   borderRadius: 10, padding: "8px 16px", cursor: "pointer",
-                  color: "rgba(255,255,255,0.8)", fontSize: "var(--t13)", display: "flex", alignItems: "center", gap: 8,
-                  transition: "background 0.15s, color 0.15s",
+                  color: "#fff", fontSize: "var(--t13)", fontFamily: "var(--font)",
+                  display: "flex", alignItems: "center", gap: 8,
+                  transition: "background 0.15s, border-color 0.15s",
                 }}
-                onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.16)"; e.currentTarget.style.color = "#fff"; }}
-                onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.08)"; e.currentTarget.style.color = "rgba(255,255,255,0.8)"; }}
+                onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.16)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.32)"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.08)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.18)"; }}
               >
                 <ArrowSquareOut size={14} />
                 {"Boidu's Composer"}
                 <span style={{
                   fontSize: 9, fontWeight: 600, background: "rgba(255,180,0,0.2)", color: "rgb(255,200,80)",
                   border: "0.5px solid rgba(255,180,0,0.35)", borderRadius: 5, padding: "1px 5px", letterSpacing: "0.03em",
+                  fontFamily: "var(--font)",
                 }}>BETA</span>
               </button>
             </div>
+            <button
+              onClick={importCustomLyrics}
+              style={{
+                background: "rgba(255,255,255,0.06)", border: "0.5px solid rgba(255,255,255,0.18)",
+                borderRadius: 10, padding: "8px 20px", cursor: "pointer",
+                color: "#fff", fontSize: "var(--t13)", fontFamily: "var(--font)",
+                display: "flex", alignItems: "center", gap: 8,
+                transition: "background 0.15s, border-color 0.15s",
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.12)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.32)"; }}
+              onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.18)"; }}
+            >
+              <UploadSimple size={14} />
+              {t("importLyrics")}
+            </button>
           </div>
         )}
         {lyrics && lyrics.map((line, i) => {
@@ -3876,13 +4129,6 @@ function LyricsOverlay({ track, audioRef, onClose, fontSize = 32, providers = DE
                 textAlign,
               }}
             >
-              {agentRole === "featured" && line.agent?.name && (
-                <div style={{
-                  fontSize: 10, fontWeight: 600, letterSpacing: "0.04em",
-                  color: "rgba(255,255,255,0.45)", marginBottom: 3,
-                  textTransform: "uppercase",
-                }}>{line.agent.name}</div>
-              )}
               {isActive && line.wordSync ? (
                 <span style={{ whiteSpace: "pre-wrap" }}>
                   {line.words.map((word, wi) =>
@@ -5269,7 +5515,9 @@ function ArtistView({ browseId, onPlay, currentTrack, isPlaying, onOpenAlbum, on
 // ─── Profile Manager ────────────────────────────────────────────────────────
 
 function LoginScreen({ onSuccess, onCancel }) {
-  const [step, setStep] = useState("start"); // start | waiting | success
+  const [step, setStep] = useState("start"); // start | waiting | success | local-create
+  const [localName, setLocalName] = useState("");
+  const [localLoading, setLocalLoading] = useState(false);
   const t = useLang();
 
   useEffect(() => {
@@ -5306,6 +5554,28 @@ function LoginScreen({ onSuccess, onCancel }) {
       await invoke("close_login_window");
     } catch {}
     setStep("start");
+  };
+
+  const createLocalProfile = async () => {
+    const name = localName.trim();
+    if (!name) return;
+    setLocalLoading(true);
+    try {
+      const res = await fetch(`${API}/auth/local-create`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ displayName: name }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setStep("success");
+        setTimeout(() => onSuccess(), 1000);
+      }
+    } catch (e) {
+      console.error("local-create failed:", e);
+    } finally {
+      setLocalLoading(false);
+    }
   };
 
   const Logo = () => (
@@ -5365,8 +5635,61 @@ function LoginScreen({ onSuccess, onCancel }) {
             <Btn onClick={startLogin}>
               {t("loginButton")}
             </Btn>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "18px 0" }}>
+              <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
+              <span style={{ fontSize: "var(--t11)", color: "var(--text-muted)" }}>{t("orSignInWithGoogle") ? t("orSignInWithGoogle").split(" ").slice(-2).join(" ") : "oder"}</span>
+              <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
+            </div>
+            <Btn onClick={() => setStep("local-create")} secondary>
+              {t("createLocalProfile")}
+            </Btn>
             <div style={{ fontSize: "var(--t11)", color: "var(--text-muted)", textAlign: "center", marginTop: 14, lineHeight: 1.6 }}>
               {t("loginHint")}
+            </div>
+          </>
+        )}
+
+        {/* ── Lokales Profil erstellen ── */}
+        {step === "local-create" && (
+          <>
+            <div style={{ fontSize: "var(--t18)", fontWeight: 700, textAlign: "center", marginBottom: 6 }}>{t("localProfile")}</div>
+            <div style={{ fontSize: "var(--t12)", color: "var(--text-muted)", textAlign: "center", marginBottom: 20, lineHeight: 1.6 }}>
+              {t("localProfileDesc")}
+            </div>
+            {/* Vorteile-Panel */}
+            <div style={{ background: "var(--bg-elevated)", borderRadius: 10, padding: "12px 14px", marginBottom: 20, border: "0.5px solid var(--border)" }}>
+              <div style={{ fontSize: "var(--t11)", fontWeight: 600, color: "var(--accent)", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+                <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0a8 8 0 110 16A8 8 0 018 0zm.93 6.588l-2.29.287-.082.38.45.083c.294.07.352.176.288.469l-.738 3.468c-.194.897.105 1.319.808 1.319.545 0 1.178-.252 1.465-.598l.088-.416c-.2.176-.492.246-.686.246-.275 0-.375-.193-.304-.533zM8 5.5a1 1 0 110-2 1 1 0 010 2z"/></svg>
+                {t("googleBenefits")}
+              </div>
+              {[
+                { icon: "☁️", key: "benefitLibrary" },
+                { icon: "🎵", key: "benefitRecommendations" },
+                { icon: "📋", key: "benefitPlaylists" },
+                { icon: "🔄", key: "benefitSync" },
+              ].map(({ icon, key }) => (
+                <div key={key} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "var(--t12)", color: "var(--text-secondary)", marginBottom: 4 }}>
+                  <span>{icon}</span> {t(key)}
+                </div>
+              ))}
+            </div>
+            <input
+              autoFocus
+              value={localName}
+              onChange={e => setLocalName(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && createLocalProfile()}
+              placeholder={t("profileName")}
+              style={{
+                width: "100%", padding: "10px 12px", borderRadius: 8, border: "0.5px solid var(--border)",
+                background: "var(--bg-elevated)", color: "var(--text-primary)", fontSize: "var(--t13)",
+                fontFamily: "var(--font)", marginBottom: 12, boxSizing: "border-box", outline: "none",
+              }}
+            />
+            <Btn onClick={createLocalProfile} disabled={!localName.trim() || localLoading}>
+              {localLoading ? "..." : t("createProfile")}
+            </Btn>
+            <div style={{ marginTop: 10 }}>
+              <Btn onClick={() => setStep("start")} secondary>{t("cancel")}</Btn>
             </div>
           </>
         )}
@@ -5558,27 +5881,43 @@ function ProfileSwitcher({ profiles, currentProfile, onSwitch, onAdd, onDelete, 
               onMouseLeave={e => { if (!p.active) e.currentTarget.style.background = "transparent"; }}
               >
                 <div style={{
-                  width: 30, height: 30, borderRadius: "50%", background: "var(--accent)",
+                  width: 30, height: 30, borderRadius: "50%",
+                  background: p.type === "local" ? "var(--bg-elevated)" : "var(--accent)",
+                  border: p.type === "local" ? "0.5px solid var(--border)" : "none",
                   display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: "var(--t12)", fontWeight: 700, flexShrink: 0, color: "#fff", overflow: "hidden",
+                  fontSize: "var(--t12)", fontWeight: 700, flexShrink: 0, color: p.type === "local" ? "var(--text-secondary)" : "#fff", overflow: "hidden",
                 }}>
-                  {p.avatar
-                    ? <img src={p.avatar} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                    : (p.displayName || p.name)[0].toUpperCase()}
+                  {p.type === "local"
+                    ? <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/></svg>
+                    : p.avatar
+                      ? <img src={p.avatar} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                      : (p.displayName || p.name)[0].toUpperCase()}
                 </div>
                 <div style={{ flex: 1, overflow: "hidden" }}>
                   <div style={{ fontSize: "var(--t12)", fontWeight: 500, color: p.active ? "var(--accent)" : "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.displayName || p.name}</div>
-                  {p.handle && <div style={{ fontSize: "var(--t10)", color: "var(--text-muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.handle}</div>}
+                  {p.type === "local"
+                    ? <div style={{ fontSize: "var(--t10)", color: "var(--text-muted)" }}>{t("localAccount")}</div>
+                    : p.handle && <div style={{ fontSize: "var(--t10)", color: "var(--text-muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.handle}</div>}
                 </div>
                 {p.active && <Check size={13} style={{ color: "var(--accent)", flexShrink: 0 }} />}
+                {p.type === "local" && p.active && (
+                  <div title={t("linkGoogleAccount")} onClick={e => { e.stopPropagation(); onAdd && onAdd(); }} style={{
+                    padding: 3, borderRadius: 4, cursor: "pointer", color: "var(--text-muted)", flexShrink: 0, transition: "color 0.15s",
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.color = "var(--accent)"}
+                  onMouseLeave={e => e.currentTarget.style.color = "var(--text-muted)"}
+                  >
+                    <Link size={13} />
+                  </div>
+                )}
                 <div onClick={e => { e.stopPropagation(); setConfirmName(p.name); }} style={{
-                  padding: 3, borderRadius: 4, cursor: "pointer", color: "transparent",
+                  padding: 3, borderRadius: 4, cursor: "pointer", color: "var(--text-muted)",
                   transition: "color 0.15s", flexShrink: 0,
                 }}
                 onMouseEnter={e => e.currentTarget.style.color = "#f44336"}
-                onMouseLeave={e => e.currentTarget.style.color = "transparent"}
+                onMouseLeave={e => e.currentTarget.style.color = "var(--text-muted)"}
                 >
-                  <X size={13} />
+                  <Trash size={13} />
                 </div>
               </div>
             ))}
@@ -5788,6 +6127,28 @@ export default function App() {
     return saved || "#e040fb";
   });
   const [theme, setTheme] = useState(() => localStorage.getItem("kiyoshi-theme") || "dark");
+  const [highContrast, setHighContrast] = useState(() => {
+    const hc = localStorage.getItem("kiyoshi-high-contrast") === "true";
+    if (hc) document.documentElement.setAttribute("data-highcontrast", "true");
+    return hc;
+  });
+  const [appFont, setAppFont] = useState(() => {
+    const saved = localStorage.getItem("kiyoshi-app-font") || "default";
+    if (saved === "dyslexic") document.documentElement.style.setProperty("--font", "'OpenDyslexic', system-ui, sans-serif");
+    return saved;
+  });
+  const handleAppFontChange = useCallback((id) => {
+    setAppFont(id);
+    localStorage.setItem("kiyoshi-app-font", id);
+    if (id === "dyslexic") {
+      document.documentElement.style.setProperty("--font", "'OpenDyslexic', system-ui, sans-serif");
+    } else {
+      document.documentElement.style.setProperty("--font", "'MiSans Latin', system-ui, sans-serif");
+    }
+  }, []);
+  const [ambientVisualizer, setAmbientVisualizer] = useState(() =>
+    localStorage.getItem("kiyoshi-ambient-visualizer") !== "false"
+  );
   const [flashbang, setFlashbang] = useState(false);
   const lightClickRef = useRef({ count: 0, lastTime: 0 });
 
@@ -5840,6 +6201,10 @@ export default function App() {
   const [showRomaji, setShowRomaji] = useState(() =>
     localStorage.getItem("kiyoshi-lyrics-romaji") === "true"
   );
+  const [isCustomLyrics, setIsCustomLyrics] = useState(false);
+  const [showAgentTags, setShowAgentTags] = useState(() => localStorage.getItem("kiyoshi-lyrics-agent-tags") !== "false");
+  const importLyricsRef = useRef(null);
+  const removeCustomLyricsRef = useRef(null);
 
   // Reset lyrics state on every track change (incl. auto-advance / prev-next)
   useEffect(() => {
@@ -6598,6 +6963,9 @@ export default function App() {
               setShowRomaji(next);
               localStorage.setItem("kiyoshi-lyrics-romaji", String(next));
             }}
+            isCustomLyrics={isCustomLyrics}
+            onImportLyrics={() => importLyricsRef.current?.()}
+            onRemoveCustomLyrics={() => removeCustomLyricsRef.current?.()}
           />
           </div>
         </div>
@@ -6610,8 +6978,8 @@ export default function App() {
           pointerEvents: overlayOpen ? "all" : "none",
         }}>
           {currentTrack && (showLyrics
-            ? <LyricsOverlay track={currentTrack} audioRef={audioRef} onClose={() => setOverlayOpen(false)} fontSize={lyricsFontSize} providers={lyricsProviders} refetchKey={lyricsRefetchKey} onAddToast={addToast} language={language} forcedProvider={forcedLyricsProvider} onSourceChange={setCurrentLyricsSource} onProviderFailed={(id) => setFailedLyricsProviders(s => new Set([...s, id]))} showTranslation={showLyricsTranslation} translationLang={lyricsTranslationLang} translationFontSize={lyricsTranslationFontSize} showRomaji={showRomaji} romajiFontSize={lyricsRomajiFontSize} />
-            : <CoverView track={currentTrack} isPlaying={isPlaying} onClose={() => setOverlayOpen(false)} />
+            ? <LyricsOverlay track={currentTrack} audioRef={audioRef} onClose={() => setOverlayOpen(false)} fontSize={lyricsFontSize} providers={lyricsProviders} refetchKey={lyricsRefetchKey} onAddToast={addToast} language={language} forcedProvider={forcedLyricsProvider} onSourceChange={setCurrentLyricsSource} onProviderFailed={(id) => setFailedLyricsProviders(s => new Set([...s, id]))} showTranslation={showLyricsTranslation} translationLang={lyricsTranslationLang} translationFontSize={lyricsTranslationFontSize} showRomaji={showRomaji} romajiFontSize={lyricsRomajiFontSize} onCustomLyricsStatusChange={setIsCustomLyrics} importLyricsRef={importLyricsRef} removeCustomLyricsRef={removeCustomLyricsRef} showAgentTags={showAgentTags} ambientVisualizer={ambientVisualizer} />
+            : <CoverView track={currentTrack} isPlaying={isPlaying} onClose={() => setOverlayOpen(false)} ambientVisualizer={ambientVisualizer} />
           )}
         </div>
 
@@ -6695,6 +7063,25 @@ export default function App() {
             onUiZoomChange={v => { setUiZoom(v); localStorage.setItem("kiyoshi-ui-zoom", v); }}
             appFontScale={appFontScale}
             onFontScaleChange={v => { setAppFontScale(v); localStorage.setItem("kiyoshi-font-scale", v); }}
+            showRomaji={showRomaji}
+            onToggleRomaji={() => { const next = !showRomaji; setShowRomaji(next); localStorage.setItem("kiyoshi-lyrics-romaji", String(next)); }}
+            showAgentTags={showAgentTags}
+            onToggleAgentTags={() => { const next = !showAgentTags; setShowAgentTags(next); localStorage.setItem("kiyoshi-lyrics-agent-tags", String(next)); }}
+            highContrast={highContrast}
+            onToggleHighContrast={() => {
+              const next = !highContrast;
+              setHighContrast(next);
+              document.documentElement.setAttribute("data-highcontrast", String(next));
+              localStorage.setItem("kiyoshi-high-contrast", String(next));
+            }}
+            appFont={appFont}
+            onAppFontChange={handleAppFontChange}
+            ambientVisualizer={ambientVisualizer}
+            onToggleAmbientVisualizer={() => {
+              const next = !ambientVisualizer;
+              setAmbientVisualizer(next);
+              localStorage.setItem("kiyoshi-ambient-visualizer", String(next));
+            }}
           />
         )}
 
@@ -6754,7 +7141,7 @@ export default function App() {
                             await fetch(`${API}/playlist/${pl.playlistId}/add`, {
                               method: "POST",
                               headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ videoIds: [trackContextMenu.track.videoId] }),
+                              body: JSON.stringify({ videoIds: [trackContextMenu.track.videoId], tracks: [trackContextMenu.track] }),
                             });
                           } catch {}
                           setTrackContextMenu(null);

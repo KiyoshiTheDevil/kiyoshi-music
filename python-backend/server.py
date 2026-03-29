@@ -7,7 +7,7 @@ Starte mit: python server.py
 from flask import Flask, jsonify, request, Response
 from flask_cors import CORS
 from ytmusicapi import YTMusic
-import sys, os, json, glob, threading, time, requests
+import sys, os, json, glob, threading, time, requests, sqlite3, uuid
 
 app = Flask(__name__)
 CORS(app, origins=[
@@ -55,6 +55,9 @@ os.makedirs(SONG_CACHE_DIR, exist_ok=True)
 
 LYRICS_CACHE_DIR = os.path.join(_base_dir, "lyrics_cache")
 os.makedirs(LYRICS_CACHE_DIR, exist_ok=True)
+
+CUSTOM_LYRICS_DIR = os.path.join(_base_dir, "custom_lyrics")
+os.makedirs(CUSTOM_LYRICS_DIR, exist_ok=True)
 
 # Active YTMusic instance and current profile
 _ytm = None
@@ -227,6 +230,53 @@ def _save_album_disk(browse_id, data):
 def profile_path(name):
     return os.path.join(PROFILES_DIR, f"{name}.json")
 
+def meta_path(name):
+    return os.path.join(PROFILES_DIR, f"{name}.meta.json")
+
+def local_db_path(name):
+    return os.path.join(PROFILES_DIR, f"{name}.db")
+
+def is_local_profile(name):
+    if not name:
+        return False
+    mp = meta_path(name)
+    if not os.path.exists(mp):
+        return False
+    try:
+        with open(mp) as f:
+            return json.load(f).get("type") == "local"
+    except Exception:
+        return False
+
+def get_local_db(name):
+    """Öffnet/erstellt die SQLite-Datenbank für ein lokales Profil."""
+    db = sqlite3.connect(local_db_path(name), check_same_thread=False)
+    db.execute("PRAGMA journal_mode=WAL")
+    db.executescript("""
+        CREATE TABLE IF NOT EXISTS liked_songs (
+            video_id TEXT PRIMARY KEY,
+            title TEXT, artists TEXT, album TEXT,
+            thumbnail TEXT, duration TEXT,
+            liked_at INTEGER
+        );
+        CREATE TABLE IF NOT EXISTS playlists (
+            playlist_id TEXT PRIMARY KEY,
+            title TEXT, description TEXT,
+            privacy TEXT DEFAULT 'PRIVATE',
+            created_at INTEGER, updated_at INTEGER
+        );
+        CREATE TABLE IF NOT EXISTS playlist_tracks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            playlist_id TEXT, video_id TEXT,
+            title TEXT, artists TEXT, album TEXT,
+            thumbnail TEXT, duration TEXT,
+            set_video_id TEXT,
+            position INTEGER, added_at INTEGER
+        );
+    """)
+    db.commit()
+    return db
+
 # Short-lived cookies that expire in minutes and break the session.
 # YouTube rotates these via Set-Cookie but ytmusicapi doesn't update them.
 _SHORT_LIVED_COOKIES = {
@@ -255,6 +305,12 @@ def clean_headers_for_storage(headers):
 
 def load_profile(name):
     global _ytm, _current_profile, _playlist_cache
+    # Local profile: use unauthenticated YTMusic instance
+    if is_local_profile(name):
+        _ytm = YTMusic()
+        _current_profile = name
+        _playlist_cache = {}
+        return True
     path = profile_path(name)
     if not os.path.exists(path):
         return False
@@ -280,23 +336,47 @@ def get_ytmusic():
 
 def get_profiles():
     profiles = []
+    seen = set()
+    # Google profiles — have a .json headers file
     for p in glob.glob(os.path.join(PROFILES_DIR, "*.json")):
         name = os.path.splitext(os.path.basename(p))[0]
-        if name.endswith(".meta"):
+        if name.endswith(".meta") or name in seen:
             continue
-        # Skip meta files
-        if name.endswith(".meta"):
-            continue
-        meta_path = os.path.join(PROFILES_DIR, f"{name}.meta.json")
+        mp = os.path.join(PROFILES_DIR, f"{name}.meta.json")
         meta = {}
-        if os.path.exists(meta_path):
-            with open(meta_path) as f:
+        if os.path.exists(mp):
+            with open(mp) as f:
                 meta = json.load(f)
+        if meta.get("type") == "local":
+            continue  # handled in second pass
+        seen.add(name)
         profiles.append({
             "name": name,
             "displayName": meta.get("displayName", name),
             "handle": meta.get("handle", ""),
             "avatar": meta.get("avatar", ""),
+            "type": "google",
+            "active": name == _current_profile,
+        })
+    # Local profiles — only have a .meta.json with type==local
+    for mp in glob.glob(os.path.join(PROFILES_DIR, "*.meta.json")):
+        name = os.path.splitext(os.path.splitext(os.path.basename(mp))[0])[0]
+        if name in seen:
+            continue
+        try:
+            with open(mp) as f:
+                meta = json.load(f)
+        except Exception:
+            continue
+        if meta.get("type") != "local":
+            continue
+        seen.add(name)
+        profiles.append({
+            "name": name,
+            "displayName": meta.get("displayName", name),
+            "handle": "",
+            "avatar": "",
+            "type": "local",
             "active": name == _current_profile,
         })
     return profiles
@@ -316,6 +396,8 @@ def migrate_legacy():
 # Auto-load first profile on startup
 def fetch_account_info(profile_name):
     """Versucht den echten Kontonamen von YouTube Music zu holen."""
+    if is_local_profile(profile_name):
+        return  # Lokale Profile haben keinen YouTube-Account
     try:
         ytm_temp = YTMusic(profile_path(profile_name))
         # get_account_info gibt Name + Handle zurück
@@ -369,11 +451,14 @@ def delete_profile():
     if not name:
         return jsonify({"error": "Name fehlt"}), 400
     path = profile_path(name)
-    meta_path = os.path.join(PROFILES_DIR, f"{name}.meta.json")
+    mp = meta_path(name)
+    db = local_db_path(name)
     if os.path.exists(path):
         os.remove(path)
-    if os.path.exists(meta_path):
-        os.remove(meta_path)
+    if os.path.exists(mp):
+        os.remove(mp)
+    if os.path.exists(db):
+        os.remove(db)
     global _current_profile, _ytm
     if _current_profile == name:
         _current_profile = None
@@ -572,10 +657,42 @@ def validate_auth():
         return jsonify({"valid": False, "reason": "adding_account"})
     if _ytm is None:
         return jsonify({"valid": False, "reason": "no_profile"})
-    # Just check if profile file exists - don't make API call every time
-    if _current_profile and os.path.exists(profile_path(_current_profile)):
-        return jsonify({"valid": True, "profile": _current_profile})
+    if _current_profile:
+        # Local profile: check meta file exists
+        if is_local_profile(_current_profile):
+            if os.path.exists(meta_path(_current_profile)):
+                return jsonify({"valid": True, "profile": _current_profile, "type": "local"})
+            return jsonify({"valid": False, "reason": "no_profile"})
+        # Google profile: check headers file exists
+        if os.path.exists(profile_path(_current_profile)):
+            return jsonify({"valid": True, "profile": _current_profile, "type": "google"})
     return jsonify({"valid": False, "reason": "no_profile"})
+
+@app.route("/auth/local-create", methods=["POST"])
+def local_create():
+    """Erstellt ein neues lokales Profil ohne Google-Account."""
+    data = request.json or {}
+    display_name = (data.get("displayName") or "").strip()
+    if not display_name:
+        return jsonify({"error": "Name fehlt"}), 400
+    # Sanitize to a filesystem-safe profile name
+    import re
+    base = re.sub(r'[^\w\-]', '_', display_name.lower())[:40] or "local"
+    name = base
+    counter = 1
+    while os.path.exists(meta_path(name)):
+        name = f"{base}_{counter}"
+        counter += 1
+    # Write meta
+    os.makedirs(PROFILES_DIR, exist_ok=True)
+    with open(meta_path(name), "w") as f:
+        json.dump({"displayName": display_name, "type": "local"}, f)
+    # Init SQLite schema
+    db = get_local_db(name)
+    db.close()
+    # Activate profile
+    load_profile(name)
+    return jsonify({"ok": True, "profile": name, "displayName": display_name})
 
 @app.route("/auth/begin-add", methods=["POST"])
 def begin_add():
@@ -932,6 +1049,15 @@ def cache_settings():
 @app.route("/liked")
 def liked_songs():
     try:
+        if is_local_profile(_current_profile):
+            db = get_local_db(_current_profile)
+            rows = db.execute(
+                "SELECT video_id, title, artists, album, thumbnail, duration FROM liked_songs ORDER BY liked_at DESC"
+            ).fetchall()
+            db.close()
+            tracks = [{"videoId": r[0], "title": r[1], "artists": r[2], "album": r[3],
+                       "thumbnail": r[4], "duration": r[5]} for r in rows]
+            return jsonify({"tracks": tracks})
         limit = request.args.get("limit", None, type=int)
         songs = get_ytmusic().get_liked_songs(limit=limit)
         tracks = []
@@ -1028,6 +1154,14 @@ def stream_prepare(video_id):
 @app.route("/library/playlists")
 def library_playlists():
     try:
+        if is_local_profile(_current_profile):
+            db = get_local_db(_current_profile)
+            rows = db.execute(
+                "SELECT playlist_id, title, description, (SELECT COUNT(*) FROM playlist_tracks WHERE playlist_id=p.playlist_id) FROM playlists p ORDER BY updated_at DESC"
+            ).fetchall()
+            db.close()
+            result = [{"playlistId": r[0], "title": r[1], "description": r[2], "count": str(r[3]), "thumbnail": ""} for r in rows]
+            return jsonify({"playlists": result})
         playlists = get_ytmusic().get_library_playlists(limit=50)
         result = []
         for p in playlists:
@@ -1052,6 +1186,17 @@ def create_playlist():
             return jsonify({"error": "Title is required"}), 400
         description = data.get("description", "")
         privacy = data.get("privacyStatus", "PRIVATE")
+        if is_local_profile(_current_profile):
+            playlist_id = str(uuid.uuid4())
+            now = int(time.time())
+            db = get_local_db(_current_profile)
+            db.execute(
+                "INSERT INTO playlists (playlist_id, title, description, privacy, created_at, updated_at) VALUES (?,?,?,?,?,?)",
+                (playlist_id, title, description, privacy, now, now)
+            )
+            db.commit()
+            db.close()
+            return jsonify({"ok": True, "playlistId": playlist_id})
         video_ids = data.get("videoIds")
         result = get_ytmusic().create_playlist(title, description, privacy_status=privacy, video_ids=video_ids)
         return jsonify({"ok": True, "playlistId": result})
@@ -1065,6 +1210,24 @@ def playlist_add_tracks(playlist_id):
         video_ids = data.get("videoIds", [])
         if not video_ids:
             return jsonify({"error": "videoIds required"}), 400
+        if is_local_profile(_current_profile):
+            db = get_local_db(_current_profile)
+            tracks_meta = {t["videoId"]: t for t in data.get("tracks", []) if "videoId" in t}
+            now = int(time.time())
+            max_pos = db.execute("SELECT COALESCE(MAX(position),0) FROM playlist_tracks WHERE playlist_id=?", (playlist_id,)).fetchone()[0]
+            for i, vid in enumerate(video_ids):
+                meta = tracks_meta.get(vid, {})
+                svid = str(uuid.uuid4())
+                db.execute(
+                    "INSERT INTO playlist_tracks (playlist_id, video_id, title, artists, album, thumbnail, duration, set_video_id, position, added_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                    (playlist_id, vid, meta.get("title",""), meta.get("artists",""),
+                     meta.get("album",""), meta.get("thumbnail",""), meta.get("duration",""),
+                     svid, max_pos + i + 1, now)
+                )
+            db.execute("UPDATE playlists SET updated_at=? WHERE playlist_id=?", (now, playlist_id))
+            db.commit()
+            db.close()
+            return jsonify({"ok": True})
         get_ytmusic().add_playlist_items(playlist_id, video_ids)
         _purge_playlist_cache(playlist_id)
         return jsonify({"ok": True})
@@ -1078,6 +1241,18 @@ def playlist_remove_tracks(playlist_id):
         videos = data.get("videos", [])
         if not videos:
             return jsonify({"error": "videos required"}), 400
+        if is_local_profile(_current_profile):
+            db = get_local_db(_current_profile)
+            for v in videos:
+                svid = v.get("setVideoId")
+                if svid:
+                    db.execute("DELETE FROM playlist_tracks WHERE playlist_id=? AND set_video_id=?", (playlist_id, svid))
+                else:
+                    db.execute("DELETE FROM playlist_tracks WHERE playlist_id=? AND video_id=?", (playlist_id, v.get("videoId","")))
+            db.execute("UPDATE playlists SET updated_at=? WHERE playlist_id=?", (int(time.time()), playlist_id))
+            db.commit()
+            db.close()
+            return jsonify({"ok": True})
         get_ytmusic().remove_playlist_items(playlist_id, videos)
         _purge_playlist_cache(playlist_id)
         return jsonify({"ok": True})
@@ -1091,6 +1266,17 @@ def playlist_edit(playlist_id):
         title = data.get("title")
         description = data.get("description")
         privacy = data.get("privacyStatus")
+        if is_local_profile(_current_profile):
+            db = get_local_db(_current_profile)
+            if title:
+                db.execute("UPDATE playlists SET title=?, updated_at=? WHERE playlist_id=?", (title, int(time.time()), playlist_id))
+            if description is not None:
+                db.execute("UPDATE playlists SET description=? WHERE playlist_id=?", (description, playlist_id))
+            if privacy:
+                db.execute("UPDATE playlists SET privacy=? WHERE playlist_id=?", (privacy, playlist_id))
+            db.commit()
+            db.close()
+            return jsonify({"ok": True})
         get_ytmusic().edit_playlist(playlist_id, title=title, description=description, privacyStatus=privacy)
         _purge_playlist_cache(playlist_id)
         return jsonify({"ok": True})
@@ -1100,6 +1286,13 @@ def playlist_edit(playlist_id):
 @app.route("/playlist/<playlist_id>", methods=["DELETE"])
 def delete_playlist(playlist_id):
     try:
+        if is_local_profile(_current_profile):
+            db = get_local_db(_current_profile)
+            db.execute("DELETE FROM playlist_tracks WHERE playlist_id=?", (playlist_id,))
+            db.execute("DELETE FROM playlists WHERE playlist_id=?", (playlist_id,))
+            db.commit()
+            db.close()
+            return jsonify({"ok": True})
         get_ytmusic().delete_playlist(playlist_id)
         _purge_playlist_cache(playlist_id)
         return jsonify({"ok": True})
@@ -1109,6 +1302,8 @@ def delete_playlist(playlist_id):
 @app.route("/library/albums")
 def library_albums():
     try:
+        if is_local_profile(_current_profile):
+            return jsonify({"albums": []})
         albums = get_ytmusic().get_library_albums(limit=50)
         result = []
         for a in albums:
@@ -1129,6 +1324,8 @@ def library_albums():
 @app.route("/library/artists")
 def library_artists():
     try:
+        if is_local_profile(_current_profile):
+            return jsonify({"artists": []})
         artists = get_ytmusic().get_library_artists(limit=50)
         result = []
         for a in artists:
@@ -1154,6 +1351,32 @@ def stream_playlist(playlist_id):
     def generate():
         try:
             CHUNK = 200
+
+            # Local profile: serve from SQLite
+            if is_local_profile(_current_profile):
+                db = get_local_db(_current_profile)
+                if playlist_id == "LM":
+                    rows = db.execute(
+                        "SELECT video_id, title, artists, album, thumbnail, duration FROM liked_songs ORDER BY liked_at DESC"
+                    ).fetchall()
+                    tracks = [{"videoId": r[0], "setVideoId": r[0], "title": r[1], "artists": r[2],
+                               "album": r[3], "thumbnail": r[4], "duration": r[5]} for r in rows]
+                    pl_title = "Gelikte Songs"
+                else:
+                    pl_row = db.execute("SELECT title FROM playlists WHERE playlist_id=?", (playlist_id,)).fetchone()
+                    pl_title = pl_row[0] if pl_row else playlist_id
+                    rows = db.execute(
+                        "SELECT video_id, set_video_id, title, artists, album, thumbnail, duration FROM playlist_tracks WHERE playlist_id=? ORDER BY position ASC",
+                        (playlist_id,)
+                    ).fetchall()
+                    tracks = [{"videoId": r[0], "setVideoId": r[1], "title": r[2], "artists": r[3],
+                               "album": r[4], "thumbnail": r[5], "duration": r[6]} for r in rows]
+                db.close()
+                yield f"data: {json.dumps({'type':'header','title':pl_title,'thumbnail':'','total':len(tracks),'cached':True})}\n\n"
+                for i in range(0, len(tracks), CHUNK):
+                    yield f"data: {json.dumps({'type':'tracks','tracks':tracks[i:i+CHUNK]})}\n\n"
+                yield f"data: {json.dumps({'type':'done'})}\n\n"
+                return
 
             def fmt(t):
                 artist_list = t.get("artists", [])
@@ -1249,6 +1472,27 @@ def stream_playlist(playlist_id):
 @app.route("/playlist/<playlist_id>")
 def get_playlist(playlist_id):
     try:
+        if is_local_profile(_current_profile):
+            db = get_local_db(_current_profile)
+            if playlist_id == "LM":
+                rows = db.execute(
+                    "SELECT video_id, title, artists, album, thumbnail, duration FROM liked_songs ORDER BY liked_at DESC"
+                ).fetchall()
+                db.close()
+                tracks = [{"videoId": r[0], "setVideoId": r[0], "title": r[1], "artists": r[2],
+                           "album": r[3], "thumbnail": r[4], "duration": r[5]} for r in rows]
+                return jsonify({"title": "Gelikte Songs", "thumbnail": "", "tracks": tracks})
+            pl_row = db.execute("SELECT title FROM playlists WHERE playlist_id=?", (playlist_id,)).fetchone()
+            pl_title = pl_row[0] if pl_row else playlist_id
+            rows = db.execute(
+                "SELECT video_id, set_video_id, title, artists, album, thumbnail, duration FROM playlist_tracks WHERE playlist_id=? ORDER BY position ASC",
+                (playlist_id,)
+            ).fetchall()
+            db.close()
+            tracks = [{"videoId": r[0], "setVideoId": r[1], "title": r[2], "artists": r[3],
+                       "album": r[4], "thumbnail": r[5], "duration": r[6]} for r in rows]
+            return jsonify({"title": pl_title, "thumbnail": "", "tracks": tracks})
+
         # "LM" is the special Liked Songs playlist
         if playlist_id == "LM":
             songs = get_ytmusic().get_liked_songs(limit=None)
@@ -1646,7 +1890,21 @@ def img_proxy():
 def like_song(video_id):
     try:
         data = request.get_json() or {}
-        rating = data.get("rating", "LIKE")  # LIKE, DISLIKE, INDIFFERENT
+        rating = data.get("rating", "LIKE")
+        if is_local_profile(_current_profile):
+            db = get_local_db(_current_profile)
+            if rating == "LIKE":
+                db.execute(
+                    "INSERT OR REPLACE INTO liked_songs (video_id, title, artists, album, thumbnail, duration, liked_at) VALUES (?,?,?,?,?,?,?)",
+                    (video_id, data.get("title",""), data.get("artists",""),
+                     data.get("album",""), data.get("thumbnail",""),
+                     data.get("duration",""), int(time.time()))
+                )
+            else:
+                db.execute("DELETE FROM liked_songs WHERE video_id=?", (video_id,))
+            db.commit()
+            db.close()
+            return jsonify({"ok": True, "rating": rating})
         get_ytmusic().rate_song(video_id, rating)
         return jsonify({"ok": True, "rating": rating})
     except Exception as e:
@@ -1655,6 +1913,11 @@ def like_song(video_id):
 @app.route("/liked/ids")
 def liked_ids():
     try:
+        if is_local_profile(_current_profile):
+            db = get_local_db(_current_profile)
+            ids = [r[0] for r in db.execute("SELECT video_id FROM liked_songs").fetchall()]
+            db.close()
+            return jsonify({"ids": ids})
         songs = get_ytmusic().get_liked_songs(limit=None)
         ids = [t.get("videoId") for t in songs.get("tracks", []) if t.get("videoId")]
         return jsonify({"ids": ids})
@@ -2143,6 +2406,52 @@ def export_status(video_id):
 @app.route("/song/export/ffmpeg-available")
 def ffmpeg_available():
     return jsonify({"available": _find_ffmpeg() is not False})
+
+
+@app.route("/lyrics/custom/<video_id>", methods=["GET"])
+def get_custom_lyrics(video_id):
+    """Gibt manuell importierte Lyrics für eine videoId zurück."""
+    for ext in ("lrc", "ttml"):
+        path = os.path.join(CUSTOM_LYRICS_DIR, f"{video_id}.{ext}")
+        if os.path.isfile(path):
+            with open(path, "r", encoding="utf-8") as f:
+                content = f.read()
+            return jsonify({"content": content, "format": ext})
+    return jsonify({"error": "not found"}), 404
+
+
+@app.route("/lyrics/custom", methods=["POST"])
+def save_custom_lyrics():
+    """Speichert manuell importierte Lyrics für eine videoId."""
+    data = request.get_json()
+    video_id = data.get("videoId", "").strip()
+    content = data.get("content", "")
+    fmt = data.get("format", "lrc").lower()
+    if not video_id or not content or fmt not in ("lrc", "ttml"):
+        return jsonify({"error": "invalid request"}), 400
+    # Eventuelle andere Datei desselben Songs entfernen
+    for ext in ("lrc", "ttml"):
+        old = os.path.join(CUSTOM_LYRICS_DIR, f"{video_id}.{ext}")
+        if os.path.isfile(old):
+            os.remove(old)
+    path = os.path.join(CUSTOM_LYRICS_DIR, f"{video_id}.{fmt}")
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(content)
+    return jsonify({"ok": True})
+
+
+@app.route("/lyrics/custom/<video_id>", methods=["DELETE"])
+def delete_custom_lyrics(video_id):
+    """Löscht manuell importierte Lyrics für eine videoId."""
+    deleted = False
+    for ext in ("lrc", "ttml"):
+        path = os.path.join(CUSTOM_LYRICS_DIR, f"{video_id}.{ext}")
+        if os.path.isfile(path):
+            os.remove(path)
+            deleted = True
+    if deleted:
+        return jsonify({"ok": True})
+    return jsonify({"error": "not found"}), 404
 
 
 if __name__ == "__main__":
