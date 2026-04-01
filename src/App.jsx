@@ -45,13 +45,37 @@ import {
   PaintBrushBroad,
   HardDrives,
   ArrowsClockwise,
+  Crown,
+  WifiHigh,
+  WifiX,
+  Bug,
 } from "@phosphor-icons/react";
 
 const API = "http://localhost:9847";
 
+// ─── Debug Console Interceptor ───────────────────────────────────────────────
+// Captures all console.log/warn/error/info calls into a ring buffer so the
+// Debug tab in Settings can display them even if DevTools is not open.
+const _frontendLogs = [];
+const _MAX_FRONTEND_LOGS = 500;
+(function _setupDebugInterceptor() {
+  const _orig = { log: console.log, warn: console.warn, error: console.error, info: console.info };
+  ["log", "warn", "error", "info"].forEach(level => {
+    console[level] = (...args) => {
+      _orig[level](...args);
+      const msg = args.map(a => {
+        if (a instanceof Error) return a.stack || a.message;
+        if (typeof a === "object" && a !== null) { try { return JSON.stringify(a); } catch { return String(a); } }
+        return String(a);
+      }).join(" ");
+      _frontendLogs.push({ ts: Date.now() / 1000, level: level.toUpperCase(), msg, source: "frontend" });
+      if (_frontendLogs.length > _MAX_FRONTEND_LOGS) _frontendLogs.shift();
+    };
+  });
+})();
+
 // ─── App Version ─────────────────────────────────────────────────────────────
-const APP_VERSION = "0.9.2-alpha";
-const BUILD_NUMBER = 26031; // Erhöhe diese Zahl bei jeder Änderung
+const APP_VERSION = "0.9.3-alpha";
 
 // ─── Update Checker (GitHub Releases) ───────────────────────────────────────
 const APP_TAG = "v0.9.0";
@@ -584,7 +608,7 @@ function TrackRow({ track, isPlaying, onPlay, onOpenArtist, onContextMenu }) {
 const SIDEBAR_EXPANDED = 240;
 const SIDEBAR_COLLAPSED = 56;
 
-function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenSettings, onOpenUpdateTab, onCloseOverlay, onOpenPlaylist, onOpenAlbum, onOpenArtist, onAddRecent, onContextMenu, currentProfileData, onOpenProfileSwitcher, profiles, onSwitchProfile, onAddProfile, onDeleteProfile, onCreatePlaylist, updateInfo }) {
+function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenSettings, onOpenUpdateTab, onCloseOverlay, onOpenPlaylist, onOpenAlbum, onOpenArtist, onAddRecent, onContextMenu, currentProfileData, onOpenProfileSwitcher, profiles, onSwitchProfile, onAddProfile, onDeleteProfile, onCreatePlaylist, updateInfo, offlineMode, isActuallyOffline, onToggleOffline }) {
   const [query, setQuery] = useState("");
   const [tooltip, setTooltip] = useState(null);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
@@ -656,8 +680,9 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
   ];
 
   const secondaryNavItems = [
-    { id: "liked",   label: t("likedSongs"), iconEl: <Heart size={16} /> },
-    { id: "history", label: t("history"),    iconEl: <ClockCounterClockwise size={16} /> },
+    { id: "liked",     label: t("likedSongs"), iconEl: <Heart size={16} /> },
+    { id: "history",   label: t("history"),    iconEl: <ClockCounterClockwise size={16} /> },
+    { id: "downloads", label: t("downloads"),  iconEl: <DownloadSimple size={16} /> },
   ];
 
   return (
@@ -666,7 +691,7 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
       minWidth: collapsed ? SIDEBAR_COLLAPSED : SIDEBAR_EXPANDED,
       transition: "width 0.22s cubic-bezier(0.4,0,0.2,1)",
       background: "var(--bg-surface)", display: "flex", flexDirection: "column",
-      padding: "16px 0", flexShrink: 0, borderRight: "0.5px solid var(--border)",
+      padding: "16px 0 0", flexShrink: 0, borderRight: "0.5px solid var(--border)",
       height: "100%", overflow: "hidden",
     }}>
       {/* Fixed tooltip rendered via portal-like state */}
@@ -921,7 +946,7 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
             onClick={onOpenSettings}
             style={{
               display: "flex", alignItems: "center", gap: 10,
-              padding: "8px 12px", margin: "0 8px 8px",
+              padding: "8px 12px", margin: "0 8px 2px",
               borderRadius: "var(--radius)", cursor: "pointer",
               color: "var(--text-secondary)", background: "transparent",
               transition: "all 0.15s", fontSize: "var(--t13)",
@@ -931,6 +956,23 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
           >
             <Gear size={16} style={{ flexShrink: 0 }} />
             {t("settings")}
+          </div>
+          {/* Offline toggle */}
+          <div
+            onClick={onToggleOffline}
+            style={{
+              display: "flex", alignItems: "center", gap: 10,
+              padding: "8px 12px", margin: "0 8px 8px",
+              borderRadius: "var(--radius)", cursor: "pointer",
+              color: (offlineMode || isActuallyOffline) ? "#f0b429" : "var(--text-secondary)",
+              background: offlineMode ? "rgba(240,180,41,0.08)" : "transparent",
+              transition: "all 0.15s", fontSize: "var(--t13)",
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = offlineMode ? "rgba(240,180,41,0.15)" : "var(--bg-hover)"; if (!offlineMode && !isActuallyOffline) e.currentTarget.style.color = "var(--text-primary)"; }}
+            onMouseLeave={e => { e.currentTarget.style.background = offlineMode ? "rgba(240,180,41,0.08)" : "transparent"; e.currentTarget.style.color = (offlineMode || isActuallyOffline) ? "#f0b429" : "var(--text-secondary)"; }}
+          >
+            {(offlineMode || isActuallyOffline) ? <WifiX size={16} style={{ flexShrink: 0 }} /> : <WifiHigh size={16} style={{ flexShrink: 0 }} />}
+            {offlineMode ? t("goOnline") : isActuallyOffline ? t("offlineBanner") : t("goOffline")}
           </div>
         </div>
       )}
@@ -969,6 +1011,26 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
             }}
           >
             <Gear size={16} />
+          </div>
+          <div
+            onClick={onToggleOffline}
+            onMouseEnter={e => {
+              e.currentTarget.style.background = offlineMode ? "rgba(240,180,41,0.15)" : "var(--bg-hover)";
+              const r = e.currentTarget.getBoundingClientRect();
+              setTooltip({ text: offlineMode ? t("goOnline") : isActuallyOffline ? t("offlineBanner") : t("goOffline"), x: r.right + 10, y: r.top + r.height / 2 });
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.background = offlineMode ? "rgba(240,180,41,0.08)" : "transparent";
+              setTooltip(null);
+            }}
+            style={{
+              width: 36, height: 36, borderRadius: "var(--radius)", cursor: "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              color: (offlineMode || isActuallyOffline) ? "#f0b429" : "var(--text-secondary)",
+              background: offlineMode ? "rgba(240,180,41,0.08)" : "transparent", transition: "all 0.15s",
+            }}
+          >
+            {(offlineMode || isActuallyOffline) ? <WifiX size={16} /> : <WifiHigh size={16} />}
           </div>
           </div>
         </div>
@@ -1650,6 +1712,357 @@ function LyricsProviderList({ providers, onChange }) {
   );
 }
 
+// ─── Debug shared helpers ────────────────────────────────────────────────────
+const _debugLevelColor = (level) => {
+  if (level === "ERROR") return "#ff6b6b";
+  if (level === "WARN")  return "#f0b429";
+  if (level === "INFO")  return "#64b5f6";
+  return "var(--text-muted)";
+};
+const _debugLevelBg = (level) => {
+  if (level === "ERROR") return "rgba(255,107,107,0.12)";
+  if (level === "WARN")  return "rgba(240,180,41,0.10)";
+  if (level === "INFO")  return "rgba(100,181,246,0.08)";
+  return "transparent";
+};
+const _debugFmtTs = (ts) => new Date(ts * 1000).toTimeString().slice(0, 8);
+const _debugBtnStyle = (active) => ({
+  padding: "3px 9px", borderRadius: 5, border: "0.5px solid var(--border)",
+  background: active ? "rgba(224,64,251,0.15)" : "var(--bg-elevated)",
+  color: active ? "var(--accent)" : "var(--text-secondary)",
+  fontSize: "var(--t11)", cursor: "pointer", transition: "all 0.12s",
+  fontFamily: "var(--font)", fontWeight: active ? 600 : 400,
+});
+
+function _buildDebugReport(info, logs) {
+  return [
+    "=== Kiyoshi Music Debug Report ===",
+    info ? [
+      `App:        ${APP_VERSION}`,
+      `Python:     ${info.python}`,
+      `yt-dlp:     ${info.ytdlp}`,
+      `ytmusicapi: ${info.ytmusicapi}`,
+      `Flask:      ${info.flask}`,
+      `Node.js:    ${info.node || "—"}`,
+      `Profil:     ${info.profile}`,
+      `Plattform:  ${info.platform}`,
+      `Uptime:     ${info.uptime}`,
+      `Data dir:   ${info.data_dir}`,
+    ].join("\n") : "Backend nicht erreichbar",
+    `\n=== Logs (${logs.length} Einträge) ===`,
+    ...logs.map(l => `[${_debugFmtTs(l.ts)}] [${l.level}] [${l.source}] ${l.msg}`),
+  ].join("\n");
+}
+
+// ─── Debug Floating Window ───────────────────────────────────────────────────
+function DebugFloatingWindow({ onClose }) {
+  const [info, setInfo]           = useState(null);
+  const [filter, setFilter]       = useState("ALL");
+  const [source, setSource]       = useState("ALL");
+  const [autoScroll, setAutoScroll] = useState(true);
+  const [activeTab, setActiveTab] = useState("logs"); // "info" | "logs"
+  const [copied, setCopied]       = useState(false);
+  const [pos, setPos] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("kiyoshi-debug-float-pos")) || { x: 80, y: 80 }; }
+    catch { return { x: 80, y: 80 }; }
+  });
+  const logRef = useRef(null);
+  const posRef = useRef(pos);
+  posRef.current = pos;
+
+  const fetchInfo = useCallback(() => {
+    fetch(`${API}/debug/info`).then(r => r.json()).then(setInfo).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    fetchInfo();
+    const id = setInterval(fetchInfo, 3000);
+    return () => clearInterval(id);
+  }, [fetchInfo]);
+
+  const allLogs = useMemo(() => {
+    const backend = info?.logs || [];
+    return [..._frontendLogs, ...backend].sort((a, b) => a.ts - b.ts);
+  }, [info]);
+
+  const visibleLogs = useMemo(() => allLogs.filter(l => {
+    if (filter !== "ALL" && l.level !== filter) return false;
+    if (source !== "ALL" && l.source !== source) return false;
+    return true;
+  }), [allLogs, filter, source]);
+
+  useEffect(() => {
+    if (autoScroll && logRef.current)
+      logRef.current.scrollTop = logRef.current.scrollHeight;
+  }, [visibleLogs.length, autoScroll]);
+
+  const startDrag = useCallback((e) => {
+    if (e.button !== 0 || e.target.closest("button")) return;
+    e.preventDefault();
+    const ox = e.clientX - posRef.current.x;
+    const oy = e.clientY - posRef.current.y;
+    const onMove = (me) => {
+      const np = { x: me.clientX - ox, y: me.clientY - oy };
+      setPos(np);
+      localStorage.setItem("kiyoshi-debug-float-pos", JSON.stringify(np));
+    };
+    const onUp = () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  }, []);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(_buildDebugReport(info, visibleLogs))
+      .then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); })
+      .catch(() => {});
+  };
+
+  const sysRows = info ? [
+    ["Python",     info.python],
+    ["yt-dlp",     info.ytdlp],
+    ["ytmusicapi", info.ytmusicapi],
+    ["Flask",      info.flask],
+    ["Node.js",    info.node ? info.node.split(/[/\\]/).pop() : "—"],
+    ["Profil",     info.profile],
+    ["Plattform",  info.platform],
+    ["Uptime",     info.uptime],
+  ] : [];
+
+  return createPortal(
+    <div style={{
+      position: "fixed", left: pos.x, top: pos.y, zIndex: 9998,
+      width: 660, display: "flex", flexDirection: "column",
+      background: "var(--bg-surface)", border: "0.5px solid var(--border)",
+      borderRadius: 10, boxShadow: "0 20px 60px rgba(0,0,0,0.75)",
+      fontFamily: "var(--font)", overflow: "hidden",
+      resize: "both", minWidth: 380, minHeight: 260,
+    }}>
+      {/* Title bar */}
+      <div onMouseDown={startDrag} style={{
+        display: "flex", alignItems: "center", gap: 8,
+        padding: "7px 10px", background: "var(--bg-elevated)",
+        borderBottom: "0.5px solid var(--border)",
+        cursor: "grab", userSelect: "none", flexShrink: 0,
+      }}>
+        <Bug size={13} style={{ color: "var(--accent)", flexShrink: 0 }} />
+        <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)", flex: 1 }}>Debug</span>
+        <button style={_debugBtnStyle(activeTab === "info")}  onClick={() => setActiveTab("info")}>Sysinfo</button>
+        <button style={_debugBtnStyle(activeTab === "logs")}  onClick={() => setActiveTab("logs")}>Logs</button>
+        <div style={{ width: 1, height: 12, background: "var(--border)", margin: "0 2px" }} />
+        <button
+          onClick={onClose}
+          style={{
+            width: 20, height: 20, borderRadius: "50%", border: "none", cursor: "pointer",
+            background: "rgba(255,80,80,0.15)", color: "#ff6b6b",
+            display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, padding: 0,
+            transition: "background 0.15s",
+          }}
+          onMouseEnter={e => e.currentTarget.style.background = "rgba(255,80,80,0.35)"}
+          onMouseLeave={e => e.currentTarget.style.background = "rgba(255,80,80,0.15)"}
+        ><X size={10} weight="bold" /></button>
+      </div>
+
+      {/* Body */}
+      <div style={{ flex: 1, padding: "10px 12px", overflow: "hidden", display: "flex", flexDirection: "column", minHeight: 200 }}>
+        {activeTab === "info" && (
+          <div style={{ overflowY: "auto" }}>
+            {!info ? (
+              <div style={{ color: "var(--text-muted)", fontSize: "var(--t12)", padding: 8 }}>Laden…</div>
+            ) : (
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5 }}>
+                {sysRows.map(([k, v]) => (
+                  <div key={k} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 10px", borderRadius: 6, background: "var(--bg-elevated)", border: "0.5px solid var(--border)" }}>
+                    <span style={{ fontSize: "var(--t11)", color: "var(--text-muted)", minWidth: 72, flexShrink: 0 }}>{k}</span>
+                    <span style={{ fontSize: "var(--t11)", color: "var(--text-primary)", fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{v}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === "logs" && (
+          <>
+            {/* Filter bar */}
+            <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 6, flexWrap: "wrap", flexShrink: 0 }}>
+              {["ALL","INFO","WARN","ERROR"].map(f => (
+                <button key={f} style={_debugBtnStyle(filter === f)} onClick={() => setFilter(f)}>{f}</button>
+              ))}
+              <div style={{ width: 1, height: 12, background: "var(--border)", margin: "0 1px" }} />
+              {["ALL","frontend","backend"].map(s => (
+                <button key={s} style={_debugBtnStyle(source === s)} onClick={() => setSource(s)}>{s === "ALL" ? "Alle" : s}</button>
+              ))}
+              <div style={{ marginLeft: "auto", display: "flex", gap: 4 }}>
+                <button style={{ ..._debugBtnStyle(autoScroll), display: "flex", alignItems: "center", gap: 3 }} onClick={() => setAutoScroll(a => !a)}>
+                  <CaretDown size={10} /> Scroll
+                </button>
+                <button style={{ ..._debugBtnStyle(false), display: "flex", alignItems: "center", gap: 3 }} onClick={handleCopy}>
+                  {copied ? <><Check size={10} weight="bold" /> Kopiert!</> : <><Copy size={10} /> Kopieren</>}
+                </button>
+              </div>
+            </div>
+
+            {/* Log list */}
+            <div ref={logRef} style={{
+              flex: 1, overflowY: "auto", background: "var(--bg-elevated)",
+              border: "0.5px solid var(--border)", borderRadius: 7,
+              padding: "4px 2px", fontFamily: "monospace", fontSize: 10, minHeight: 0,
+            }}
+              onScroll={e => {
+                const el = e.currentTarget;
+                if (el.scrollHeight - el.scrollTop - el.clientHeight > 40 && autoScroll) setAutoScroll(false);
+              }}
+            >
+              {visibleLogs.length === 0
+                ? <div style={{ color: "var(--text-muted)", padding: "10px 8px", textAlign: "center" }}>Keine Einträge.</div>
+                : visibleLogs.map((entry, i) => (
+                  <div key={i} style={{
+                    display: "flex", alignItems: "flex-start", gap: 5, padding: "1px 5px",
+                    borderRadius: 3, marginBottom: 1, background: _debugLevelBg(entry.level),
+                  }}>
+                    <span style={{ color: "var(--text-muted)", flexShrink: 0, userSelect: "none" }}>{_debugFmtTs(entry.ts)}</span>
+                    <span style={{ color: _debugLevelColor(entry.level), flexShrink: 0, minWidth: 36, fontWeight: 700, userSelect: "none" }}>{entry.level}</span>
+                    <span style={{ color: entry.source === "frontend" ? "rgba(224,64,251,0.7)" : "rgba(100,181,246,0.6)", flexShrink: 0, minWidth: 50, userSelect: "none" }}>[{entry.source}]</span>
+                    <span style={{ color: "var(--text-secondary)", wordBreak: "break-all", lineHeight: 1.4 }}>{entry.msg}</span>
+                  </div>
+                ))
+              }
+            </div>
+          </>
+        )}
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+// ─── Debug Tab ───────────────────────────────────────────────────────────────
+function DebugTab({ t }) {
+  const [info, setInfo]           = useState(null);
+  const [error, setError]         = useState(null);
+  const [filter, setFilter]       = useState("ALL");
+  const [source, setSource]       = useState("ALL");
+  const [autoScroll, setAutoScroll] = useState(true);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [copied, setCopied]       = useState(false);
+  const logRef = useRef(null);
+
+  const fetchInfo = useCallback(() => {
+    setError(null);
+    fetch(`${API}/debug/info`)
+      .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+      .then(setInfo).catch(e => setError(e.message));
+  }, []);
+  useEffect(() => { fetchInfo(); }, [fetchInfo, refreshKey]);
+
+  const allLogs = useMemo(() => {
+    return [..._frontendLogs, ...(info?.logs || [])].sort((a, b) => a.ts - b.ts);
+  }, [info]);
+  const visibleLogs = useMemo(() =>
+    allLogs.filter(l => (filter === "ALL" || l.level === filter) && (source === "ALL" || l.source === source)),
+  [allLogs, filter, source]);
+  useEffect(() => {
+    if (autoScroll && logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
+  }, [visibleLogs.length, autoScroll]);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(_buildDebugReport(info, visibleLogs))
+      .then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); }).catch(() => {});
+  };
+  const openFloat = () => window.dispatchEvent(new CustomEvent("kiyoshi-debug-float"));
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16, height: "100%" }}>
+      {/* System Info */}
+      <div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+          <div style={{ fontSize: "var(--t11)", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em" }}>{t("debugSysInfo")}</div>
+          <button
+            onClick={openFloat}
+            style={{ ..._debugBtnStyle(false), display: "flex", alignItems: "center", gap: 5, padding: "4px 10px" }}
+            title={t("debugOpenFloat")}
+          >
+            <ArrowSquareOut size={12} />
+            {t("debugOpenFloat")}
+          </button>
+        </div>
+        {error ? (
+          <div style={{ padding: "10px 14px", borderRadius: 8, background: "rgba(255,60,60,0.12)", color: "#ff6b6b", fontSize: "var(--t12)", display: "flex", alignItems: "center", gap: 8 }}>
+            <X size={14} weight="bold" /> {t("debugBackendUnreachable")}: {error}
+          </div>
+        ) : !info ? (
+          <div style={{ padding: "10px 14px", borderRadius: 8, background: "var(--bg-elevated)", color: "var(--text-muted)", fontSize: "var(--t12)" }}>{t("loading")}…</div>
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+            {[
+              ["Python",     info.python],
+              ["yt-dlp",     info.ytdlp],
+              ["ytmusicapi", info.ytmusicapi],
+              ["Flask",      info.flask],
+              ["Node.js",    info.node ? <span style={{ color: "#4caf50", display: "flex", alignItems: "center", gap: 4 }}><Check size={11} weight="bold" />{info.node.split(/[/\\]/).pop()}</span> : <span style={{ color: "#ff6b6b" }}>—</span>],
+              ["Profil",     info.profile],
+              ["Plattform",  info.platform],
+              ["Uptime",     info.uptime],
+            ].map(([k, v]) => (
+              <div key={k} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderRadius: 6, background: "var(--bg-elevated)", border: "0.5px solid var(--border)" }}>
+                <span style={{ fontSize: "var(--t11)", color: "var(--text-muted)", minWidth: 76, flexShrink: 0 }}>{k}</span>
+                <span style={{ fontSize: "var(--t12)", color: "var(--text-primary)", fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{v}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Log viewer */}
+      <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6, flexWrap: "wrap" }}>
+          <span style={{ fontSize: "var(--t11)", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginRight: 4 }}>Logs</span>
+          {["ALL","INFO","WARN","ERROR"].map(f => (
+            <button key={f} style={_debugBtnStyle(filter === f)} onClick={() => setFilter(f)}>{f}</button>
+          ))}
+          <div style={{ width: 1, height: 14, background: "var(--border)", margin: "0 2px" }} />
+          {["ALL","frontend","backend"].map(s => (
+            <button key={s} style={_debugBtnStyle(source === s)} onClick={() => setSource(s)}>{s === "ALL" ? "Alle" : s}</button>
+          ))}
+          <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+            <button style={{ ..._debugBtnStyle(autoScroll), display: "flex", alignItems: "center", gap: 4 }} onClick={() => setAutoScroll(a => !a)}>
+              <CaretDown size={11} /> Auto-Scroll
+            </button>
+            <button style={{ ..._debugBtnStyle(false), display: "flex", alignItems: "center", gap: 4 }} onClick={() => setRefreshKey(k => k + 1)}>
+              <ArrowClockwise size={11} /> {t("refresh")}
+            </button>
+            <button style={{ ..._debugBtnStyle(false), display: "flex", alignItems: "center", gap: 4 }} onClick={handleCopy}>
+              {copied ? <><Check size={11} weight="bold" /> {t("copied")}</> : <><Copy size={11} /> {t("copyAll")}</>}
+            </button>
+          </div>
+        </div>
+        <div ref={logRef} style={{
+          flex: 1, overflowY: "auto", background: "var(--bg-elevated)",
+          border: "0.5px solid var(--border)", borderRadius: 8,
+          padding: "6px 4px", fontFamily: "monospace", fontSize: "var(--t11)", minHeight: 180,
+        }}
+          onScroll={e => { const el = e.currentTarget; if (el.scrollHeight - el.scrollTop - el.clientHeight > 40 && autoScroll) setAutoScroll(false); }}
+        >
+          {visibleLogs.length === 0
+            ? <div style={{ color: "var(--text-muted)", padding: "12px 8px", textAlign: "center" }}>{t("debugNoLogs")}</div>
+            : visibleLogs.map((entry, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 6, padding: "2px 6px", borderRadius: 4, marginBottom: 1, background: _debugLevelBg(entry.level) }}>
+                <span style={{ color: "var(--text-muted)", flexShrink: 0, userSelect: "none" }}>{_debugFmtTs(entry.ts)}</span>
+                <span style={{ color: _debugLevelColor(entry.level), flexShrink: 0, minWidth: 38, fontWeight: 700, userSelect: "none" }}>{entry.level}</span>
+                <span style={{ color: entry.source === "frontend" ? "rgba(224,64,251,0.7)" : "rgba(100,181,246,0.6)", flexShrink: 0, minWidth: 52, userSelect: "none" }}>[{entry.source}]</span>
+                <span style={{ color: "var(--text-secondary)", wordBreak: "break-all", lineHeight: 1.45 }}>{entry.msg}</span>
+              </div>
+            ))
+          }
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, animations, onAnimationsChange, lyricsFontSize, onLyricsFontSizeChange, lyricsTranslationFontSize, onLyricsTranslationFontSizeChange, lyricsRomajiFontSize, onLyricsRomajiFontSizeChange, lyricsProviders, onLyricsProvidersChange, autoplay, onAutoplayChange, crossfade, onCrossfadeChange, discordRpc, onDiscordRpcChange, language, onLanguageChange, updateInfo, onCheckUpdate, updateDownloading, updateDownloadProgress, updateDownloaded, onDownloadUpdate, onInstallUpdate, onCancelDownload, initialTab, onTabOpened, hideExplicit, onHideExplicitChange, uiZoom, onUiZoomChange, appFontScale, onFontScaleChange, showRomaji, onToggleRomaji, showAgentTags, onToggleAgentTags, highContrast, onToggleHighContrast, appFont, onAppFontChange, ambientVisualizer, onToggleAmbientVisualizer }) {
   const anim = useAnimations();
   const t = useLang();
@@ -1670,6 +2083,7 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
     { id: "cache",       label: t("cache"),       iconEl: <HardDrives size={18} /> },
     { id: "downloads",  label: t("downloads"),   iconEl: <DownloadSimple size={18} /> },
     { id: "update",     label: t("update"),      iconEl: <ArrowsClockwise size={18} /> },
+    { id: "debug",      label: t("debug"),       iconEl: <Bug size={18} /> },
   ];
 
   const shortcuts = [
@@ -1744,7 +2158,7 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
 
           <div style={{ borderTop: "0.5px solid var(--border)", paddingTop: 12 }}>
             <div style={{ padding: "0 8px 12px" }}>
-              <div style={{ fontSize: "var(--t11)", fontWeight: 600, color: "var(--text-primary)", marginBottom: 4 }}>{APP_VERSION} · Build {BUILD_NUMBER}</div>
+              <div style={{ fontSize: "var(--t11)", fontWeight: 600, color: "var(--text-primary)", marginBottom: 4 }}>{APP_VERSION}</div>
               <div style={{ fontSize: "var(--t10)", color: "var(--text-muted)", lineHeight: 1.7 }}>
                 Tauri 2.10.3<br/>
                 Chromium {chromiumVersion}
@@ -2034,7 +2448,6 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                   marginBottom: 16,
                 }}>
                   <div style={{ fontSize: "var(--t14)", fontWeight: 600, color: "var(--text-primary)" }}>{APP_VERSION}</div>
-                  <div style={{ fontSize: "var(--t12)", color: "var(--text-muted)", marginTop: 4 }}>Build {BUILD_NUMBER}</div>
                 </div>
 
                 {updateInfo ? (
@@ -2154,6 +2567,8 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                 </button>
               </>
             )}
+
+            {tab === "debug" && <DebugTab t={t} />}
 
           </div>
         </div>
@@ -2400,7 +2815,7 @@ function QueuePanel({ queue, setQueue, currentTrack, setTrack, onClose }) {
   );
 }
 
-function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPlaying, expanded, onExpandToggle, showLyrics, onToggleLyrics, queueOpen, onToggleQueue, fullscreen, onToggleFullscreen, crossfade = 0, onOpenAlbum, onOpenArtist, onExportSong, onRefetchLyrics, lyricsProviders = DEFAULT_LYRICS_PROVIDERS, currentLyricsSource = "", onSwitchLyricsProvider, failedLyricsProviders = new Set(), language = "de", showLyricsTranslation = false, onToggleLyricsTranslation, lyricsTranslationLang = "DE", onSetLyricsTranslationLang, showRomaji = false, onToggleRomaji, isCustomLyrics = false, onImportLyrics, onRemoveCustomLyrics }) {
+function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPlaying, expanded, onExpandToggle, showLyrics, onToggleLyrics, queueOpen, onToggleQueue, fullscreen, onToggleFullscreen, crossfade = 0, onOpenAlbum, onOpenArtist, onExportSong, onRefetchLyrics, lyricsProviders = DEFAULT_LYRICS_PROVIDERS, currentLyricsSource = "", onSwitchLyricsProvider, failedLyricsProviders = new Set(), language = "de", showLyricsTranslation = false, onToggleLyricsTranslation, lyricsTranslationLang = "DE", onSetLyricsTranslationLang, showRomaji = false, onToggleRomaji, isCustomLyrics = false, onImportLyrics, onRemoveCustomLyrics, onPremiumDetected }) {
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(() => {
@@ -2585,6 +3000,7 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
       try {
         const r = await fetch(`${API}/stream-prepare/${videoId}`);
         const d = await r.json();
+        if (d.premium_only) { onPremiumDetected?.(videoId); return null; }
         if (d.path) {
           // Prefix with file:// so Rust knows it's a local path
           const fileUrl = `file://${d.path.replace(/\\/g, "/")}`;
@@ -2598,12 +3014,13 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
       try {
         const r = await fetch(`${API}/stream/${videoId}`);
         const d = await r.json();
+        if (d.premium_only) { onPremiumDetected?.(videoId); return null; }
         if (d.url) { urlCache.current[videoId] = d.url; return d.url; }
       } catch {}
       if (i < 3) await new Promise(res => setTimeout(res, 800));
     }
     return null;
-  }, []);
+  }, [onPremiumDetected]);
 
   // Preload adjacent tracks in background
   const preloadAdjacent = useCallback(async () => {
@@ -4483,8 +4900,9 @@ function useAccentColor(imageUrl) {
 }
 
 // ─── Shared table row for playlist/liked views ─────────────────────────────
-function TableRow({ track, index, isPlaying, onPlay, onOpenArtist, onOpenAlbum, isAlbum, onContextMenu, isCached, isDownloading, onDownload }) {
+function TableRow({ track, index, isPlaying, onPlay, onOpenArtist, onOpenAlbum, isAlbum, onContextMenu, isCached, isDownloading, onDownload, isPremiumOnly }) {
   const anim = useAnimations();
+  const t = useLang();
   const [hovered, setHovered] = useState(false);
 
   const linkStyle = {
@@ -4492,19 +4910,21 @@ function TableRow({ track, index, isPlaying, onPlay, onOpenArtist, onOpenAlbum, 
     overflow: "hidden", textOverflow: "ellipsis", transition: "color 0.15s",
   };
 
-  return (
+  const row = (
     <div
-      onClick={() => onPlay(track)}
-      onContextMenu={onContextMenu ? (e) => { e.preventDefault(); onContextMenu(e, track); } : undefined}
+      onClick={isPremiumOnly ? undefined : () => onPlay(track)}
+      onContextMenu={(!isPremiumOnly && onContextMenu) ? (e) => { e.preventDefault(); onContextMenu(e, track); } : undefined}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
         display: "grid",
         gridTemplateColumns: isAlbum ? "minmax(0,2fr) minmax(0,1fr) 28px 48px" : "minmax(0,2fr) minmax(0,1fr) minmax(0,1fr) 28px 48px",
         alignItems: "center", gap: 8,
-        padding: "5px 16px", borderRadius: "var(--radius)", cursor: "pointer",
+        padding: "5px 16px", borderRadius: "var(--radius)",
+        cursor: isPremiumOnly ? "default" : "pointer",
         background: isPlaying ? "rgba(224,64,251,0.08)" : hovered ? "var(--bg-hover)" : "transparent",
         transition: "background 0.15s",
+        opacity: isPremiumOnly ? 0.4 : 1,
       }}
     >
       {/* Title */}
@@ -4550,9 +4970,11 @@ function TableRow({ track, index, isPlaying, onPlay, onOpenArtist, onOpenAlbum, 
       )}
       {/* Download */}
       <div style={{ display: "flex", justifyContent: "center" }}
-        onClick={e => { e.stopPropagation(); if (onDownload && !isCached && !isDownloading) onDownload(track); }}
+        onClick={e => { e.stopPropagation(); if (!isPremiumOnly && onDownload && !isCached && !isDownloading) onDownload(track); }}
       >
-        {isCached ? (
+        {isPremiumOnly ? (
+          <Crown size={14} weight="fill" style={{ color: "#f0b429" }} />
+        ) : isCached ? (
           <CheckCircle size={14} style={{ color: "#4caf50" }} />
         ) : isDownloading ? (
           <DownloadSimple size={14} style={{ color: "var(--accent)", animation: "pulse 1s ease-in-out infinite" }} />
@@ -4566,10 +4988,14 @@ function TableRow({ track, index, isPlaying, onPlay, onOpenArtist, onOpenAlbum, 
       </div>
     </div>
   );
+
+  return isPremiumOnly
+    ? <Tooltip text={t("premiumOnly")}>{row}</Tooltip>
+    : row;
 }
 
 // ─── Shared playlist/collection layout ────────────────────────────────────
-function PlaylistLayout({ title, thumbnail, tracks, total, loading, progress, cached, onPlay, currentTrack, isPlaying, onBack, isLiked, onOpenArtist, onOpenAlbum, isAlbum, albumArtists, albumArtistBrowseId, year, onRefresh, onTrackContextMenu, cachedSongIds, downloadingIds, onDownloadSong, onDownloadAll, hideExplicit }) {
+function PlaylistLayout({ title, thumbnail, tracks, total, loading, progress, cached, onPlay, currentTrack, isPlaying, onBack, isLiked, onOpenArtist, onOpenAlbum, isAlbum, albumArtists, albumArtistBrowseId, year, onRefresh, onTrackContextMenu, cachedSongIds, downloadingIds, premiumSongIds, onDownloadSong, onDownloadAll, onRemoveAll, hideExplicit }) {
   const accentColor = useAccentColor(thumbnail);
   const t = useLang();
   const [trackSearch, setTrackSearch] = useState("");
@@ -4660,13 +5086,30 @@ function PlaylistLayout({ title, thumbnail, tracks, total, loading, progress, ca
                 const allCached = cachedSongIds && tracks.every(tr => cachedSongIds.has(tr.videoId));
                 const someDownloading = downloadingIds && tracks.some(tr => downloadingIds.has(tr.videoId));
                 return allCached ? (
-                  <div style={{
-                    borderRadius: 20, height: 36, display: "flex", alignItems: "center",
-                    padding: "0 14px", gap: 6, fontSize: "var(--t12)", fontWeight: 500,
-                    color: "#4caf50", background: "rgba(76,175,80,0.12)", border: "0.5px solid rgba(76,175,80,0.3)",
-                  }}>
-                    <CheckCircle size={14} weight="fill" />
-                    {t("downloaded")}
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <div style={{
+                      borderRadius: 20, height: 36, display: "flex", alignItems: "center",
+                      padding: "0 14px", gap: 6, fontSize: "var(--t12)", fontWeight: 500,
+                      color: "#4caf50", background: "rgba(76,175,80,0.12)", border: "0.5px solid rgba(76,175,80,0.3)",
+                    }}>
+                      <CheckCircle size={14} weight="fill" />
+                      {t("downloaded")}
+                    </div>
+                    {onRemoveAll && (
+                      <Tooltip text={t("removeDownload")}><button
+                        onClick={() => onRemoveAll(tracks)}
+                        style={{
+                          background: "rgba(255,255,255,0.1)", border: "0.5px solid rgba(255,255,255,0.2)",
+                          borderRadius: "50%", width: 36, height: 36, display: "flex", alignItems: "center",
+                          justifyContent: "center", cursor: "pointer", transition: "background 0.15s",
+                          color: "rgba(255,255,255,0.7)", padding: 0,
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.background = "rgba(224,82,82,0.25)"; e.currentTarget.style.color = "#e05252"; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.1)"; e.currentTarget.style.color = "rgba(255,255,255,0.7)"; }}
+                      >
+                        <Trash size={14} />
+                      </button></Tooltip>
+                    )}
                   </div>
                 ) : (
                   <Tooltip text={t("downloadAll")}><button
@@ -4784,6 +5227,7 @@ function PlaylistLayout({ title, thumbnail, tracks, total, loading, progress, ca
             onContextMenu={onTrackContextMenu}
             isCached={cachedSongIds?.has(tr.videoId)}
             isDownloading={downloadingIds?.has(tr.videoId)}
+            isPremiumOnly={premiumSongIds?.has(tr.videoId)}
             onDownload={onDownloadSong}
           />
         ))}
@@ -4813,7 +5257,45 @@ function SkeletonRow() {
   );
 }
 
-function CollectionView({ title, thumbnail, tracks, total, loading, progress, cached, onPlay, currentTrack, isPlaying, onBack, onOpenArtist, onOpenAlbum, isAlbum, albumArtists, albumArtistBrowseId, year, onRefresh, onTrackContextMenu, cachedSongIds, downloadingIds, onDownloadSong, onDownloadAll, hideExplicit }) {
+function DownloadsView({ onPlay, currentTrack, isPlaying, cachedSongIds, downloadingIds, premiumSongIds, onDownloadSong, onTrackContextMenu, hideExplicit }) {
+  const t = useLang();
+  const [songs, setSongs] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    fetch(`${API}/song/cached/list`)
+      .then(r => r.json())
+      .then(d => { setSongs(d.songs || []); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, [cachedSongIds.size]);
+
+  return (
+    <PlaylistLayout
+      title={t("downloads")}
+      thumbnail={null}
+      tracks={songs}
+      total={songs.length}
+      loading={loading}
+      progress={1}
+      cached={false}
+      onPlay={onPlay}
+      currentTrack={currentTrack}
+      isPlaying={isPlaying}
+      onBack={null}
+      onTrackContextMenu={onTrackContextMenu}
+      cachedSongIds={cachedSongIds}
+      downloadingIds={downloadingIds}
+      premiumSongIds={premiumSongIds}
+      onDownloadSong={onDownloadSong}
+      onDownloadAll={null}
+      onRemoveAll={null}
+      hideExplicit={hideExplicit}
+    />
+  );
+}
+
+function CollectionView({ title, thumbnail, tracks, total, loading, progress, cached, onPlay, currentTrack, isPlaying, onBack, onOpenArtist, onOpenAlbum, isAlbum, albumArtists, albumArtistBrowseId, year, onRefresh, onTrackContextMenu, cachedSongIds, downloadingIds, premiumSongIds, onDownloadSong, onDownloadAll, onRemoveAll, hideExplicit }) {
   return (
     <PlaylistLayout
       title={title} thumbnail={thumbnail} tracks={tracks} total={total}
@@ -4822,7 +5304,7 @@ function CollectionView({ title, thumbnail, tracks, total, loading, progress, ca
       onBack={onBack} onOpenArtist={onOpenArtist} onOpenAlbum={onOpenAlbum}
       isAlbum={isAlbum} albumArtists={albumArtists} albumArtistBrowseId={albumArtistBrowseId} year={year}
       onRefresh={onRefresh} onTrackContextMenu={onTrackContextMenu}
-      cachedSongIds={cachedSongIds} downloadingIds={downloadingIds} onDownloadSong={onDownloadSong} onDownloadAll={onDownloadAll}
+      cachedSongIds={cachedSongIds} downloadingIds={downloadingIds} premiumSongIds={premiumSongIds} onDownloadSong={onDownloadSong} onDownloadAll={onDownloadAll} onRemoveAll={onRemoveAll}
       hideExplicit={hideExplicit}
     />
   );
@@ -6044,7 +6526,6 @@ function ProfileSwitcher({ profiles, currentProfile, onSwitch, onAdd, onDelete, 
                     ? <div style={{ fontSize: "var(--t10)", color: "var(--text-muted)" }}>{t("localAccount")}</div>
                     : p.handle && <div style={{ fontSize: "var(--t10)", color: "var(--text-muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.handle}</div>}
                 </div>
-                {p.active && <Check size={13} style={{ color: "var(--accent)", flexShrink: 0 }} />}
                 {p.type === "local" && p.active && (
                   <div title={t("linkGoogleAccount")} onClick={e => { e.stopPropagation(); onAdd && onAdd(); }} style={{
                     padding: 3, borderRadius: 4, cursor: "pointer", color: "var(--text-muted)", flexShrink: 0, transition: "color 0.15s",
@@ -6160,6 +6641,13 @@ export default function App() {
   const [deleteDialog, setDeleteDialog] = useState(null); // { playlistId, title }
   const [cachedSongIds, setCachedSongIds] = useState(new Set());
   const [downloadingIds, setDownloadingIds] = useState(new Set());
+  const [premiumSongIds, setPremiumSongIds] = useState(new Set());
+  const [offlineMode, setOfflineMode] = useState(() => localStorage.getItem("kiyoshi-offline") === "true");
+  const [isActuallyOffline, setIsActuallyOffline] = useState(() => !navigator.onLine);
+  const [debugFloat, setDebugFloat] = useState(false);
+  const [downloadQueue, setDownloadQueue] = useState([]); // [{videoId, title, artists, thumbnail, status, progress}]
+  const [downloadBatches, setDownloadBatches] = useState([]); // [{id, title, thumbnail, artists, videoIds[], completedCount, errorCount}]
+  const [pendingDownloadQueue, setPendingDownloadQueue] = useState([]); // tracks waiting for a free slot
   const [updateInfo, setUpdateInfo] = useState(null);
   const [updateDownloading, setUpdateDownloading] = useState(false);
   const [updateDownloadProgress, setUpdateDownloadProgress] = useState(null);
@@ -6553,6 +7041,55 @@ export default function App() {
     }
   }, []);
 
+  // Global queue poll — runs whenever there are active downloads
+  useEffect(() => {
+    if (downloadingIds.size === 0) return;
+    const poll = setInterval(async () => {
+      try {
+        const r = await fetch(`${API}/downloads/queue`);
+        const d = await r.json();
+        const queue = d.queue || [];
+        setDownloadQueue(queue);
+        const doneIds = queue.filter(i => i.status === "done").map(i => i.videoId);
+        const errorIds = queue.filter(i => i.status === "error").map(i => i.videoId);
+        const premiumIds = queue.filter(i => i.status === "error" && i.error_type === "premium_only").map(i => i.videoId);
+        const finishedIds = [...doneIds, ...errorIds];
+        if (doneIds.length) setCachedSongIds(prev => { const s = new Set(prev); doneIds.forEach(id => s.add(id)); return s; });
+        if (premiumIds.length) setPremiumSongIds(prev => { const s = new Set(prev); premiumIds.forEach(id => s.add(id)); return s; });
+        if (finishedIds.length) {
+          setDownloadingIds(prev => { const s = new Set(prev); finishedIds.forEach(id => s.delete(id)); return s; });
+          setDownloadBatches(prev => prev.map(b => {
+            const added = doneIds.filter(id => b.videoIds.includes(id)).length;
+            const addedErr = errorIds.filter(id => b.videoIds.includes(id)).length;
+            return (added || addedErr) ? { ...b, completedCount: b.completedCount + added, errorCount: b.errorCount + addedErr } : b;
+          }));
+        }
+      } catch {}
+    }, 1500);
+    return () => clearInterval(poll);
+  }, [downloadingIds.size]);
+
+  // Remove fully-finished batches after a short delay
+  useEffect(() => {
+    const done = downloadBatches.filter(b => b.completedCount + b.errorCount >= b.videoIds.length);
+    if (!done.length) return;
+    const t = setTimeout(() => {
+      setDownloadBatches(prev => prev.filter(b => b.completedCount + b.errorCount < b.videoIds.length));
+    }, 2500);
+    return () => clearTimeout(t);
+  }, [downloadBatches]);
+
+  // Drain pending queue — start next tracks whenever a slot opens up (max 5 concurrent)
+  const MAX_CONCURRENT_DOWNLOADS = 5;
+  useEffect(() => {
+    if (pendingDownloadQueue.length === 0) return;
+    const slots = MAX_CONCURRENT_DOWNLOADS - downloadingIds.size;
+    if (slots <= 0) return;
+    const toStart = pendingDownloadQueue.slice(0, slots);
+    setPendingDownloadQueue(prev => prev.slice(toStart.length));
+    toStart.forEach(track => handleDownloadSong(track));
+  }, [pendingDownloadQueue.length, downloadingIds.size]);
+
   const handleDownloadSong = useCallback(async (track) => {
     if (!track?.videoId || downloadingIds.has(track.videoId) || cachedSongIds.has(track.videoId)) return;
     setDownloadingIds(prev => new Set(prev).add(track.videoId));
@@ -6562,25 +7099,43 @@ export default function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title: track.title, artists: track.artists, album: track.album, duration: track.duration, thumbnail: track.thumbnail }),
       });
-      // Poll for status
-      const poll = setInterval(async () => {
-        try {
-          const r = await fetch(`${API}/song/download/status/${track.videoId}`);
-          const d = await r.json();
-          if (d.status === "done") {
-            clearInterval(poll);
-            setCachedSongIds(prev => new Set(prev).add(track.videoId));
-            setDownloadingIds(prev => { const s = new Set(prev); s.delete(track.videoId); return s; });
-          } else if (d.status === "error") {
-            clearInterval(poll);
-            setDownloadingIds(prev => { const s = new Set(prev); s.delete(track.videoId); return s; });
-          }
-        } catch { clearInterval(poll); setDownloadingIds(prev => { const s = new Set(prev); s.delete(track.videoId); return s; }); }
-      }, 2000);
     } catch {
       setDownloadingIds(prev => { const s = new Set(prev); s.delete(track.videoId); return s; });
     }
   }, [downloadingIds, cachedSongIds]);
+
+  const handleDownloadAll = useCallback((tracks, meta = {}) => {
+    const eligible = tracks.filter(t => !cachedSongIds.has(t.videoId) && !downloadingIds.has(t.videoId));
+    if (!eligible.length) return;
+    const batchId = Date.now().toString();
+    setDownloadBatches(prev => [...prev, {
+      id: batchId,
+      title: meta.title || "",
+      thumbnail: meta.thumbnail || "",
+      artists: meta.artists || "",
+      videoIds: eligible.map(t => t.videoId),
+      completedCount: 0,
+      errorCount: 0,
+    }]);
+    setPendingDownloadQueue(prev => [...prev, ...eligible]);
+  }, [cachedSongIds, downloadingIds]);
+
+  const handleRemoveAllDownloads = useCallback(async (tracks) => {
+    const videoIds = tracks.filter(t => cachedSongIds.has(t.videoId)).map(t => t.videoId);
+    if (!videoIds.length) return;
+    try {
+      await fetch(`${API}/songs/cached/delete-batch`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ videoIds }),
+      });
+      setCachedSongIds(prev => {
+        const s = new Set(prev);
+        videoIds.forEach(id => s.delete(id));
+        return s;
+      });
+    } catch {}
+  }, [cachedSongIds]);
 
   const [language, setLanguage] = useState(() => localStorage.getItem("kiyoshi-lang") || "de");
 
@@ -6785,6 +7340,33 @@ export default function App() {
     fetch(`${API}/song/cached/list`).then(r => r.json()).then(d => {
       setCachedSongIds(new Set((d.songs || []).map(s => s.videoId)));
     }).catch(() => {});
+  }, []);
+
+  // Detect real network connectivity changes
+  useEffect(() => {
+    const onOnline  = () => setIsActuallyOffline(false);
+    const onOffline = () => setIsActuallyOffline(true);
+    window.addEventListener("online",  onOnline);
+    window.addEventListener("offline", onOffline);
+    return () => { window.removeEventListener("online", onOnline); window.removeEventListener("offline", onOffline); };
+  }, []);
+
+  // Debug float window toggle
+  useEffect(() => {
+    const handler = () => setDebugFloat(true);
+    window.addEventListener("kiyoshi-debug-float", handler);
+    return () => window.removeEventListener("kiyoshi-debug-float", handler);
+  }, []);
+
+  const isOffline = offlineMode || isActuallyOffline;
+
+  const handleToggleOffline = useCallback(() => {
+    setOfflineMode(prev => {
+      const next = !prev;
+      localStorage.setItem("kiyoshi-offline", String(next));
+      if (next) setView("downloads");
+      return next;
+    });
   }, []);
 
   const fetchProfiles = useCallback(async () => {
@@ -7063,6 +7645,9 @@ export default function App() {
             }}
             onCreatePlaylist={() => setCreatePlaylistOpen(true)}
             updateInfo={updateInfo}
+            offlineMode={offlineMode}
+            isActuallyOffline={isActuallyOffline}
+            onToggleOffline={handleToggleOffline}
           />
         </div>
         <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
@@ -7072,8 +7657,20 @@ export default function App() {
             {view === "liked" && <AnimatedView><LikedView onPlay={handlePlay} currentTrack={currentTrack} isPlaying={isPlaying} onOpenArtist={openArtist} onOpenAlbum={(item) => openAlbum(item, "liked")} onTrackContextMenu={(e, track) => setTrackContextMenu({ x: e.clientX, y: e.clientY, track })} cachedSongIds={cachedSongIds} downloadingIds={downloadingIds} onDownloadSong={handleDownloadSong} hideExplicit={hideExplicit} /></AnimatedView>}
             {view === "history" && <AnimatedView><HistoryView onPlay={handlePlay} currentTrack={currentTrack} isPlaying={isPlaying} onOpenArtist={openArtist} onOpenAlbum={(item) => openAlbum(item, "history")} onTrackContextMenu={(e, track, extra) => setTrackContextMenu({ x: e.clientX, y: e.clientY, track, ...extra })} cachedSongIds={cachedSongIds} downloadingIds={downloadingIds} onDownloadSong={handleDownloadSong} /></AnimatedView>}
             {view === "library" && <AnimatedView><LibraryView onPlay={handlePlay} currentTrack={currentTrack} isPlaying={isPlaying} onOpenPlaylist={openPlaylist} onOpenAlbum={openAlbum} onOpenArtist={openArtist} onContextMenu={openContextMenu} /></AnimatedView>}
-            {view === "collection" && collection && <AnimatedView><CollectionView title={collection.title} thumbnail={collection.thumbnail} tracks={collection.tracks} total={collection.total} loading={collection.loading} progress={collection.progress || 0} cached={collection.cached} onPlay={handlePlay} currentTrack={currentTrack} isPlaying={isPlaying} onBack={() => setView(collection.fromView || "library")} onOpenArtist={openArtist} onOpenAlbum={(item) => openAlbum(item, "collection")} isAlbum={collection.isAlbum} albumArtists={collection.albumArtists} albumArtistBrowseId={collection.albumArtistBrowseId} year={collection.year} onRefresh={() => { if (collection.isAlbum) openAlbum({ browseId: collection.browseId, title: collection.title, thumbnail: collection.thumbnail }, collection.fromView, true); else openPlaylist({ playlistId: collection.playlistId, title: collection.title, thumbnail: collection.thumbnail, forcedTitle: collection.forcedTitle }, collection.fromView, true); }} onTrackContextMenu={(e, track) => setTrackContextMenu({ x: e.clientX, y: e.clientY, track, playlistId: collection.isAlbum ? null : collection.playlistId })} cachedSongIds={cachedSongIds} downloadingIds={downloadingIds} onDownloadSong={handleDownloadSong} onDownloadAll={(tracks) => { tracks.filter(t => !cachedSongIds.has(t.videoId) && !downloadingIds.has(t.videoId)).forEach(t => handleDownloadSong(t)); }} hideExplicit={hideExplicit} /></AnimatedView>}
+            {view === "collection" && collection && <AnimatedView><CollectionView title={collection.title} thumbnail={collection.thumbnail} tracks={collection.tracks} total={collection.total} loading={collection.loading} progress={collection.progress || 0} cached={collection.cached} onPlay={handlePlay} currentTrack={currentTrack} isPlaying={isPlaying} onBack={() => setView(collection.fromView || "library")} onOpenArtist={openArtist} onOpenAlbum={(item) => openAlbum(item, "collection")} isAlbum={collection.isAlbum} albumArtists={collection.albumArtists} albumArtistBrowseId={collection.albumArtistBrowseId} year={collection.year} onRefresh={() => { if (collection.isAlbum) openAlbum({ browseId: collection.browseId, title: collection.title, thumbnail: collection.thumbnail }, collection.fromView, true); else openPlaylist({ playlistId: collection.playlistId, title: collection.title, thumbnail: collection.thumbnail, forcedTitle: collection.forcedTitle }, collection.fromView, true); }} onTrackContextMenu={(e, track) => setTrackContextMenu({ x: e.clientX, y: e.clientY, track, playlistId: collection.isAlbum ? null : collection.playlistId })} cachedSongIds={cachedSongIds} downloadingIds={downloadingIds} premiumSongIds={premiumSongIds} onDownloadSong={handleDownloadSong} onDownloadAll={(tracks) => handleDownloadAll(tracks, { title: collection.title, thumbnail: collection.thumbnail, artists: collection.albumArtists || "" })} onRemoveAll={handleRemoveAllDownloads} hideExplicit={hideExplicit} /></AnimatedView>}
             {view === "artist" && artistView && <AnimatedView><ArtistView browseId={artistView.browseId} onPlay={handlePlay} currentTrack={currentTrack} isPlaying={isPlaying} onOpenAlbum={(item) => openAlbum(item, "artist")} onOpenPlaylist={(item) => openPlaylist(item, "artist")} onBack={() => setView(artistView.fromView || "library")} onContextMenu={openContextMenu} onTogglePin={togglePin} isPinned={pinnedIds.includes(artistView.browseId)} /></AnimatedView>}
+            {view === "downloads" && <AnimatedView><DownloadsView onPlay={handlePlay} currentTrack={currentTrack} isPlaying={isPlaying} cachedSongIds={cachedSongIds} downloadingIds={downloadingIds} premiumSongIds={premiumSongIds} onDownloadSong={handleDownloadSong} onTrackContextMenu={(e, track) => setTrackContextMenu({ x: e.clientX, y: e.clientY, track })} hideExplicit={hideExplicit} /></AnimatedView>}
+            {isOffline && view !== "downloads" && (
+              <div style={{
+                position: "sticky", bottom: 0, left: 0, right: 0,
+                background: "rgba(240,180,41,0.12)", borderTop: "1px solid rgba(240,180,41,0.3)",
+                color: "#f0b429", display: "flex", alignItems: "center", gap: 8,
+                padding: "6px 16px", fontSize: 13, zIndex: 10,
+              }}>
+                <WifiX size={15} weight="bold" />
+                {translate(language, "offlineBanner")}
+              </div>
+            )}
           </div>
           <div style={{
             opacity: !fullscreen || playerVisible ? 1 : 0,
@@ -7142,6 +7739,7 @@ export default function App() {
             isCustomLyrics={isCustomLyrics}
             onImportLyrics={() => importLyricsRef.current?.()}
             onRemoveCustomLyrics={() => removeCustomLyricsRef.current?.()}
+            onPremiumDetected={(videoId) => setPremiumSongIds(prev => new Set(prev).add(videoId))}
           />
           </div>
         </div>
@@ -7261,6 +7859,9 @@ export default function App() {
           />
         )}
 
+        {/* Debug Floating Window */}
+        {debugFloat && <DebugFloatingWindow onClose={() => setDebugFloat(false)} />}
+
         {/* Create Playlist Modal */}
         {createPlaylistOpen && (
           <CreatePlaylistModal
@@ -7270,6 +7871,57 @@ export default function App() {
               openPlaylist({ playlistId: id, title, thumbnail: "" }, view);
             }}
           />
+        )}
+
+        {/* Download Queue Panel */}
+        {downloadBatches.length > 0 && (
+          <div style={{
+            position: "fixed", bottom: 90, right: 16, zIndex: 8000,
+            background: "var(--bg-elevated)", border: "0.5px solid var(--border)",
+            borderRadius: "var(--radius-lg)", padding: "10px 12px",
+            boxShadow: "0 8px 32px rgba(0,0,0,0.45)",
+            display: "flex", flexDirection: "column", gap: 8,
+            width: 300,
+            maxHeight: 320, overflowY: "auto",
+            animation: "ctxMenuIn 0.18s ease-out",
+          }}>
+            <div style={{ fontSize: "var(--t11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text-muted)" }}>
+              {translate(language, "downloadQueue")}
+            </div>
+            {downloadBatches.map(batch => {
+              const total = batch.videoIds.length;
+              const done = batch.completedCount + batch.errorCount;
+              const isFinished = done >= total;
+              const pct = Math.round((batch.completedCount / total) * 100);
+              return (
+                <div key={batch.id} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  {batch.thumbnail
+                    ? <img src={thumb(batch.thumbnail)} alt="" style={{ width: 44, height: 44, borderRadius: 8, objectFit: "cover", flexShrink: 0 }} />
+                    : <div style={{ width: 44, height: 44, borderRadius: 8, background: "var(--bg-hover)", flexShrink: 0 }} />}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: "var(--t12)", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{batch.title}</div>
+                    {batch.artists && <div style={{ fontSize: "var(--t11)", color: "var(--text-muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginBottom: 2 }}>{batch.artists}</div>}
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <div style={{ flex: 1, height: 3, borderRadius: 2, background: "var(--bg-hover)", overflow: "hidden" }}>
+                        <div style={{
+                          height: "100%", borderRadius: 2,
+                          width: `${pct}%`,
+                          background: isFinished ? "#4caf50" : "var(--accent)",
+                          transition: "width 0.5s ease, background 0.3s",
+                        }} />
+                      </div>
+                      <div style={{ fontSize: "var(--t11)", color: "var(--text-muted)", flexShrink: 0, minWidth: 28, textAlign: "right" }}>
+                        {pct}%
+                      </div>
+                    </div>
+                    <div style={{ fontSize: "var(--t11)", color: "var(--text-muted)", marginTop: 1 }}>
+                      {done} {translate(language, "xOfY")} {total}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         )}
 
         {/* Track context menu */}

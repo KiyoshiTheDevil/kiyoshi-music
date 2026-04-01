@@ -65,9 +65,44 @@ _current_profile = None
 _playlist_cache = {}  # in-memory for this session
 _adding_account = False
 _download_status = {}  # video_id -> "downloading" | "done" | "error"
+_download_queue  = {}  # video_id -> {title, artists, thumbnail, status, progress (0-1)}
 
 # Cache feature flags (can be toggled at runtime via /cache/settings)
 _cache_enabled = {"playlists": True, "albums": True, "images": True, "songs": True, "lyrics": True}
+
+# ─── Debug log ring buffer ───────────────────────────────────────────────────
+import collections as _collections
+_server_start_time = time.time()
+_debug_log = _collections.deque(maxlen=500)
+_debug_log_lock = threading.Lock()
+
+class _DebugStream:
+    """Intercepts sys.stdout so all print() calls are captured in the ring buffer."""
+    def __init__(self, original):
+        self._orig = original
+    def write(self, text):
+        self._orig.write(text)
+        if text and text.strip():
+            low = text.lower()
+            if any(k in low for k in ("error", "exception", "traceback", "critical")):
+                level = "ERROR"
+            elif any(k in low for k in ("warn", "warning")):
+                level = "WARN"
+            else:
+                level = "INFO"
+            with _debug_log_lock:
+                _debug_log.append({
+                    "ts": time.time(),
+                    "level": level,
+                    "msg": text.rstrip(),
+                    "source": "backend",
+                })
+    def flush(self):
+        self._orig.flush()
+    def isatty(self):
+        return False
+
+sys.stdout = _DebugStream(sys.stdout)
 
 # ─── Musixmatch (inoffizielle API) ───────────────────────────────────────────
 _mx_token = None
@@ -333,6 +368,54 @@ def get_ytmusic():
     if _ytm is None:
         raise Exception("Kein Profil aktiv. Bitte zuerst anmelden.")
     return _ytm
+
+def _get_ydl_cookiefile():
+    """Write the active profile's YouTube cookies as a Netscape cookies file for yt-dlp.
+    Returns the file path, or None if no authenticated profile is active."""
+    if not _current_profile or is_local_profile(_current_profile):
+        return None
+    try:
+        with open(profile_path(_current_profile)) as f:
+            headers = json.load(f)
+        cookie_str = headers.get("cookie", "")
+        if not cookie_str:
+            return None
+        cookie_file = os.path.join(PROFILES_DIR, f"{_current_profile}_ydl_cookies.txt")
+        lines = ["# Netscape HTTP Cookie File\n"]
+        for part in cookie_str.split(";"):
+            part = part.strip()
+            if "=" not in part:
+                continue
+            name, _, value = part.partition("=")
+            name = name.strip()
+            value = value.strip()
+            if not name:
+                continue
+            secure = "TRUE" if name.startswith("__Secure-") or name.startswith("__Host-") else "FALSE"
+            lines.append(f".youtube.com\tTRUE\t/\t{secure}\t2147483647\t{name}\t{value}\n")
+        with open(cookie_file, "w", encoding="utf-8") as f:
+            f.writelines(lines)
+        return cookie_file
+    except Exception:
+        return None
+
+def _get_ydl_js_runtimes():
+    """Return js_runtimes dict for yt-dlp pointing to the local Node.js if available."""
+    import shutil
+    node = shutil.which("node") or shutil.which("node.exe") or shutil.which("nodejs")
+    if node:
+        return {"node": {"path": node}}
+    return {}
+
+def _apply_ydl_auth(ydl_opts):
+    """Inject cookiefile and js_runtimes into a yt-dlp opts dict in-place."""
+    cookie_file = _get_ydl_cookiefile()
+    if cookie_file:
+        ydl_opts["cookiefile"] = cookie_file
+    js_runtimes = _get_ydl_js_runtimes()
+    if js_runtimes:
+        ydl_opts["js_runtimes"] = js_runtimes
+    return ydl_opts
 
 def get_profiles():
     profiles = []
@@ -1090,11 +1173,12 @@ def stream_url(video_id):
         # Prefer M4A/AAC: supported by the Rust audio player (rodio+symphonia).
         # Falls back to any bestaudio if M4A is unavailable.
         ydl_opts = {
-            "format": "bestaudio[ext=m4a]/bestaudio[acodec=aac]/bestaudio",
+            "format": "bestaudio[ext=m4a]/bestaudio[acodec=aac]/bestaudio/best",
             "quiet": True,
             "no_warnings": True,
             "skip_download": True,
         }
+        _apply_ydl_auth(ydl_opts)
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(
                 f"https://music.youtube.com/watch?v={video_id}",
@@ -1111,7 +1195,8 @@ def stream_url(video_id):
             return jsonify({"error": "Keine URL gefunden"}), 404
         return jsonify({"url": url})
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        premium = "Music Premium" in str(e)
+        return jsonify({"error": str(e), "premium_only": premium}), 500
 
 
 @app.route("/stream-prepare/<video_id>")
@@ -1132,11 +1217,12 @@ def stream_prepare(video_id):
         import yt_dlp
         outtmpl = os.path.join(cache_dir, "%(id)s.%(ext)s")
         ydl_opts = {
-            "format": "bestaudio[ext=m4a]/bestaudio[acodec=aac]/bestaudio",
+            "format": "bestaudio[ext=m4a]/bestaudio[acodec=aac]/bestaudio/best",
             "outtmpl": outtmpl,
             "quiet": True,
             "no_warnings": True,
         }
+        _apply_ydl_auth(ydl_opts)
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(
                 f"https://music.youtube.com/watch?v={video_id}",
@@ -1148,7 +1234,8 @@ def stream_prepare(video_id):
         return jsonify({"path": path})
     except Exception as e:
         print(f"[stream-prepare] Error: {e}", flush=True)
-        return jsonify({"error": str(e)}), 500
+        premium = "Music Premium" in str(e)
+        return jsonify({"error": str(e), "premium_only": premium}), 500
 
 
 @app.route("/library/playlists")
@@ -2002,17 +2089,27 @@ def _song_meta_path(video_id):
 
 def _download_song_bg(video_id, meta):
     """Background download via yt-dlp."""
-    global _download_status
+    global _download_status, _download_queue
     try:
         import yt_dlp
         safe = video_id.replace("/", "_").replace("\\", "_")
         output_tpl = os.path.join(SONG_CACHE_DIR, safe + ".%(ext)s")
+
+        def progress_hook(d):
+            if d.get("status") == "downloading":
+                total = d.get("total_bytes") or d.get("total_bytes_estimate") or 0
+                downloaded = d.get("downloaded_bytes", 0)
+                if total > 0 and video_id in _download_queue:
+                    _download_queue[video_id]["progress"] = round(downloaded / total, 3)
+
         ydl_opts = {
-            "format": "bestaudio[ext=m4a]/bestaudio[acodec=aac]/bestaudio",
+            "format": "bestaudio[ext=m4a]/bestaudio[acodec=aac]/bestaudio/best",
             "quiet": True,
             "no_warnings": True,
             "outtmpl": output_tpl,
+            "progress_hooks": [progress_hook],
         }
+        _apply_ydl_auth(ydl_opts)
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             ydl.download([f"https://music.youtube.com/watch?v={video_id}"])
         # Save metadata
@@ -2020,8 +2117,15 @@ def _download_song_bg(video_id, meta):
         with open(meta_path, "w", encoding="utf-8") as f:
             json.dump(meta, f, ensure_ascii=False)
         _download_status[video_id] = "done"
+        if video_id in _download_queue:
+            _download_queue[video_id]["status"] = "done"
+            _download_queue[video_id]["progress"] = 1.0
     except Exception as e:
         _download_status[video_id] = "error"
+        if video_id in _download_queue:
+            _download_queue[video_id]["status"] = "error"
+            if "Music Premium" in str(e):
+                _download_queue[video_id]["error_type"] = "premium_only"
         print(f"Download error for {video_id}: {e}")
 
 
@@ -2042,6 +2146,14 @@ def download_song(video_id):
         "thumbnail": data.get("thumbnail", ""),
     }
     _download_status[video_id] = "downloading"
+    _download_queue[video_id] = {
+        "videoId": video_id,
+        "title": meta.get("title", ""),
+        "artists": meta.get("artists", ""),
+        "thumbnail": meta.get("thumbnail", ""),
+        "status": "downloading",
+        "progress": 0.0,
+    }
     t = threading.Thread(target=_download_song_bg, args=(video_id, meta), daemon=True)
     t.start()
     return jsonify({"ok": True, "status": "downloading"})
@@ -2053,6 +2165,17 @@ def download_status(video_id):
         return jsonify({"status": "done"})
     status = _download_status.get(video_id, "not_found")
     return jsonify({"status": status})
+
+
+@app.route("/downloads/queue")
+def downloads_queue():
+    # Return active + recently finished entries; clean up old "done"/"error" entries
+    to_remove = [vid for vid, d in _download_queue.items() if d["status"] in ("done", "error")]
+    # Keep them in response but prune after returning
+    result = list(_download_queue.values())
+    for vid in to_remove:
+        _download_queue.pop(vid, None)
+    return jsonify({"queue": result})
 
 
 @app.route("/song/cached/<video_id>")
@@ -2100,6 +2223,27 @@ def delete_cached_song(video_id):
             pass
     _download_status.pop(video_id, None)
     return jsonify({"ok": True})
+
+
+@app.route("/songs/cached/delete-batch", methods=["POST"])
+def delete_cached_songs_batch():
+    data = request.get_json() or {}
+    video_ids = data.get("videoIds", [])
+    for video_id in video_ids:
+        audio = _song_audio_path(video_id)
+        if audio:
+            try:
+                os.remove(audio)
+            except Exception:
+                pass
+        meta = _song_meta_path(video_id)
+        if os.path.exists(meta):
+            try:
+                os.remove(meta)
+            except Exception:
+                pass
+        _download_status.pop(video_id, None)
+    return jsonify({"ok": True, "removed": len(video_ids)})
 
 
 # ─── Audio Export (Save to user-chosen location) ─────────────────────────────
@@ -2279,11 +2423,12 @@ def _export_audio_bg(video_id, output_path, fmt="opus", meta=None):
             tmp_tpl = os.path.join(tmp_dir, "export.%(ext)s")
             ffmpeg_dir = _find_ffmpeg()
             ydl_opts = {
-                "format": "bestaudio[ext=webm]/bestaudio",
+                "format": "bestaudio[ext=webm]/bestaudio/best",
                 "quiet": True,
                 "no_warnings": True,
                 "outtmpl": tmp_tpl,
             }
+            _apply_ydl_auth(ydl_opts)
             # Convert WebM to proper OGG/Opus so mutagen can tag it
             if ffmpeg_dir is not False:
                 ydl_opts["postprocessors"] = [{
@@ -2331,6 +2476,7 @@ def _export_audio_bg(video_id, output_path, fmt="opus", meta=None):
                 "preferredquality": "192",
             }],
         }
+        _apply_ydl_auth(ydl_opts)
         if ffmpeg_dir:
             ydl_opts["ffmpeg_location"] = ffmpeg_dir
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -2452,6 +2598,42 @@ def delete_custom_lyrics(video_id):
     if deleted:
         return jsonify({"ok": True})
     return jsonify({"error": "not found"}), 404
+
+
+@app.route("/debug/info")
+def debug_info():
+    """Returns system info + last log entries for the Debug tab in the frontend."""
+    import platform as _platform, shutil as _shutil
+
+    def _pkg_version(name):
+        try:
+            import importlib.metadata
+            return importlib.metadata.version(name)
+        except Exception:
+            return "—"
+
+    node_path = _shutil.which("node") or _shutil.which("node.exe") or _shutil.which("nodejs")
+
+    uptime_s = int(time.time() - _server_start_time)
+    h, rem = divmod(uptime_s, 3600)
+    m, s   = divmod(rem, 60)
+    uptime_str = (f"{h}h " if h else "") + f"{m}m {s}s"
+
+    with _debug_log_lock:
+        logs = list(_debug_log)
+
+    return jsonify({
+        "python":     sys.version.split()[0],
+        "ytdlp":      _pkg_version("yt-dlp"),
+        "ytmusicapi": _pkg_version("ytmusicapi"),
+        "flask":      _pkg_version("flask"),
+        "node":       node_path,
+        "profile":    _current_profile or "—",
+        "platform":   _platform.system() + " " + _platform.release(),
+        "uptime":     uptime_str,
+        "data_dir":   _base_dir,
+        "logs":       logs[-300:],
+    })
 
 
 if __name__ == "__main__":

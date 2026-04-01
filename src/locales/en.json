@@ -89,6 +89,7 @@
   "ambientVisualizer": "Ambient Visualizer",
   "ambientVisualizerDesc": "Subtle colour effect in the background of the lyrics overlay and cover view",
 
+  "downloadQueue": "Download Queue",
   "sleepTimer": "Sleep Timer",
   "cancelSleepTimer": "Cancel timer",
   "minutes": "min",
@@ -186,6 +187,7 @@
   "trackRemoved": "Song removed",
 
   "removeDownload": "Remove Download",
+  "premiumOnly": "Only available for YouTube Music Premium members",
   "download": "Download",
   "downloaded": "Downloaded",
   "downloading": "Downloading…",
@@ -284,5 +286,17 @@
   "benefitLibrary": "Personal YouTube Music library",
   "benefitRecommendations": "Personalized recommendations",
   "benefitPlaylists": "Import your YouTube playlists",
-  "benefitSync": "Cross-device synchronization"
+  "benefitSync": "Cross-device synchronization",
+
+  "goOffline": "Go Offline",
+  "goOnline": "Go Online",
+  "offlineBanner": "Offline Mode — only downloaded songs are available",
+
+  "debug": "Debug",
+  "debugSysInfo": "System Info",
+  "debugNoLogs": "No log entries yet.",
+  "debugBackendUnreachable": "Backend not reachable",
+  "debugOpenFloat": "Pop out",
+  "copyAll": "Copy all",
+  "copied": "Copied!"
 }
