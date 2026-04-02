@@ -91,6 +91,22 @@ function isNewerVersion(latest, current) {
   return false;
 }
 
+// Detect the best matching language from the browser/OS locale.
+// Falls back to "en" for anything that isn't explicitly supported.
+function detectSystemLang() {
+  const supported = ["de", "en"]; // extend when more locales are added
+  const candidates = navigator.languages?.length ? navigator.languages : [navigator.language || "en"];
+  for (const loc of candidates) {
+    const base = loc.split("-")[0].toLowerCase();
+    if (supported.includes(base)) return base;
+  }
+  return "en";
+}
+// If no language has been saved yet, use the system locale.
+function getInitialLang() {
+  return localStorage.getItem("kiyoshi-lang") || detectSystemLang();
+}
+
 const LangContext = createContext("de");
 const useLang = () => {
   const lang = useContext(LangContext);
@@ -957,22 +973,20 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
             <Gear size={16} style={{ flexShrink: 0 }} />
             {t("settings")}
           </div>
-          {/* Offline toggle */}
+          {/* Offline toggle — disabled until offline mode is fully implemented */}
           <div
-            onClick={onToggleOffline}
+            title={isActuallyOffline ? t("offlineBanner") : t("offlineComingSoon")}
             style={{
               display: "flex", alignItems: "center", gap: 10,
               padding: "8px 12px", margin: "0 8px 8px",
-              borderRadius: "var(--radius)", cursor: "pointer",
-              color: (offlineMode || isActuallyOffline) ? "#f0b429" : "var(--text-secondary)",
-              background: offlineMode ? "rgba(240,180,41,0.08)" : "transparent",
+              borderRadius: "var(--radius)", cursor: "default",
+              color: isActuallyOffline ? "#f0b429" : "var(--text-muted)",
+              opacity: isActuallyOffline ? 1 : 0.45,
               transition: "all 0.15s", fontSize: "var(--t13)",
             }}
-            onMouseEnter={e => { e.currentTarget.style.background = offlineMode ? "rgba(240,180,41,0.15)" : "var(--bg-hover)"; if (!offlineMode && !isActuallyOffline) e.currentTarget.style.color = "var(--text-primary)"; }}
-            onMouseLeave={e => { e.currentTarget.style.background = offlineMode ? "rgba(240,180,41,0.08)" : "transparent"; e.currentTarget.style.color = (offlineMode || isActuallyOffline) ? "#f0b429" : "var(--text-secondary)"; }}
           >
-            {(offlineMode || isActuallyOffline) ? <WifiX size={16} style={{ flexShrink: 0 }} /> : <WifiHigh size={16} style={{ flexShrink: 0 }} />}
-            {offlineMode ? t("goOnline") : isActuallyOffline ? t("offlineBanner") : t("goOffline")}
+            {isActuallyOffline ? <WifiX size={16} style={{ flexShrink: 0 }} /> : <WifiHigh size={16} style={{ flexShrink: 0 }} />}
+            {isActuallyOffline ? t("offlineBanner") : t("goOffline")}
           </div>
         </div>
       )}
@@ -1013,21 +1027,16 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
             <Gear size={16} />
           </div>
           <div
-            onClick={onToggleOffline}
             onMouseEnter={e => {
-              e.currentTarget.style.background = offlineMode ? "rgba(240,180,41,0.15)" : "var(--bg-hover)";
               const r = e.currentTarget.getBoundingClientRect();
-              setTooltip({ text: offlineMode ? t("goOnline") : isActuallyOffline ? t("offlineBanner") : t("goOffline"), x: r.right + 10, y: r.top + r.height / 2 });
+              setTooltip({ text: isActuallyOffline ? t("offlineBanner") : t("offlineComingSoon"), x: r.right + 10, y: r.top + r.height / 2 });
             }}
-            onMouseLeave={e => {
-              e.currentTarget.style.background = offlineMode ? "rgba(240,180,41,0.08)" : "transparent";
-              setTooltip(null);
-            }}
+            onMouseLeave={() => setTooltip(null)}
             style={{
-              width: 36, height: 36, borderRadius: "var(--radius)", cursor: "pointer",
+              width: 36, height: 36, borderRadius: "var(--radius)", cursor: "default",
               display: "flex", alignItems: "center", justifyContent: "center",
-              color: (offlineMode || isActuallyOffline) ? "#f0b429" : "var(--text-secondary)",
-              background: offlineMode ? "rgba(240,180,41,0.08)" : "transparent", transition: "all 0.15s",
+              color: isActuallyOffline ? "#f0b429" : "var(--text-muted)",
+              opacity: isActuallyOffline ? 1 : 0.45, transition: "all 0.15s",
             }}
           >
             {(offlineMode || isActuallyOffline) ? <WifiX size={16} /> : <WifiHigh size={16} />}
@@ -5264,10 +5273,18 @@ function DownloadsView({ onPlay, currentTrack, isPlaying, cachedSongIds, downloa
 
   useEffect(() => {
     setLoading(true);
-    fetch(`${API}/song/cached/list`)
-      .then(r => r.json())
-      .then(d => { setSongs(d.songs || []); setLoading(false); })
-      .catch(() => setLoading(false));
+    let cancelled = false;
+    const load = (attempt = 0) => {
+      fetch(`${API}/song/cached/list`)
+        .then(r => r.json())
+        .then(d => { if (!cancelled) { setSongs(d.songs || []); setLoading(false); } })
+        .catch(() => {
+          if (!cancelled && attempt < 20) setTimeout(() => load(attempt + 1), 1500);
+          else if (!cancelled) setLoading(false);
+        });
+    };
+    load();
+    return () => { cancelled = true; };
   }, [cachedSongIds.size]);
 
   return (
@@ -6573,6 +6590,192 @@ function ProfileSwitcher({ profiles, currentProfile, onSwitch, onAdd, onDelete, 
   );
 }
 
+// ─── FFmpeg Setup Screen ──────────────────────────────────────────────────────
+function FfmpegSetupScreen({ onDone }) {
+  const [phase, setPhase]       = useState("checking"); // checking | needed | downloading | done | error
+  const [percent, setPercent]   = useState(0);
+  const [mbDone, setMbDone]     = useState(0);
+  const [mbTotal, setMbTotal]   = useState(0);
+  const [speedKbps, setSpeedKbps] = useState(0);
+  const [errMsg, setErrMsg]     = useState("");
+  const [fadeOut, setFadeOut]   = useState(false);
+
+  useEffect(() => {
+    // Offline → no FFmpeg download possible anyway, skip immediately.
+    if (!navigator.onLine) {
+      setPhase("done");
+      onDone();
+      return;
+    }
+
+    const check = async (retries = 8) => {
+      try {
+        const ctrl = new AbortController();
+        const tid = setTimeout(() => ctrl.abort(), 1500); // 1.5s per attempt
+        const r = await fetch(`${API}/ffmpeg/status`, { signal: ctrl.signal });
+        clearTimeout(tid);
+        const d = await r.json();
+        if (d.available) {
+          // Cache result so we skip this screen on future starts.
+          localStorage.setItem("kiyoshi-ffmpeg-ok", "1");
+          setFadeOut(true);
+          setTimeout(() => { setPhase("done"); onDone(); }, 400);
+        } else {
+          setPhase("needed");
+        }
+      } catch {
+        if (retries > 0) {
+          setTimeout(() => check(retries - 1), 400);
+        } else {
+          // Backend not reachable after all retries → proceed anyway.
+          setPhase("done");
+          onDone();
+        }
+      }
+    };
+    check();
+  }, [onDone]);
+
+  const startDownload = () => {
+    setPhase("downloading");
+    setPercent(0);
+
+    const es = new EventSource(`${API}/ffmpeg/download`);
+    es.onmessage = (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        if (data.status === "progress") {
+          setPercent(data.percent || 0);
+          setMbDone(data.mb_done || 0);
+          setMbTotal(data.mb_total || 0);
+          setSpeedKbps(data.speed_kbps || 0);
+        } else if (data.status === "done") {
+          es.close();
+          setPercent(100);
+          setPhase("done");
+          localStorage.setItem("kiyoshi-ffmpeg-ok", "1");
+          // Neustart nach kurzer Pause
+          setTimeout(() => {
+            import("@tauri-apps/api/core")
+              .then(({ invoke }) => invoke("relaunch_app"))
+              .catch(() => { onDone(); }); // im Dev-Modus kein relaunch → einfach weiter
+          }, 1200);
+        } else if (data.status === "error") {
+          es.close();
+          setErrMsg(data.message || "Unbekannter Fehler");
+          setPhase("error");
+        }
+      } catch {}
+    };
+    es.onerror = () => {
+      es.close();
+      setErrMsg("Verbindung zum Backend unterbrochen.");
+      setPhase("error");
+    };
+  };
+
+  if (phase === "done") return null;
+
+  const fmtSpeed = (kbps) => kbps > 1024 ? `${(kbps / 1024).toFixed(1)} MB/s` : `${kbps} KB/s`;
+
+  return (
+    <div style={{
+      position: "fixed", inset: 0, zIndex: phase === "checking" ? 9997 : 9998,
+      background: "#0d0d0d",
+      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+      opacity: fadeOut ? 0 : 1, transition: "opacity 0.4s ease",
+      fontFamily: "var(--font)",
+    }}>
+      {/* Ambient glow */}
+      <div style={{
+        position: "absolute", width: 320, height: 320, borderRadius: "50%",
+        background: "radial-gradient(circle, rgba(238,168,255,0.12) 0%, rgba(255,0,140,0.06) 55%, transparent 72%)",
+        pointerEvents: "none",
+      }} />
+
+      <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 24, width: 360 }}>
+        {/* Logo */}
+        <svg width="56" height="56" viewBox="0 0 32 32" fill="none" style={{ filter: "drop-shadow(0 0 20px rgba(238,168,255,0.4))" }}>
+          <path d="M0 16C0 7.16344 7.16344 0 16 0C24.8366 0 32 7.16344 32 16C32 24.8366 24.8366 32 16 32H6.4C2.86538 32 0 29.1346 0 25.6V16Z" fill="url(#ffmpegSetup_g)"/>
+          <path d="M16 5C22.0751 5 27 9.92487 27 16C27 22.0751 22.0751 27 16 27H8.7998C6.70128 26.9999 5.00011 25.2987 5 23.2002V16C5 9.92487 9.92487 5 16 5Z" stroke="white" strokeWidth="2" style={{mixBlendMode:"overlay"}}/>
+          <path d="M16.5547 11.5C16.6656 11.5 16.7695 11.5552 16.8311 11.6475L18.2139 13.7227C18.3258 13.8906 18.3258 14.1094 18.2139 14.2773L16.8311 16.3525C16.7695 16.4448 16.6656 16.5 16.5547 16.5C16.2895 16.5 16.1312 16.2041 16.2783 15.9834L17.252 14.5234C17.4631 14.2067 17.4631 13.7933 17.252 13.4766L16.2783 12.0166C16.1312 11.7959 16.2895 11.5 16.5547 11.5Z" stroke="white" style={{mixBlendMode:"overlay"}}/>
+          <rect x="20.5" y="11.5" width="1" height="5" rx="0.5" stroke="white" style={{mixBlendMode:"overlay"}}/>
+          <defs>
+            <linearGradient id="ffmpegSetup_g" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+              <stop stopColor="#EEA8FF"/><stop offset="1" stopColor="#FF008C"/>
+            </linearGradient>
+          </defs>
+        </svg>
+
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontSize: 20, fontWeight: 700, color: "#fff", marginBottom: 8 }}>
+            {phase === "checking"    && "Kiyoshi Music"}
+            {phase === "needed"      && "Einmaliger Setup"}
+            {phase === "downloading" && "FFmpeg wird installiert…"}
+            {phase === "error"       && "Download fehlgeschlagen"}
+          </div>
+          <div style={{ fontSize: 13, color: "rgba(255,255,255,0.45)", lineHeight: 1.6, maxWidth: 300 }}>
+            {phase === "checking" && "Wird geladen…"}
+            {phase === "needed" && "FFmpeg wurde nicht gefunden und wird einmalig heruntergeladen (~130 MB). Es wird für den MP3-Export benötigt."}
+            {phase === "downloading" && mbTotal > 0 && `${mbDone} / ${mbTotal} MB · ${fmtSpeed(speedKbps)}`}
+            {phase === "error" && errMsg}
+          </div>
+        </div>
+
+        {/* Progress bar */}
+        {phase === "downloading" && (
+          <div style={{ width: "100%", height: 4, borderRadius: 2, background: "rgba(255,255,255,0.1)", overflow: "hidden" }}>
+            <div style={{
+              height: "100%", borderRadius: 2,
+              background: "linear-gradient(90deg, #EEA8FF, #FF008C)",
+              width: `${percent}%`, transition: "width 0.3s ease",
+            }} />
+          </div>
+        )}
+
+        {/* Buttons */}
+        {phase === "needed" && (
+          <div style={{ display: "flex", gap: 12, width: "100%" }}>
+            <button
+              onClick={() => { setFadeOut(true); setTimeout(() => { setPhase("done"); onDone(); }, 400); }}
+              style={{
+                flex: 1, padding: "10px", borderRadius: 8,
+                background: "rgba(255,255,255,0.06)", border: "0.5px solid rgba(255,255,255,0.12)",
+                color: "rgba(255,255,255,0.5)", fontSize: 13, cursor: "pointer", fontFamily: "var(--font)",
+                transition: "all 0.15s",
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.1)"}
+              onMouseLeave={e => e.currentTarget.style.background = "rgba(255,255,255,0.06)"}
+            >Überspringen</button>
+            <button
+              onClick={startDownload}
+              style={{
+                flex: 2, padding: "10px", borderRadius: 8,
+                background: "linear-gradient(135deg, #EEA8FF, #FF008C)",
+                border: "none", color: "#fff", fontSize: 13, fontWeight: 600,
+                cursor: "pointer", fontFamily: "var(--font)", transition: "opacity 0.15s",
+              }}
+              onMouseEnter={e => e.currentTarget.style.opacity = "0.85"}
+              onMouseLeave={e => e.currentTarget.style.opacity = "1"}
+            >FFmpeg herunterladen</button>
+          </div>
+        )}
+
+        {phase === "error" && (
+          <button
+            onClick={() => { setFadeOut(true); setTimeout(() => { setPhase("done"); onDone(); }, 400); }}
+            style={{
+              width: "100%", padding: "10px", borderRadius: 8,
+              background: "rgba(255,255,255,0.06)", border: "0.5px solid rgba(255,255,255,0.12)",
+              color: "rgba(255,255,255,0.6)", fontSize: 13, cursor: "pointer", fontFamily: "var(--font)",
+            }}
+          >Trotzdem starten</button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function SplashScreen({ fading }) {
   return (
     <div style={{
@@ -6618,6 +6821,10 @@ function SplashScreen({ fading }) {
 export default function App() {
   const [showSplash, setShowSplash] = useState(true);
   const [splashFading, setSplashFading] = useState(false);
+  // Skip FFmpeg screen if we already confirmed it available in a previous run.
+  const [ffmpegSetupDone, setFfmpegSetupDone] = useState(
+    () => localStorage.getItem("kiyoshi-ffmpeg-ok") === "1"
+  );
 
   useEffect(() => {
     const fadeTimer = setTimeout(() => setSplashFading(true), 1700);
@@ -6706,7 +6913,7 @@ export default function App() {
       setUpdateDownloadProgress(100);
     } catch (e) {
       if (e?.name !== "AbortError") {
-        const lang = localStorage.getItem("kiyoshi-lang") || "de";
+        const lang = getInitialLang();
         addToast(translate(lang, "downloadFailed"), "error");
         setUpdateDownloadProgress(null);
       }
@@ -6723,7 +6930,7 @@ export default function App() {
       const { openPath } = await import("@tauri-apps/plugin-opener");
       await openPath(dir + "\\" + updateInfo.assetName);
     } catch {
-      const lang = localStorage.getItem("kiyoshi-lang") || "de";
+      const lang = getInitialLang();
       addToast(translate(lang, "downloadFailed"), "error");
     }
   }, [updateInfo, addToast]);
@@ -7137,7 +7344,7 @@ export default function App() {
     } catch {}
   }, [cachedSongIds]);
 
-  const [language, setLanguage] = useState(() => localStorage.getItem("kiyoshi-lang") || "de");
+  const [language, setLanguage] = useState(() => getInitialLang());
 
   const handleExportSong = useCallback(async (track, format) => {
     if (!track?.videoId) return;
@@ -7327,6 +7534,40 @@ export default function App() {
   const [addingProfile, setAddingProfile] = useState(false);
   const [currentProfile, setCurrentProfile] = useState(null);
 
+  // ── fetchProfiles + loadCachedProfile must be declared before any effect that uses them ──
+
+  const fetchProfiles = useCallback(async () => {
+    try {
+      const r = await fetch(`${API}/profiles`);
+      const d = await r.json();
+      // Persist for offline fallback
+      try { localStorage.setItem("kiyoshi-profiles-cache", JSON.stringify({ profiles: d.profiles || [], current: d.current || null })); } catch {}
+      setProfiles(d.profiles || []);
+      setCurrentProfile(d.current || null);
+      setHasProfile((d.profiles || []).length > 0 && d.current);
+      if (d.current) {
+        window.__activeProfile = d.current;
+        try { setPinnedIds(JSON.parse(localStorage.getItem(`kiyoshi-pinned-${d.current}`) || "[]").map(p => p.playlistId || p.browseId)); } catch {}
+      }
+    } catch {}
+  }, []);
+
+  // Load cached profile data when backend is unreachable (offline / slow start)
+  const loadCachedProfile = useCallback(() => {
+    try {
+      const raw = localStorage.getItem("kiyoshi-profiles-cache");
+      if (!raw) return false;
+      const { profiles: cp, current } = JSON.parse(raw);
+      if (!cp?.length || !current) return false;
+      setProfiles(cp);
+      setCurrentProfile(current);
+      setHasProfile(true);
+      window.__activeProfile = current;
+      try { setPinnedIds(JSON.parse(localStorage.getItem(`kiyoshi-pinned-${current}`) || "[]").map(p => p.playlistId || p.browseId)); } catch {}
+      return true;
+    } catch { return false; }
+  }, []);
+
   // Keepalive ping to prevent server connection timeout
   useEffect(() => {
     const interval = setInterval(() => {
@@ -7335,21 +7576,32 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
-  // Load cached song IDs on mount
+  // Load cached song IDs on mount (with retry for slow backend startup)
   useEffect(() => {
-    fetch(`${API}/song/cached/list`).then(r => r.json()).then(d => {
-      setCachedSongIds(new Set((d.songs || []).map(s => s.videoId)));
-    }).catch(() => {});
+    let cancelled = false;
+    const load = (attempt = 0) => {
+      fetch(`${API}/song/cached/list`)
+        .then(r => r.json())
+        .then(d => { if (!cancelled) setCachedSongIds(new Set((d.songs || []).map(s => s.videoId))); })
+        .catch(() => { if (!cancelled && attempt < 20) setTimeout(() => load(attempt + 1), 1500); });
+    };
+    load();
+    return () => { cancelled = true; };
   }, []);
 
   // Detect real network connectivity changes
   useEffect(() => {
-    const onOnline  = () => setIsActuallyOffline(false);
+    const onOnline  = () => {
+      setIsActuallyOffline(false);
+      // Refresh profiles + force all views to re-fetch after coming back online
+      fetchProfiles();
+      setAppKey(k => k + 1);
+    };
     const onOffline = () => setIsActuallyOffline(true);
     window.addEventListener("online",  onOnline);
     window.addEventListener("offline", onOffline);
     return () => { window.removeEventListener("online", onOnline); window.removeEventListener("offline", onOffline); };
-  }, []);
+  }, [fetchProfiles]);
 
   // Debug float window toggle
   useEffect(() => {
@@ -7369,27 +7621,23 @@ export default function App() {
     });
   }, []);
 
-  const fetchProfiles = useCallback(async () => {
-    try {
-      const r = await fetch(`${API}/profiles`);
-      const d = await r.json();
-      setProfiles(d.profiles || []);
-      setCurrentProfile(d.current || null);
-      setHasProfile((d.profiles || []).length > 0 && d.current);
-      if (d.current) {
-        window.__activeProfile = d.current;
-        try { setPinnedIds(JSON.parse(localStorage.getItem(`kiyoshi-pinned-${d.current}`) || "[]").map(p => p.playlistId || p.browseId)); } catch {}
-      }
-    } catch {}
-  }, []);
-
   useEffect(() => {
+    let bgIntervalId = null;
+
+    // Show cached profile immediately so sidebar isn't empty during backend startup
+    loadCachedProfile();
+
     // Check if we have a valid authenticated profile
-    const checkAuth = async (retries = 10) => {
+    const checkAuth = async (retries = 15) => {
       try {
-        const r = await fetch(`${API}/auth/validate`);
+        const ctrl = new AbortController();
+        const tid = setTimeout(() => ctrl.abort(), 3000); // 3s timeout per attempt
+        const r = await fetch(`${API}/auth/validate`, { signal: ctrl.signal });
+        clearTimeout(tid);
         const d = await r.json();
         if (!d.valid && d.reason !== "adding_account") {
+          // Auth invalid — clear stale cache and show login
+          try { localStorage.removeItem("kiyoshi-profiles-cache"); } catch {}
           setShowLogin(true);
         } else {
           fetchProfiles();
@@ -7401,14 +7649,33 @@ export default function App() {
         if (retries > 0) {
           setTimeout(() => checkAuth(retries - 1), 1500);
         } else {
-          // All retries exhausted - show login as fallback
-          setShowLogin(true);
+          // All retries exhausted — cache already loaded above, show login only if no cache
+          const raw = localStorage.getItem("kiyoshi-profiles-cache");
+          let hasCache = false;
+          try { const p = JSON.parse(raw || "{}"); hasCache = p.profiles?.length > 0 && p.current; } catch {}
+          if (!hasCache) setShowLogin(true);
+          // Keep pinging in background; once backend responds, sync live data
+          bgIntervalId = setInterval(async () => {
+            try {
+              const ctrl = new AbortController();
+              const tid = setTimeout(() => ctrl.abort(), 2000);
+              const r = await fetch(`${API}/auth/validate`, { signal: ctrl.signal });
+              clearTimeout(tid);
+              const d = await r.json();
+              if (bgIntervalId) { clearInterval(bgIntervalId); bgIntervalId = null; }
+              if (d.valid || d.reason === "adding_account") {
+                fetchProfiles();
+              }
+            } catch {}
+          }, 3000);
         }
       }
     };
-    // Give server time to start and load profiles
-    setTimeout(() => checkAuth(), 3000);
-  }, []);
+    // Give server time to start and load profiles (retries cover any remaining startup time)
+    setTimeout(() => checkAuth(), 1000);
+
+    return () => { if (bgIntervalId) { clearInterval(bgIntervalId); bgIntervalId = null; } };
+  }, [fetchProfiles, loadCachedProfile]);
 
   const handleLanguageChange = (lang) => {
     setLanguage(lang);
@@ -7589,6 +7856,7 @@ export default function App() {
     <ZoomContext.Provider value={uiZoom}>
       <style>{GLOBAL_KEYFRAMES}</style>
       {showSplash && <SplashScreen fading={splashFading} />}
+      {!ffmpegSetupDone && <FfmpegSetupScreen onDone={() => setFfmpegSetupDone(true)} />}
 
       {/* Toast Notifications */}
       {toasts.length > 0 && (

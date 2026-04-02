@@ -291,6 +291,7 @@
   "goOffline": "Go Offline",
   "goOnline": "Go Online",
   "offlineBanner": "Offline Mode — only downloaded songs are available",
+  "offlineComingSoon": "Offline mode coming soon",
 
   "debug": "Debug",
   "debugSysInfo": "System Info",

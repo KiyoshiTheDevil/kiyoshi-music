@@ -48,15 +48,6 @@ pub fn kill_existing_server(child: &mut Option<Child>) {
         use std::os::windows::process::CommandExt;
         const CREATE_NO_WINDOW: u32 = 0x08000000;
         let _ = std::process::Command::new("taskkill")
-            .args([
-                "/F",
-                "/T",
-                "/IM",
-                "kiyoshi-server-x86_64-pc-windows-msvc.exe",
-            ])
-            .creation_flags(CREATE_NO_WINDOW)
-            .output();
-        let _ = std::process::Command::new("taskkill")
             .args(["/F", "/T", "/IM", "kiyoshi-server.exe"])
             .creation_flags(CREATE_NO_WINDOW)
             .output();
@@ -95,7 +86,7 @@ pub fn kill_existing_server(child: &mut Option<Child>) {
 
 pub fn start_server(app: &tauri::AppHandle) {
     #[cfg(all(target_os = "windows", target_arch = "x86_64"))]
-    let server_bin = "kiyoshi-server-x86_64-pc-windows-msvc.exe";
+    let server_bin = "kiyoshi-server.exe";
     #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
     let server_bin = "kiyoshi-server-x86_64-unknown-linux-gnu";
     #[cfg(all(target_os = "linux", target_arch = "aarch64"))]

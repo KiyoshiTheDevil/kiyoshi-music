@@ -16,6 +16,11 @@ use obs::start_audio_session_tagger;
 #[cfg(target_os = "linux")]
 use std::env;
 
+#[tauri::command]
+fn relaunch_app(app: tauri::AppHandle) {
+    app.restart();
+}
+
 fn main() {
     #[cfg(target_os = "linux")]
     {
@@ -51,8 +56,9 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             set_fullscreen, open_login_window, close_login_window,
             update_discord_rpc, clear_discord_rpc,
-            audio_play, audio_pause, audio_resume, 
+            audio_play, audio_pause, audio_resume,
             audio_stop, audio_seek, audio_set_volume,
+            relaunch_app,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

@@ -290,6 +290,7 @@
   "goOffline": "Offline gehen",
   "goOnline": "Online gehen",
   "offlineBanner": "Offline-Modus — nur heruntergeladene Songs verfügbar",
+  "offlineComingSoon": "Offline-Modus kommt bald",
 
   "debug": "Debug",
   "debugSysInfo": "Systeminformationen",

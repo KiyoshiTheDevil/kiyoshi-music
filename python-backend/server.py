@@ -7,13 +7,16 @@ Starte mit: python server.py
 from flask import Flask, jsonify, request, Response
 from flask_cors import CORS
 from ytmusicapi import YTMusic
-import sys, os, json, glob, threading, time, requests, sqlite3, uuid
+import sys, os, json, glob, threading, time, requests, sqlite3, uuid, collections
 
 app = Flask(__name__)
 CORS(app, origins=[
-    "http://localhost:1421",   # Tauri dev server
-    "tauri://localhost",        # Tauri production (Windows/Linux)
-    "https://tauri.localhost",  # Tauri production (Tauri 2.x)
+    "http://localhost:1421",    # Tauri dev server
+    "tauri://localhost",         # Tauri production (Windows/Linux)
+    "https://tauri.localhost",   # Tauri production (Tauri 2.x, WebView2)
+    "http://tauri.localhost",    # fallback
+    "http://localhost",
+    "http://127.0.0.1",
 ])
 
 # When frozen as a PyInstaller --onefile bundle store all user data in a
@@ -71,38 +74,40 @@ _download_queue  = {}  # video_id -> {title, artists, thumbnail, status, progres
 _cache_enabled = {"playlists": True, "albums": True, "images": True, "songs": True, "lyrics": True}
 
 # ─── Debug log ring buffer ───────────────────────────────────────────────────
-import collections as _collections
+import logging as _logging
+
 _server_start_time = time.time()
-_debug_log = _collections.deque(maxlen=500)
+_debug_log = collections.deque(maxlen=500)
 _debug_log_lock = threading.Lock()
 
-class _DebugStream:
-    """Intercepts sys.stdout so all print() calls are captured in the ring buffer."""
-    def __init__(self, original):
-        self._orig = original
-    def write(self, text):
-        self._orig.write(text)
-        if text and text.strip():
-            low = text.lower()
-            if any(k in low for k in ("error", "exception", "traceback", "critical")):
-                level = "ERROR"
-            elif any(k in low for k in ("warn", "warning")):
-                level = "WARN"
-            else:
-                level = "INFO"
+class _RingBufferHandler(_logging.Handler):
+    """Logging handler that appends records to the ring buffer.
+    Uses Python's standard logging module — safe in all PyInstaller modes."""
+    def emit(self, record):
+        try:
+            msg = self.format(record)
+            lvl = record.levelname
+            if lvl == "WARNING":
+                lvl = "WARN"
+            elif lvl not in ("INFO", "ERROR", "WARN", "DEBUG"):
+                lvl = "INFO"
             with _debug_log_lock:
                 _debug_log.append({
                     "ts": time.time(),
-                    "level": level,
-                    "msg": text.rstrip(),
+                    "level": lvl,
+                    "msg": msg,
                     "source": "backend",
                 })
-    def flush(self):
-        self._orig.flush()
-    def isatty(self):
-        return False
+        except Exception:
+            pass
 
-sys.stdout = _DebugStream(sys.stdout)
+_ring_handler = _RingBufferHandler()
+_ring_handler.setFormatter(_logging.Formatter("%(name)s: %(message)s"))
+_ring_handler.setLevel(_logging.DEBUG)
+# Capture root logger + Werkzeug (Flask's HTTP request logger)
+_logging.getLogger().addHandler(_ring_handler)
+_logging.getLogger("werkzeug").addHandler(_ring_handler)
+_logging.getLogger("werkzeug").setLevel(_logging.INFO)
 
 # ─── Musixmatch (inoffizielle API) ───────────────────────────────────────────
 _mx_token = None
@@ -2554,6 +2559,101 @@ def ffmpeg_available():
     return jsonify({"available": _find_ffmpeg() is not False})
 
 
+# ─── FFmpeg auto-download ─────────────────────────────────────────────────────
+
+@app.route("/ffmpeg/status")
+def ffmpeg_status():
+    """Returns whether ffmpeg is available next to the server binary."""
+    return jsonify({"available": _find_ffmpeg() is not False})
+
+
+@app.route("/ffmpeg/download")
+def ffmpeg_download():
+    """
+    SSE stream that downloads ffmpeg.exe from gyan.dev and places it next to
+    the server executable (install dir).  Events:
+      data: {"status": "progress", "percent": 0-100, "mb_done": x, "mb_total": y, "speed_kbps": z}
+      data: {"status": "done"}
+      data: {"status": "error", "message": "..."}
+    """
+    import zipfile, io, struct
+
+    def _stream():
+        # Only runs when frozen (installed); in dev just report done.
+        if not getattr(sys, 'frozen', False):
+            yield "data: {\"status\": \"done\"}\n\n"
+            return
+
+        dest_dir = os.path.dirname(sys.executable)
+        dest_exe = os.path.join(dest_dir, "ffmpeg.exe")
+
+        if os.path.exists(dest_exe):
+            yield "data: {\"status\": \"done\"}\n\n"
+            return
+
+        url = "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip"
+        try:
+            import requests as _req
+            with _req.get(url, stream=True, timeout=30) as r:
+                r.raise_for_status()
+                total = int(r.headers.get("content-length", 0))
+                downloaded = 0
+                chunks = []
+                start_ts = time.time()
+                last_emit = 0
+
+                for chunk in r.iter_content(chunk_size=65536):
+                    if not chunk:
+                        continue
+                    chunks.append(chunk)
+                    downloaded += len(chunk)
+                    now = time.time()
+                    if now - last_emit >= 0.25:
+                        elapsed = max(now - start_ts, 0.001)
+                        speed_kbps = int(downloaded / elapsed / 1024)
+                        percent = int(downloaded / total * 100) if total else 0
+                        mb_done  = round(downloaded / 1048576, 1)
+                        mb_total = round(total / 1048576, 1) if total else 0
+                        payload = json.dumps({
+                            "status": "progress",
+                            "percent": percent,
+                            "mb_done": mb_done,
+                            "mb_total": mb_total,
+                            "speed_kbps": speed_kbps,
+                        })
+                        yield f"data: {payload}\n\n"
+                        last_emit = now
+
+                # Extract ffmpeg.exe from ZIP
+                zip_data = b"".join(chunks)
+                with zipfile.ZipFile(io.BytesIO(zip_data)) as zf:
+                    ffmpeg_entry = next(
+                        (n for n in zf.namelist()
+                         if n.endswith("/ffmpeg.exe") or n == "ffmpeg.exe"),
+                        None
+                    )
+                    if not ffmpeg_entry:
+                        yield "data: {\"status\": \"error\", \"message\": \"ffmpeg.exe not found in ZIP\"}\n\n"
+                        return
+                    with zf.open(ffmpeg_entry) as src, open(dest_exe, "wb") as dst:
+                        dst.write(src.read())
+
+                yield "data: {\"status\": \"done\"}\n\n"
+
+        except Exception as e:
+            payload = json.dumps({"status": "error", "message": str(e)})
+            yield f"data: {payload}\n\n"
+
+    return Response(
+        _stream(),
+        mimetype="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
 @app.route("/lyrics/custom/<video_id>", methods=["GET"])
 def get_custom_lyrics(video_id):
     """Gibt manuell importierte Lyrics für eine videoId zurück."""
@@ -2637,19 +2737,93 @@ def debug_info():
 
 
 if __name__ == "__main__":
-    import socket, sys, signal
+    import socket as _socket, traceback as _tb
 
-    # Single-instance: check if already running, kill it first
-    def kill_existing():
+    # ── Persistent log file for diagnosing startup problems ──────────────────
+    _log_path = os.path.join(_base_dir, "server_startup.log")
+
+    def _log(msg):
+        """Append a timestamped line to the startup log. Never raises."""
+        try:
+            with open(_log_path, "a", encoding="utf-8") as _f:
+                _f.write(f"[{time.time():.3f}] {msg}\n")
+                _f.flush()
+        except Exception:
+            pass
+
+    # Fresh log on each start
+    try:
+        open(_log_path, "w").close()
+    except Exception:
+        pass
+
+    _log("process started")
+    _log(f"python={sys.version}")
+    _log(f"frozen={getattr(sys, 'frozen', False)}")
+    _log(f"base_dir={_base_dir}")
+
+    # ── Check / free port 9847 ────────────────────────────────────────────────
+    def _port_free(port=9847):
+        try:
+            _s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
+            _s.settimeout(0.3)
+            result = _s.connect_ex(("127.0.0.1", port))
+            _s.close()
+            return result != 0  # non-zero means nothing listening
+        except Exception:
+            return True
+
+    # Single-instance: ask any existing server to shut down first
+    def _kill_existing():
         try:
             import urllib.request
-            urllib.request.urlopen("http://localhost:9847/shutdown", timeout=2)
-        except:
+            urllib.request.urlopen("http://127.0.0.1:9847/shutdown", timeout=2)
+            _log("sent /shutdown to existing server")
+        except Exception:
             pass
-        import time
         time.sleep(0.5)
 
-    kill_existing()
+    _log("checking port 9847 ...")
+    if not _port_free():
+        _log("port occupied — sending shutdown and waiting")
+        _kill_existing()
+        time.sleep(0.5)
+    else:
+        _log("port 9847 is free")
 
-    print("Kiyoshi Music Backend startet auf http://localhost:9847")
-    app.run(port=9847, debug=False, threaded=True)
+    # ── Start Flask ───────────────────────────────────────────────────────────
+    # Suppress Werkzeug's own startup print() calls — they fail under
+    # CREATE_NO_WINDOW because there is no attached console handle.
+    # Werkzeug request logs (INFO) → captured by _RingBufferHandler into ring buffer.
+    # Do NOT suppress them — _RingBufferHandler writes to memory, not stdout.
+
+    # ── Self-test: after Flask is up, verify we can actually reach ourselves ──
+    def _self_test():
+        import urllib.request as _ur
+        time.sleep(3)  # give Flask time to fully bind
+        for _host in ("127.0.0.1", "localhost", "::1"):
+            try:
+                _url = f"http://{_host}:9847/status"
+                resp = _ur.urlopen(_url, timeout=3)
+                _log(f"self-test {_url} → HTTP {resp.status} OK")
+            except Exception as _e:
+                _log(f"self-test {_url} → FAILED: {type(_e).__name__}: {_e}")
+
+    import threading as _thr
+    _thr.Thread(target=_self_test, daemon=True).start()
+
+    _log("calling app.run ...")
+    try:
+        # Listen on all IPv4+IPv6 interfaces so both localhost→127.0.0.1
+        # and localhost→::1 (modern Windows) can reach us.
+        app.run(host="0.0.0.0", port=9847, debug=False, threaded=True,
+                use_reloader=False)
+        _log("app.run returned cleanly")
+    except BaseException as _e:
+        _log(f"CRASH: {type(_e).__name__}: {_e}")
+        try:
+            with open(_log_path, "a", encoding="utf-8") as _f:
+                _tb.print_exc(file=_f)
+        except Exception:
+            pass
+        raise
