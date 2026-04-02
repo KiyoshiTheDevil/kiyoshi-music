@@ -78,7 +78,7 @@ const _MAX_FRONTEND_LOGS = 500;
 const APP_VERSION = "0.9.3-alpha";
 
 // ─── Update Checker (GitHub Releases) ───────────────────────────────────────
-const APP_TAG = "v0.9.0";
+const APP_TAG = "v0.9.3-alpha";
 const GITHUB_RELEASES_API = "https://api.github.com/repos/KiyoshiTheDevil/kiyoshi-music/releases?per_page=1";
 
 function isNewerVersion(latest, current) {
@@ -7856,7 +7856,18 @@ export default function App() {
     <ZoomContext.Provider value={uiZoom}>
       <style>{GLOBAL_KEYFRAMES}</style>
       {showSplash && <SplashScreen fading={splashFading} />}
-      {!ffmpegSetupDone && <FfmpegSetupScreen onDone={() => setFfmpegSetupDone(true)} />}
+      {/* Language picker first on very first launch, before FFmpeg setup */}
+      {showLangPicker && !showLogin && (
+        <LanguagePickerScreen
+          currentLanguage={language}
+          onConfirm={(lang) => {
+            localStorage.setItem("kiyoshi-lang", lang);
+            setLanguage(lang);
+            setShowLangPicker(false);
+          }}
+        />
+      )}
+      {!ffmpegSetupDone && !showLangPicker && <FfmpegSetupScreen onDone={() => setFfmpegSetupDone(true)} />}
 
       {/* Toast Notifications */}
       {toasts.length > 0 && (
@@ -8043,20 +8054,8 @@ export default function App() {
             onClose={() => setQueueOpen(false)}
           />
         </div>
-        {/* Language picker - shown only on very first launch */}
-      {showLogin && showLangPicker && (
-        <LanguagePickerScreen
-          currentLanguage={language}
-          onConfirm={(lang) => {
-            setLanguage(lang);
-            localStorage.setItem("kiyoshi-lang", lang);
-            setShowLangPicker(false);
-          }}
-        />
-      )}
-
         {/* Login Screen - shown when no profile exists */}
-      {showLogin && !showLangPicker && (
+      {showLogin && (
         <LoginScreen
           onSuccess={() => { fetchProfiles(); setShowLogin(false); setAddingProfile(false); }}
           onCancel={addingProfile ? () => { setShowLogin(false); setAddingProfile(false); } : undefined}
