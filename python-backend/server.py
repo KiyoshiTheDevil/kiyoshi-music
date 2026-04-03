@@ -409,11 +409,20 @@ def _ensure_node_in_path():
     import shutil
     if shutil.which("node"):
         return  # already in PATH
-    bundled = os.path.join(os.path.dirname(sys.executable), "node.exe")
-    if os.path.isfile(bundled):
-        node_dir = os.path.dirname(bundled)
-        os.environ["PATH"] = node_dir + os.pathsep + os.environ.get("PATH", "")
-        _logging.info(f"[ydl] added bundled node.exe to PATH: {bundled}")
+    # Search in multiple locations: the exe's directory and its parent.
+    # In PyInstaller onefile mode sys.executable is the original .exe; in dev it's the Python interpreter.
+    exe_dir = os.path.dirname(os.path.abspath(sys.executable))
+    candidates = [exe_dir]
+    parent = os.path.dirname(exe_dir)
+    if parent and parent != exe_dir:
+        candidates.append(parent)
+    for candidate in candidates:
+        bundled = os.path.join(candidate, "node.exe")
+        if os.path.isfile(bundled):
+            os.environ["PATH"] = candidate + os.pathsep + os.environ.get("PATH", "")
+            _logging.info(f"[ydl] added bundled node.exe to PATH: {bundled}")
+            return
+    _logging.warning("[ydl] node.exe not found — nsig decryption may fail for some tracks")
 
 def _apply_ydl_auth(ydl_opts):
     """Inject cookiefile into yt-dlp opts and ensure Node.js is on PATH."""
@@ -2200,16 +2209,31 @@ def _download_song_bg(video_id, meta):
                 if total > 0 and video_id in _download_queue:
                     _download_queue[video_id]["progress"] = round(downloaded / total, 3)
 
-        ydl_opts = {
-            "format": "bestaudio[ext=m4a]/bestaudio[acodec=aac]/bestaudio/best",
-            "quiet": True,
-            "no_warnings": True,
-            "outtmpl": output_tpl,
-            "progress_hooks": [progress_hook],
-        }
-        _apply_ydl_auth(ydl_opts)
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            ydl.download([f"https://music.youtube.com/watch?v={video_id}"])
+        last_dl_err = None
+        for fmt, extra, no_auth in _STREAM_ATTEMPTS:
+            try:
+                ydl_opts = {
+                    "format": fmt,
+                    "quiet": True,
+                    "no_warnings": True,
+                    "outtmpl": output_tpl,
+                    "progress_hooks": [progress_hook],
+                }
+                if extra:
+                    ydl_opts.update(extra)
+                if not no_auth:
+                    _apply_ydl_auth(ydl_opts)
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    ydl.download([f"https://music.youtube.com/watch?v={video_id}"])
+                last_dl_err = None
+                break
+            except Exception as dl_e:
+                last_dl_err = dl_e
+                if _is_hard_error(str(dl_e)):
+                    break
+                _logging.warning(f"[download] {video_id} fmt={fmt} auth={not no_auth}: {dl_e}")
+        if last_dl_err:
+            raise last_dl_err
         # Save metadata
         meta_path = _song_meta_path(video_id)
         with open(meta_path, "w", encoding="utf-8") as f:
@@ -2520,24 +2544,39 @@ def _export_audio_bg(video_id, output_path, fmt="opus", meta=None):
             tmp_dir = tempfile.mkdtemp()
             tmp_tpl = os.path.join(tmp_dir, "export.%(ext)s")
             ffmpeg_dir = _find_ffmpeg()
-            ydl_opts = {
-                "format": "bestaudio[ext=webm]/bestaudio/best",
-                "quiet": True,
-                "no_warnings": True,
-                "outtmpl": tmp_tpl,
-            }
-            _apply_ydl_auth(ydl_opts)
-            # Convert WebM to proper OGG/Opus so mutagen can tag it
-            if ffmpeg_dir is not False:
-                ydl_opts["postprocessors"] = [{
-                    "key": "FFmpegExtractAudio",
-                    "preferredcodec": "opus",
-                    "preferredquality": "0",
-                }]
-                if ffmpeg_dir:
-                    ydl_opts["ffmpeg_location"] = ffmpeg_dir
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                ydl.download([f"https://music.youtube.com/watch?v={video_id}"])
+            last_exp_err = None
+            for fmt, extra, no_auth in _STREAM_ATTEMPTS:
+                try:
+                    ydl_opts = {
+                        "format": fmt,
+                        "quiet": True,
+                        "no_warnings": True,
+                        "outtmpl": tmp_tpl,
+                    }
+                    if extra:
+                        ydl_opts.update(extra)
+                    if not no_auth:
+                        _apply_ydl_auth(ydl_opts)
+                    # Convert to proper OGG/Opus via ffmpeg so mutagen can tag it
+                    if ffmpeg_dir is not False:
+                        ydl_opts["postprocessors"] = [{
+                            "key": "FFmpegExtractAudio",
+                            "preferredcodec": "opus",
+                            "preferredquality": "0",
+                        }]
+                        if ffmpeg_dir:
+                            ydl_opts["ffmpeg_location"] = ffmpeg_dir
+                    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                        ydl.download([f"https://music.youtube.com/watch?v={video_id}"])
+                    last_exp_err = None
+                    break
+                except Exception as exp_e:
+                    last_exp_err = exp_e
+                    if _is_hard_error(str(exp_e)):
+                        break
+                    _logging.warning(f"[export-opus] {video_id} fmt={fmt} auth={not no_auth}: {exp_e}")
+            if last_exp_err:
+                raise last_exp_err
             # Find the resulting file
             for f in os.listdir(tmp_dir):
                 if f.startswith("export.") and not f.endswith((".json", ".jpg", ".png", ".webp")):
@@ -2563,22 +2602,37 @@ def _export_audio_bg(video_id, output_path, fmt="opus", meta=None):
 
         tmp_dir = tempfile.mkdtemp()
         tmp_tpl = os.path.join(tmp_dir, "export.%(ext)s")
-        ydl_opts = {
-            "format": "bestaudio",
-            "quiet": True,
-            "no_warnings": True,
-            "outtmpl": tmp_tpl,
-            "postprocessors": [{
-                "key": "FFmpegExtractAudio",
-                "preferredcodec": "mp3",
-                "preferredquality": "192",
-            }],
-        }
-        _apply_ydl_auth(ydl_opts)
-        if ffmpeg_dir:
-            ydl_opts["ffmpeg_location"] = ffmpeg_dir
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            ydl.download([f"https://music.youtube.com/watch?v={video_id}"])
+        last_mp3_err = None
+        for fmt, extra, no_auth in _STREAM_ATTEMPTS:
+            try:
+                ydl_opts = {
+                    "format": fmt,
+                    "quiet": True,
+                    "no_warnings": True,
+                    "outtmpl": tmp_tpl,
+                    "postprocessors": [{
+                        "key": "FFmpegExtractAudio",
+                        "preferredcodec": "mp3",
+                        "preferredquality": "192",
+                    }],
+                }
+                if extra:
+                    ydl_opts.update(extra)
+                if not no_auth:
+                    _apply_ydl_auth(ydl_opts)
+                if ffmpeg_dir:
+                    ydl_opts["ffmpeg_location"] = ffmpeg_dir
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    ydl.download([f"https://music.youtube.com/watch?v={video_id}"])
+                last_mp3_err = None
+                break
+            except Exception as mp3_e:
+                last_mp3_err = mp3_e
+                if _is_hard_error(str(mp3_e)):
+                    break
+                _logging.warning(f"[export-mp3] {video_id} fmt={fmt} auth={not no_auth}: {mp3_e}")
+        if last_mp3_err:
+            raise last_mp3_err
 
         mp3 = os.path.join(tmp_dir, "export.mp3")
         if os.path.exists(mp3):

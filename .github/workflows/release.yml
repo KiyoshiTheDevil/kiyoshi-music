@@ -9,9 +9,99 @@ permissions:
   contents: write
 
 jobs:
-  build-linux:
-    runs-on: ubuntu-22.04
+  # ─── Step 1: Create the draft release once, both build jobs upload to it ─────
+  create-release:
+    runs-on: ubuntu-latest
+    outputs:
+      release_id: ${{ steps.release.outputs.release_id }}
+    steps:
+      - uses: actions/checkout@v4
 
+      - name: Create draft release
+        id: release
+        run: |
+          IS_PRE=${{ contains(github.ref_name, 'alpha') || contains(github.ref_name, 'beta') }}
+          EXTRA_FLAGS=""
+          [ "$IS_PRE" = "true" ] && EXTRA_FLAGS="--prerelease"
+
+          # Create if not already present (re-runs are safe)
+          gh release create "${{ github.ref_name }}" \
+            --draft \
+            $EXTRA_FLAGS \
+            --title "Kiyoshi Music ${{ github.ref_name }}" \
+            --notes "" || true
+
+          # Fetch the numeric ID for use by the build jobs
+          RELEASE_ID=$(gh api \
+            repos/${{ github.repository }}/releases/tags/${{ github.ref_name }} \
+            --jq '.id')
+          echo "release_id=$RELEASE_ID" >> $GITHUB_OUTPUT
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ─── Step 2a: Windows NSIS installer ─────────────────────────────────────────
+  build-windows:
+    needs: create-release
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Create build directories
+        run: |
+          New-Item -ItemType Directory -Force src-tauri/binaries | Out-Null
+          New-Item -ItemType Directory -Force src-tauri/resources | Out-Null
+
+      - name: Install Python dependencies
+        working-directory: python-backend
+        run: pip install -r requirements.txt pyinstaller
+
+      - name: Build Python server (Windows)
+        working-directory: python-backend
+        run: |
+          pyinstaller kiyoshi-server-x86_64-pc-windows-msvc.spec `
+            --distpath ../src-tauri/binaries `
+            --workpath build_tmp/kiyoshi-server-x86_64-pc-windows-msvc
+
+      - name: Download node.exe
+        run: |
+          Invoke-WebRequest `
+            -Uri "https://nodejs.org/dist/v20.11.0/win-x64/node.exe" `
+            -OutFile "src-tauri/resources/node.exe"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install frontend dependencies
+        run: npm install
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Build Tauri NSIS installer
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          releaseId: ${{ needs.create-release.outputs.release_id }}
+          args: --target x86_64-pc-windows-msvc --bundles nsis
+
+  # ─── Step 2b: Linux AppImage + .deb ──────────────────────────────────────────
+  build-linux:
+    needs: create-release
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
 
@@ -23,7 +113,12 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libasound2-dev
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            libasound2-dev
 
       - name: Create binaries directory
         run: mkdir -p src-tauri/binaries
@@ -32,15 +127,12 @@ jobs:
         working-directory: python-backend
         run: pip install -r requirements.txt pyinstaller
 
-      - name: Build Python backend (Linux)
+      - name: Build Python server (Linux)
         working-directory: python-backend
         run: |
           pyinstaller kiyoshi-server-x86_64-unknown-linux-gnu.spec \
             --distpath ../src-tauri/binaries \
             --workpath build_tmp/kiyoshi-server-x86_64-unknown-linux-gnu
-
-      - name: Verify binary
-        run: ls -la src-tauri/binaries/
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -48,7 +140,7 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
-      - name: Install Node.js dependencies
+      - name: Install frontend dependencies
         run: npm install
 
       - name: Setup Rust
@@ -59,16 +151,10 @@ jobs:
         with:
           workspaces: src-tauri
 
-      - name: Build Tauri AppImage
+      - name: Build Tauri AppImage + deb
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: 'Kiyoshi Music ${{ github.ref_name }}'
-          releaseDraft: true
-          prerelease: ${{ contains(github.ref_name, 'alpha') || contains(github.ref_name, 'beta') }}
-          args: --target x86_64-unknown-linux-gnu
-
-
-
+          releaseId: ${{ needs.create-release.outputs.release_id }}
+          args: --target x86_64-unknown-linux-gnu --bundles appimage,deb

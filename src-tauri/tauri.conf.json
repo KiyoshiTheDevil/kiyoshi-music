@@ -29,14 +29,10 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis"],
     "icon": ["icons/icon_32.png", "icons/icon_128.png", "icons/icon_256.png", "icons/icon.ico"],
     "externalBin": [
       "binaries/kiyoshi-server"
     ],
-    "resources": {
-      "resources/node.exe": "node.exe"
-    },
     "linux": {
       "deb": {
         "depends": ["ffmpeg"]

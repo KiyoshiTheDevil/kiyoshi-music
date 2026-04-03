@@ -38,11 +38,16 @@ pub async fn open_login_window(app: tauri::AppHandle, profile_name: String) -> R
         tokio::time::sleep(std::time::Duration::from_millis(200)).await;
     }
 
+    // Use a fresh isolated data directory each time so the login WebView never
+    // inherits cached Google session cookies from a previous login.
+    let login_data_dir = std::env::temp_dir().join("kiyoshi-login-webview");
+    let _ = std::fs::remove_dir_all(&login_data_dir);
+
     let _win = tauri::WebviewWindowBuilder::new(
         &app,
         "login",
         tauri::WebviewUrl::External(
-            "https://accounts.google.com/AccountChooser?service=youtube&continue=https%3A%2F%2Fmusic.youtube.com%2F&flowName=GlifWebSignIn"
+            "https://accounts.google.com/AddSession?service=youtube&continue=https%3A%2F%2Fmusic.youtube.com%2F&flowName=GlifWebSignIn"
                 .parse()
                 .unwrap(),
         ),
@@ -51,6 +56,7 @@ pub async fn open_login_window(app: tauri::AppHandle, profile_name: String) -> R
     .inner_size(900.0, 680.0)
     .center()
     .decorations(true)
+    .data_directory(login_data_dir)
     .build()
     .map_err(|e| e.to_string())?;
 
