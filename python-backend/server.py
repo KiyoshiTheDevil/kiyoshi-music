@@ -73,6 +73,32 @@ _download_queue  = {}  # video_id -> {title, artists, thumbnail, status, progres
 # Cache feature flags (can be toggled at runtime via /cache/settings)
 _cache_enabled = {"playlists": True, "albums": True, "images": True, "songs": True, "lyrics": True}
 
+# ─── Node.js PATH — set once at startup ──────────────────────────────────────
+# yt-dlp needs Node.js for nsig (n-parameter) decryption on ALL requests,
+# not only authenticated ones.  Calling this here guarantees it runs before
+# the first request regardless of auth status.
+def _ensure_node_in_path():
+    """Add bundled node.exe directory to PATH so yt-dlp can find it via shutil.which."""
+    import shutil
+    if shutil.which("node"):
+        return  # already in PATH
+    # Search in multiple locations: the exe's directory and its parent.
+    # In PyInstaller onefile mode sys.executable is the original .exe; in dev it's the Python interpreter.
+    exe_dir = os.path.dirname(os.path.abspath(sys.executable))
+    candidates = [exe_dir]
+    parent = os.path.dirname(exe_dir)
+    if parent and parent != exe_dir:
+        candidates.append(parent)
+    for candidate in candidates:
+        bundled = os.path.join(candidate, "node.exe")
+        if os.path.isfile(bundled):
+            os.environ["PATH"] = candidate + os.pathsep + os.environ.get("PATH", "")
+            print(f"[ydl] added bundled node.exe to PATH: {bundled}", flush=True)
+            return
+    print("[ydl] node.exe not found — nsig decryption may fail for some tracks", flush=True)
+
+_ensure_node_in_path()
+
 # ─── Debug log ring buffer ───────────────────────────────────────────────────
 import logging as _logging
 
@@ -404,29 +430,9 @@ def _get_ydl_cookiefile():
     except Exception:
         return None
 
-def _ensure_node_in_path():
-    """Add bundled node.exe directory to PATH so yt-dlp can find it via shutil.which."""
-    import shutil
-    if shutil.which("node"):
-        return  # already in PATH
-    # Search in multiple locations: the exe's directory and its parent.
-    # In PyInstaller onefile mode sys.executable is the original .exe; in dev it's the Python interpreter.
-    exe_dir = os.path.dirname(os.path.abspath(sys.executable))
-    candidates = [exe_dir]
-    parent = os.path.dirname(exe_dir)
-    if parent and parent != exe_dir:
-        candidates.append(parent)
-    for candidate in candidates:
-        bundled = os.path.join(candidate, "node.exe")
-        if os.path.isfile(bundled):
-            os.environ["PATH"] = candidate + os.pathsep + os.environ.get("PATH", "")
-            _logging.info(f"[ydl] added bundled node.exe to PATH: {bundled}")
-            return
-    _logging.warning("[ydl] node.exe not found — nsig decryption may fail for some tracks")
-
 def _apply_ydl_auth(ydl_opts):
-    """Inject cookiefile into yt-dlp opts and ensure Node.js is on PATH."""
-    _ensure_node_in_path()
+    """Inject cookiefile into yt-dlp opts."""
+    # Node PATH is set once at startup — no need to call here again.
     cookie_file = _get_ydl_cookiefile()
     if cookie_file:
         ydl_opts["cookiefile"] = cookie_file
