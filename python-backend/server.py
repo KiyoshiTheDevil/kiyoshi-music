@@ -1223,19 +1223,25 @@ def _ydl_pick_any_audio(video_id, extra_opts=None, skip_auth=False):
     return info.get("url")
 
 # Each entry: (format_string, extra_ydl_opts, skip_auth)
-# web_music / android_music / ios clients can access YouTube Music exclusives
-# that the default web client reports as "Video unavailable".
-# player_skip=["js"] avoids nsig JS decryption (not needed for mobile clients).
+# Anonymous (skip_auth=True) attempts come FIRST: the default web client
+# requires PO tokens when cookies are present, causing "Requested format is
+# not available" even for ordinary tracks.  Without cookies, YouTube serves
+# standard stream URLs and format extraction works reliably.
+# Authenticated fallbacks are kept at the end for premium / restricted content.
 _WEB_MUSIC_OPTS = {"extractor_args": {"youtube": {"player_client": ["web_music"]}}}
 _ANDROID_OPTS   = {"extractor_args": {"youtube": {"player_client": ["android_music"], "player_skip": ["js"]}}}
 _IOS_OPTS       = {"extractor_args": {"youtube": {"player_client": ["ios"],           "player_skip": ["js"]}}}
 _STREAM_ATTEMPTS = [
-    ("bestaudio[ext=m4a]/bestaudio[acodec=aac]/bestaudio", None,            False),
+    # ── anonymous first (no PO-token issues) ─────────────────────────────────
+    ("bestaudio[ext=m4a]/bestaudio[acodec=aac]/bestaudio", None,            True),
+    ("bestaudio/best",                                      None,            True),
+    ("bestaudio/best",                                      _WEB_MUSIC_OPTS, True),   # YTMusic exclusives
+    ("bestaudio/best",                                      _ANDROID_OPTS,   True),
+    ("bestaudio/best",                                      _IOS_OPTS,       True),
+    # ── authenticated fallback (premium / geo-restricted content) ────────────
     ("bestaudio/best",                                      None,            False),
     ("bestaudio/best",                                      _WEB_MUSIC_OPTS, False),
     ("bestaudio/best",                                      _ANDROID_OPTS,   False),
-    ("bestaudio/best",                                      _ANDROID_OPTS,   True),
-    ("bestaudio/best",                                      _IOS_OPTS,       True),
 ]
 
 def _stream_url_from_info(info):
