@@ -11,6 +11,7 @@ use audio::{AudioPlayer, start_audio_thread, audio_play, audio_pause, audio_resu
 use discord::{DiscordRpc, disconnect_rpc, update_discord_rpc, clear_discord_rpc};
 use window::{WasMaximized, set_fullscreen, open_login_window, close_login_window};
 use server::{ServerProcess, stop_server};
+#[cfg(windows)]
 use obs::start_audio_session_tagger;
 
 #[cfg(target_os = "linux")]
