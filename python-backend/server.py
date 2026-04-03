@@ -1209,13 +1209,13 @@ def stream_url(video_id):
         except Exception as e:
             last_err = e
             err_str = str(e)
-            # Don't retry on hard errors (regional block, video removed, premium)
-            if any(k in err_str for k in ("Video unavailable", "not available", "Music Premium")):
+            # Don't retry on hard errors (video removed, regional block, premium)
+            if any(k in err_str for k in ("Video unavailable", "This video is not available", "Music Premium")):
                 break
             _logging.warning(f"[stream] {video_id} fmt={fmt} failed, trying next: {e}")
     err_str = str(last_err) if last_err else "No URL found"
     premium = "Music Premium" in err_str
-    unavailable = any(k in err_str for k in ("Video unavailable", "not available"))
+    unavailable = any(k in err_str for k in ("Video unavailable", "This video is not available"))
     _logging.error(f"[stream] {video_id}: {type(last_err).__name__}: {err_str}")
     return jsonify({"error": err_str, "premium_only": premium, "unavailable": unavailable}), 500
 
@@ -1261,7 +1261,7 @@ def stream_prepare(video_id):
         except Exception as e:
             last_err = e
             err_str = str(e)
-            if any(k in err_str for k in ("Video unavailable", "not available", "Music Premium")):
+            if any(k in err_str for k in ("Video unavailable", "This video is not available", "Music Premium")):
                 break
             _logging.warning(f"[stream-prepare] {video_id} fmt={fmt} failed, trying next: {e}")
     err_str = str(last_err) if last_err else "Download failed"
