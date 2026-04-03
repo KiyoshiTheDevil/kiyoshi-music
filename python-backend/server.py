@@ -1171,38 +1171,53 @@ def liked_songs():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+def _ydl_extract_url(video_id, fmt, skip_download=True):
+    """Run yt-dlp extraction with the given format string. Returns info dict."""
+    import yt_dlp
+    ydl_opts = {
+        "format": fmt,
+        "quiet": True,
+        "no_warnings": True,
+        "skip_download": skip_download,
+    }
+    _apply_ydl_auth(ydl_opts)
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        return ydl.extract_info(
+            f"https://music.youtube.com/watch?v={video_id}",
+            download=False
+        )
+
 @app.route("/stream/<video_id>")
 def stream_url(video_id):
-    try:
-        import yt_dlp
-        # Prefer M4A/AAC: supported by the Rust audio player (rodio+symphonia).
-        # Falls back to any bestaudio if M4A is unavailable.
-        ydl_opts = {
-            "format": "bestaudio[ext=m4a]/bestaudio[acodec=aac]/bestaudio/best",
-            "quiet": True,
-            "no_warnings": True,
-            "skip_download": True,
-        }
-        _apply_ydl_auth(ydl_opts)
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(
-                f"https://music.youtube.com/watch?v={video_id}",
-                download=False
-            )
-        # Prefer direct URL on the info dict; fall back to best audio format
-        url = info.get("url")
-        if not url and info.get("formats"):
-            audio_fmts = [f for f in info["formats"]
-                          if f.get("acodec") != "none" and f.get("vcodec") == "none"]
-            chosen = audio_fmts[-1] if audio_fmts else info["formats"][-1]
-            url = chosen.get("url")
-        if not url:
-            return jsonify({"error": "Keine URL gefunden"}), 404
-        return jsonify({"url": url})
-    except Exception as e:
-        premium = "Music Premium" in str(e)
-        _logging.error(f"[stream] {video_id}: {type(e).__name__}: {e}")
-        return jsonify({"error": str(e), "premium_only": premium}), 500
+    # Try preferred format first, then fall back to any available audio.
+    formats_to_try = [
+        "bestaudio[ext=m4a]/bestaudio[acodec=aac]/bestaudio",
+        "bestaudio/best",
+    ]
+    last_err = None
+    for fmt in formats_to_try:
+        try:
+            info = _ydl_extract_url(video_id, fmt)
+            url = info.get("url")
+            if not url and info.get("formats"):
+                audio_fmts = [f for f in info["formats"]
+                              if f.get("acodec") != "none" and f.get("vcodec") == "none"]
+                chosen = audio_fmts[-1] if audio_fmts else info["formats"][-1]
+                url = chosen.get("url")
+            if url:
+                return jsonify({"url": url})
+        except Exception as e:
+            last_err = e
+            err_str = str(e)
+            # Don't retry on hard errors (regional block, video removed, premium)
+            if any(k in err_str for k in ("Video unavailable", "not available", "Music Premium")):
+                break
+            _logging.warning(f"[stream] {video_id} fmt={fmt} failed, trying next: {e}")
+    err_str = str(last_err) if last_err else "No URL found"
+    premium = "Music Premium" in err_str
+    unavailable = any(k in err_str for k in ("Video unavailable", "not available"))
+    _logging.error(f"[stream] {video_id}: {type(last_err).__name__}: {err_str}")
+    return jsonify({"error": err_str, "premium_only": premium, "unavailable": unavailable}), 500
 
 
 @app.route("/stream-prepare/<video_id>")
@@ -1219,29 +1234,41 @@ def stream_prepare(video_id):
         print(f"[stream-prepare] Cache hit: {existing[0]}", flush=True)
         return jsonify({"path": existing[0]})
 
-    try:
-        import yt_dlp
-        outtmpl = os.path.join(cache_dir, "%(id)s.%(ext)s")
-        ydl_opts = {
-            "format": "bestaudio[ext=m4a]/bestaudio[acodec=aac]/bestaudio/best",
-            "outtmpl": outtmpl,
-            "quiet": True,
-            "no_warnings": True,
-        }
-        _apply_ydl_auth(ydl_opts)
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(
-                f"https://music.youtube.com/watch?v={video_id}",
-                download=True
-            )
-            path = ydl.prepare_filename(info)
-
-        _logging.info(f"[stream-prepare] downloaded {video_id}: {os.path.getsize(path)} bytes")
-        return jsonify({"path": path})
-    except Exception as e:
-        premium = "Music Premium" in str(e)
-        _logging.error(f"[stream-prepare] {video_id}: {type(e).__name__}: {e}")
-        return jsonify({"error": str(e), "premium_only": premium}), 500
+    import yt_dlp
+    outtmpl = os.path.join(cache_dir, "%(id)s.%(ext)s")
+    formats_to_try = [
+        "bestaudio[ext=m4a]/bestaudio[acodec=aac]/bestaudio",
+        "bestaudio/best",
+    ]
+    last_err = None
+    for fmt in formats_to_try:
+        try:
+            ydl_opts = {
+                "format": fmt,
+                "outtmpl": outtmpl,
+                "quiet": True,
+                "no_warnings": True,
+            }
+            _apply_ydl_auth(ydl_opts)
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(
+                    f"https://music.youtube.com/watch?v={video_id}",
+                    download=True
+                )
+                path = ydl.prepare_filename(info)
+            _logging.info(f"[stream-prepare] downloaded {video_id}: {os.path.getsize(path)} bytes")
+            return jsonify({"path": path})
+        except Exception as e:
+            last_err = e
+            err_str = str(e)
+            if any(k in err_str for k in ("Video unavailable", "not available", "Music Premium")):
+                break
+            _logging.warning(f"[stream-prepare] {video_id} fmt={fmt} failed, trying next: {e}")
+    err_str = str(last_err) if last_err else "Download failed"
+    premium = "Music Premium" in err_str
+    unavailable = any(k in err_str for k in ("Video unavailable", "not available"))
+    _logging.error(f"[stream-prepare] {video_id}: {type(last_err).__name__}: {err_str}")
+    return jsonify({"error": err_str, "premium_only": premium, "unavailable": unavailable}), 500
 
 
 @app.route("/library/playlists")

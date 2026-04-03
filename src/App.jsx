@@ -78,7 +78,7 @@ const _MAX_FRONTEND_LOGS = 500;
 const APP_VERSION = "0.9.3-alpha";
 
 // ─── Update Checker (GitHub Releases) ───────────────────────────────────────
-const APP_TAG = "v0.9.3.2-alpha";
+const APP_TAG = "v0.9.3.3-alpha";
 const GITHUB_RELEASES_API = "https://api.github.com/repos/KiyoshiTheDevil/kiyoshi-music/releases?per_page=1";
 
 function isNewerVersion(latest, current) {
