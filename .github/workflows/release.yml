@@ -114,7 +114,10 @@ jobs:
             libayatana-appindicator3-dev \
             librsvg2-dev \
             patchelf \
-            libasound2-dev
+            libasound2-dev \
+            squashfs-tools \
+            file \
+            libssl-dev
 
       - name: Create binaries directory
         run: mkdir -p src-tauri/binaries
@@ -147,10 +150,13 @@ jobs:
         with:
           workspaces: src-tauri
 
+      - name: Make server binary executable
+        run: chmod +x src-tauri/binaries/kiyoshi-server-x86_64-unknown-linux-gnu
+
       - name: Build Tauri AppImage + deb
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           releaseId: ${{ needs.create-release.outputs.release_id }}
-          args: --target x86_64-unknown-linux-gnu --bundles appimage,deb
+          args: --target x86_64-unknown-linux-gnu --bundles appimage --bundles deb
