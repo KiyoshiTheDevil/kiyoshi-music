@@ -1201,6 +1201,7 @@ def stream_url(video_id):
         return jsonify({"url": url})
     except Exception as e:
         premium = "Music Premium" in str(e)
+        _logging.error(f"[stream] {video_id}: {type(e).__name__}: {e}")
         return jsonify({"error": str(e), "premium_only": premium}), 500
 
 
@@ -1235,11 +1236,11 @@ def stream_prepare(video_id):
             )
             path = ydl.prepare_filename(info)
 
-        print(f"[stream-prepare] Downloaded: {path} ({os.path.getsize(path)} bytes)", flush=True)
+        _logging.info(f"[stream-prepare] downloaded {video_id}: {os.path.getsize(path)} bytes")
         return jsonify({"path": path})
     except Exception as e:
-        print(f"[stream-prepare] Error: {e}", flush=True)
         premium = "Music Premium" in str(e)
+        _logging.error(f"[stream-prepare] {video_id}: {type(e).__name__}: {e}")
         return jsonify({"error": str(e), "premium_only": premium}), 500
 
 
@@ -2131,7 +2132,7 @@ def _download_song_bg(video_id, meta):
             _download_queue[video_id]["status"] = "error"
             if "Music Premium" in str(e):
                 _download_queue[video_id]["error_type"] = "premium_only"
-        print(f"Download error for {video_id}: {e}")
+        _logging.error(f"[download] {video_id}: {type(e).__name__}: {e}")
 
 
 @app.route("/song/download/<video_id>", methods=["POST"])

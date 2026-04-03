@@ -3016,18 +3016,21 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
           urlCache.current[videoId] = fileUrl;
           return fileUrl;
         }
-      } catch (e) { console.error("[fetchUrl] stream-prepare failed:", e); }
+      } catch (e) { console.error(`[stream-prepare] ${videoId}:`, e); }
     }
     // HTML5 fallback: fetch direct googlevideo URL (browser handles cookies)
+    let lastStreamError = null;
     for (let i = 1; i <= 3; i++) {
       try {
         const r = await fetch(`${API}/stream/${videoId}`);
         const d = await r.json();
         if (d.premium_only) { onPremiumDetected?.(videoId); return null; }
         if (d.url) { urlCache.current[videoId] = d.url; return d.url; }
-      } catch {}
+        if (d.error) lastStreamError = d.error;
+      } catch (e) { lastStreamError = String(e); }
       if (i < 3) await new Promise(res => setTimeout(res, 800));
     }
+    if (lastStreamError) console.error(`[stream] ${videoId}: ${lastStreamError}`);
     return null;
   }, [onPremiumDetected]);
 
