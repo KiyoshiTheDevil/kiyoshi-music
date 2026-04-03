@@ -404,28 +404,23 @@ def _get_ydl_cookiefile():
     except Exception:
         return None
 
-def _get_ydl_js_runtimes():
-    """Return js_runtimes dict for yt-dlp pointing to Node.js.
-    Checks bundled node.exe (next to our binary) first, then system PATH."""
+def _ensure_node_in_path():
+    """Add bundled node.exe directory to PATH so yt-dlp can find it via shutil.which."""
     import shutil
-    # Bundled node.exe lives next to the PyInstaller binary
+    if shutil.which("node"):
+        return  # already in PATH
     bundled = os.path.join(os.path.dirname(sys.executable), "node.exe")
-    node = bundled if os.path.isfile(bundled) else (
-        shutil.which("node") or shutil.which("node.exe") or shutil.which("nodejs")
-    )
-    if node:
-        _logging.info(f"[ydl] using Node.js: {node}")
-        return {"node": {"path": node}}
-    return {}
+    if os.path.isfile(bundled):
+        node_dir = os.path.dirname(bundled)
+        os.environ["PATH"] = node_dir + os.pathsep + os.environ.get("PATH", "")
+        _logging.info(f"[ydl] added bundled node.exe to PATH: {bundled}")
 
 def _apply_ydl_auth(ydl_opts):
-    """Inject cookiefile and js_runtimes into a yt-dlp opts dict in-place."""
+    """Inject cookiefile into yt-dlp opts and ensure Node.js is on PATH."""
+    _ensure_node_in_path()
     cookie_file = _get_ydl_cookiefile()
     if cookie_file:
         ydl_opts["cookiefile"] = cookie_file
-    js_runtimes = _get_ydl_js_runtimes()
-    if js_runtimes:
-        ydl_opts["js_runtimes"] = js_runtimes
     return ydl_opts
 
 def get_profiles():
@@ -1219,17 +1214,19 @@ def _ydl_pick_any_audio(video_id, extra_opts=None, skip_auth=False):
     return info.get("url")
 
 # Each entry: (format_string, extra_ydl_opts, skip_auth)
-# Fallback chain: web client → android_music (no JS needed) → ios (no JS needed)
-# player_skip=["js"] tells yt-dlp not to execute YouTube's JS for nsig decryption,
-# which fails without Node.js — mobile clients provide pre-decrypted URLs anyway.
-_ANDROID_OPTS = {"extractor_args": {"youtube": {"player_client": ["android_music"], "player_skip": ["js"]}}}
-_IOS_OPTS     = {"extractor_args": {"youtube": {"player_client": ["ios"],           "player_skip": ["js"]}}}
+# web_music / android_music / ios clients can access YouTube Music exclusives
+# that the default web client reports as "Video unavailable".
+# player_skip=["js"] avoids nsig JS decryption (not needed for mobile clients).
+_WEB_MUSIC_OPTS = {"extractor_args": {"youtube": {"player_client": ["web_music"]}}}
+_ANDROID_OPTS   = {"extractor_args": {"youtube": {"player_client": ["android_music"], "player_skip": ["js"]}}}
+_IOS_OPTS       = {"extractor_args": {"youtube": {"player_client": ["ios"],           "player_skip": ["js"]}}}
 _STREAM_ATTEMPTS = [
-    ("bestaudio[ext=m4a]/bestaudio[acodec=aac]/bestaudio", None,          False),
-    ("bestaudio/best",                                      None,          False),
-    ("bestaudio/best",                                      _ANDROID_OPTS, False),
-    ("bestaudio/best",                                      _ANDROID_OPTS, True),
-    ("bestaudio/best",                                      _IOS_OPTS,     True),
+    ("bestaudio[ext=m4a]/bestaudio[acodec=aac]/bestaudio", None,            False),
+    ("bestaudio/best",                                      None,            False),
+    ("bestaudio/best",                                      _WEB_MUSIC_OPTS, False),
+    ("bestaudio/best",                                      _ANDROID_OPTS,   False),
+    ("bestaudio/best",                                      _ANDROID_OPTS,   True),
+    ("bestaudio/best",                                      _IOS_OPTS,       True),
 ]
 
 def _stream_url_from_info(info):
@@ -1242,7 +1239,13 @@ def _stream_url_from_info(info):
     return url
 
 def _is_hard_error(err_str):
-    return any(k in err_str for k in ("Video unavailable", "This video is not available", "Music Premium"))
+    # Only Music Premium is a guaranteed dead end regardless of client.
+    # "Video unavailable" can still succeed with web_music/android_music
+    # for YouTube Music exclusive content.
+    return "Music Premium" in err_str
+
+def _is_unavailable(err_str):
+    return any(k in err_str for k in ("Video unavailable", "This video is not available"))
 
 @app.route("/stream/<video_id>")
 def stream_url(video_id):
@@ -1260,7 +1263,10 @@ def stream_url(video_id):
                 break
             _logging.warning(f"[stream] {video_id} fmt={fmt} auth={not no_auth} failed: {e}")
     # Brute-force: no format selector, pick manually — with and without auth
+    _hard_stop = False
     for no_auth in (False, True):
+        if _hard_stop:
+            break
         for extra in (None, _ANDROID_OPTS, _IOS_OPTS):
             try:
                 url = _ydl_pick_any_audio(video_id, extra_opts=extra, skip_auth=no_auth)
@@ -1269,10 +1275,13 @@ def stream_url(video_id):
                     return jsonify({"url": url})
             except Exception as e:
                 last_err = e
+                if _is_hard_error(str(e)) or _is_unavailable(str(e)):
+                    _hard_stop = True
+                    break
                 _logging.warning(f"[stream] {video_id} brute-force auth={not no_auth} failed: {e}")
     err_str = str(last_err) if last_err else "No URL found"
     premium = "Music Premium" in err_str
-    unavailable = _is_hard_error(err_str)
+    unavailable = _is_unavailable(err_str)
     _logging.error(f"[stream] {video_id}: {type(last_err).__name__}: {err_str}")
     return jsonify({"error": err_str, "premium_only": premium, "unavailable": unavailable}), 500
 
@@ -1322,7 +1331,7 @@ def stream_prepare(video_id):
             _logging.warning(f"[stream-prepare] {video_id} fmt={fmt} auth={not no_auth} failed: {e}")
     err_str = str(last_err) if last_err else "Download failed"
     premium = "Music Premium" in err_str
-    unavailable = _is_hard_error(err_str)
+    unavailable = _is_unavailable(err_str)
     _logging.error(f"[stream-prepare] {video_id}: {type(last_err).__name__}: {err_str}")
     return jsonify({"error": err_str, "premium_only": premium, "unavailable": unavailable}), 500
 
