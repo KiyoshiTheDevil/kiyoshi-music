@@ -1189,8 +1189,29 @@ def _ydl_extract_url(video_id, fmt, skip_download=True, extra_opts=None):
             download=False
         )
 
+def _ydl_pick_any_audio(video_id, extra_opts=None):
+    """Last-resort: fetch all formats without a selector and pick manually."""
+    import yt_dlp
+    ydl_opts = {"quiet": True, "no_warnings": True, "skip_download": True}
+    if extra_opts:
+        ydl_opts.update(extra_opts)
+    _apply_ydl_auth(ydl_opts)
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        info = ydl.extract_info(
+            f"https://music.youtube.com/watch?v={video_id}",
+            download=False
+        )
+    fmts = info.get("formats") or []
+    _logging.info(f"[stream] {video_id} available formats: {[f.get('format_id') for f in fmts]}")
+    audio_only = [f for f in fmts if f.get("acodec") != "none" and f.get("vcodec") == "none" and f.get("url")]
+    has_audio  = [f for f in fmts if f.get("acodec") != "none" and f.get("url")]
+    candidates = audio_only or has_audio or [f for f in fmts if f.get("url")]
+    if candidates:
+        return candidates[-1]["url"]
+    return info.get("url")
+
 # Each entry: (format_string, extra_ydl_opts)
-# android_music client doesn't require PO tokens — fallback for users without Node.js
+# android_music / ios clients don't require PO tokens
 _STREAM_ATTEMPTS = [
     ("bestaudio[ext=m4a]/bestaudio[acodec=aac]/bestaudio", None),
     ("bestaudio/best", None),
@@ -1218,6 +1239,16 @@ def stream_url(video_id):
             if any(k in err_str for k in ("Video unavailable", "This video is not available", "Music Premium")):
                 break
             _logging.warning(f"[stream] {video_id} fmt={fmt} failed, trying next: {e}")
+    # Brute-force last resort: no format selector, pick manually
+    for extra in (None, {"extractor_args": {"youtube": {"player_client": ["android_music"]}}}):
+        try:
+            url = _ydl_pick_any_audio(video_id, extra_opts=extra)
+            if url:
+                _logging.info(f"[stream] {video_id} recovered via brute-force pick")
+                return jsonify({"url": url})
+        except Exception as e:
+            last_err = e
+            _logging.warning(f"[stream] {video_id} brute-force failed: {e}")
     err_str = str(last_err) if last_err else "No URL found"
     premium = "Music Premium" in err_str
     unavailable = any(k in err_str for k in ("Video unavailable", "This video is not available"))
