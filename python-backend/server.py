@@ -405,10 +405,16 @@ def _get_ydl_cookiefile():
         return None
 
 def _get_ydl_js_runtimes():
-    """Return js_runtimes dict for yt-dlp pointing to the local Node.js if available."""
+    """Return js_runtimes dict for yt-dlp pointing to Node.js.
+    Checks bundled node.exe (next to our binary) first, then system PATH."""
     import shutil
-    node = shutil.which("node") or shutil.which("node.exe") or shutil.which("nodejs")
+    # Bundled node.exe lives next to the PyInstaller binary
+    bundled = os.path.join(os.path.dirname(sys.executable), "node.exe")
+    node = bundled if os.path.isfile(bundled) else (
+        shutil.which("node") or shutil.which("node.exe") or shutil.which("nodejs")
+    )
     if node:
+        _logging.info(f"[ydl] using Node.js: {node}")
         return {"node": {"path": node}}
     return {}
 
@@ -1171,7 +1177,7 @@ def liked_songs():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-def _ydl_extract_url(video_id, fmt, skip_download=True, extra_opts=None):
+def _ydl_extract_url(video_id, fmt, skip_download=True, extra_opts=None, skip_auth=False):
     """Run yt-dlp extraction with the given format string. Returns info dict."""
     import yt_dlp
     ydl_opts = {
@@ -1182,20 +1188,22 @@ def _ydl_extract_url(video_id, fmt, skip_download=True, extra_opts=None):
     }
     if extra_opts:
         ydl_opts.update(extra_opts)
-    _apply_ydl_auth(ydl_opts)
+    if not skip_auth:
+        _apply_ydl_auth(ydl_opts)
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         return ydl.extract_info(
             f"https://music.youtube.com/watch?v={video_id}",
             download=False
         )
 
-def _ydl_pick_any_audio(video_id, extra_opts=None):
+def _ydl_pick_any_audio(video_id, extra_opts=None, skip_auth=False):
     """Last-resort: fetch all formats without a selector and pick manually."""
     import yt_dlp
     ydl_opts = {"quiet": True, "no_warnings": True, "skip_download": True}
     if extra_opts:
         ydl_opts.update(extra_opts)
-    _apply_ydl_auth(ydl_opts)
+    if not skip_auth:
+        _apply_ydl_auth(ydl_opts)
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(
             f"https://music.youtube.com/watch?v={video_id}",
@@ -1210,48 +1218,61 @@ def _ydl_pick_any_audio(video_id, extra_opts=None):
         return candidates[-1]["url"]
     return info.get("url")
 
-# Each entry: (format_string, extra_ydl_opts)
-# android_music / ios clients don't require PO tokens
+# Each entry: (format_string, extra_ydl_opts, skip_auth)
+# Fallback chain: web client → android_music (no JS needed) → ios (no JS needed)
+# player_skip=["js"] tells yt-dlp not to execute YouTube's JS for nsig decryption,
+# which fails without Node.js — mobile clients provide pre-decrypted URLs anyway.
+_ANDROID_OPTS = {"extractor_args": {"youtube": {"player_client": ["android_music"], "player_skip": ["js"]}}}
+_IOS_OPTS     = {"extractor_args": {"youtube": {"player_client": ["ios"],           "player_skip": ["js"]}}}
 _STREAM_ATTEMPTS = [
-    ("bestaudio[ext=m4a]/bestaudio[acodec=aac]/bestaudio", None),
-    ("bestaudio/best", None),
-    ("bestaudio/best", {"extractor_args": {"youtube": {"player_client": ["android_music"]}}}),
-    ("bestaudio/best", {"extractor_args": {"youtube": {"player_client": ["ios"]}}}),
+    ("bestaudio[ext=m4a]/bestaudio[acodec=aac]/bestaudio", None,          False),
+    ("bestaudio/best",                                      None,          False),
+    ("bestaudio/best",                                      _ANDROID_OPTS, False),
+    ("bestaudio/best",                                      _ANDROID_OPTS, True),
+    ("bestaudio/best",                                      _IOS_OPTS,     True),
 ]
+
+def _stream_url_from_info(info):
+    url = info.get("url")
+    if not url and info.get("formats"):
+        audio_fmts = [f for f in info["formats"]
+                      if f.get("acodec") != "none" and f.get("vcodec") == "none"]
+        chosen = audio_fmts[-1] if audio_fmts else info["formats"][-1]
+        url = chosen.get("url")
+    return url
+
+def _is_hard_error(err_str):
+    return any(k in err_str for k in ("Video unavailable", "This video is not available", "Music Premium"))
 
 @app.route("/stream/<video_id>")
 def stream_url(video_id):
     last_err = None
-    for fmt, extra in _STREAM_ATTEMPTS:
+    for fmt, extra, no_auth in _STREAM_ATTEMPTS:
         try:
-            info = _ydl_extract_url(video_id, fmt, extra_opts=extra)
-            url = info.get("url")
-            if not url and info.get("formats"):
-                audio_fmts = [f for f in info["formats"]
-                              if f.get("acodec") != "none" and f.get("vcodec") == "none"]
-                chosen = audio_fmts[-1] if audio_fmts else info["formats"][-1]
-                url = chosen.get("url")
+            info = _ydl_extract_url(video_id, fmt, extra_opts=extra, skip_auth=no_auth)
+            url = _stream_url_from_info(info)
             if url:
                 return jsonify({"url": url})
         except Exception as e:
             last_err = e
             err_str = str(e)
-            if any(k in err_str for k in ("Video unavailable", "This video is not available", "Music Premium")):
+            if _is_hard_error(err_str):
                 break
-            _logging.warning(f"[stream] {video_id} fmt={fmt} failed, trying next: {e}")
-    # Brute-force last resort: no format selector, pick manually
-    for extra in (None, {"extractor_args": {"youtube": {"player_client": ["android_music"]}}}):
-        try:
-            url = _ydl_pick_any_audio(video_id, extra_opts=extra)
-            if url:
-                _logging.info(f"[stream] {video_id} recovered via brute-force pick")
-                return jsonify({"url": url})
-        except Exception as e:
-            last_err = e
-            _logging.warning(f"[stream] {video_id} brute-force failed: {e}")
+            _logging.warning(f"[stream] {video_id} fmt={fmt} auth={not no_auth} failed: {e}")
+    # Brute-force: no format selector, pick manually — with and without auth
+    for no_auth in (False, True):
+        for extra in (None, _ANDROID_OPTS, _IOS_OPTS):
+            try:
+                url = _ydl_pick_any_audio(video_id, extra_opts=extra, skip_auth=no_auth)
+                if url:
+                    _logging.info(f"[stream] {video_id} recovered via brute-force (auth={not no_auth})")
+                    return jsonify({"url": url})
+            except Exception as e:
+                last_err = e
+                _logging.warning(f"[stream] {video_id} brute-force auth={not no_auth} failed: {e}")
     err_str = str(last_err) if last_err else "No URL found"
     premium = "Music Premium" in err_str
-    unavailable = any(k in err_str for k in ("Video unavailable", "This video is not available"))
+    unavailable = _is_hard_error(err_str)
     _logging.error(f"[stream] {video_id}: {type(last_err).__name__}: {err_str}")
     return jsonify({"error": err_str, "premium_only": premium, "unavailable": unavailable}), 500
 
@@ -1273,7 +1294,7 @@ def stream_prepare(video_id):
     import yt_dlp
     outtmpl = os.path.join(cache_dir, "%(id)s.%(ext)s")
     last_err = None
-    for fmt, extra in _STREAM_ATTEMPTS:
+    for fmt, extra, no_auth in _STREAM_ATTEMPTS:
         try:
             ydl_opts = {
                 "format": fmt,
@@ -1283,7 +1304,8 @@ def stream_prepare(video_id):
             }
             if extra:
                 ydl_opts.update(extra)
-            _apply_ydl_auth(ydl_opts)
+            if not no_auth:
+                _apply_ydl_auth(ydl_opts)
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(
                     f"https://music.youtube.com/watch?v={video_id}",
@@ -1295,12 +1317,12 @@ def stream_prepare(video_id):
         except Exception as e:
             last_err = e
             err_str = str(e)
-            if any(k in err_str for k in ("Video unavailable", "This video is not available", "Music Premium")):
+            if _is_hard_error(err_str):
                 break
-            _logging.warning(f"[stream-prepare] {video_id} fmt={fmt} failed, trying next: {e}")
+            _logging.warning(f"[stream-prepare] {video_id} fmt={fmt} auth={not no_auth} failed: {e}")
     err_str = str(last_err) if last_err else "Download failed"
     premium = "Music Premium" in err_str
-    unavailable = any(k in err_str for k in ("Video unavailable", "This video is not available"))
+    unavailable = _is_hard_error(err_str)
     _logging.error(f"[stream-prepare] {video_id}: {type(last_err).__name__}: {err_str}")
     return jsonify({"error": err_str, "premium_only": premium, "unavailable": unavailable}), 500
 

@@ -39,6 +39,9 @@ python-backend/headers_raw.txt
 oauth.json
 browser.json
 
+# Node.js Binary (wird beim Build heruntergeladen)
+src-tauri/resources/node.exe
+
 # FFmpeg Binaries (müssen separat heruntergeladen werden)
 python-backend/ffmpeg.exe
 python-backend/ffprobe.exe
