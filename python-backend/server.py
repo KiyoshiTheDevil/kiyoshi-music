@@ -1171,7 +1171,7 @@ def liked_songs():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-def _ydl_extract_url(video_id, fmt, skip_download=True):
+def _ydl_extract_url(video_id, fmt, skip_download=True, extra_opts=None):
     """Run yt-dlp extraction with the given format string. Returns info dict."""
     import yt_dlp
     ydl_opts = {
@@ -1180,6 +1180,8 @@ def _ydl_extract_url(video_id, fmt, skip_download=True):
         "no_warnings": True,
         "skip_download": skip_download,
     }
+    if extra_opts:
+        ydl_opts.update(extra_opts)
     _apply_ydl_auth(ydl_opts)
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         return ydl.extract_info(
@@ -1187,17 +1189,21 @@ def _ydl_extract_url(video_id, fmt, skip_download=True):
             download=False
         )
 
+# Each entry: (format_string, extra_ydl_opts)
+# android_music client doesn't require PO tokens — fallback for users without Node.js
+_STREAM_ATTEMPTS = [
+    ("bestaudio[ext=m4a]/bestaudio[acodec=aac]/bestaudio", None),
+    ("bestaudio/best", None),
+    ("bestaudio/best", {"extractor_args": {"youtube": {"player_client": ["android_music"]}}}),
+    ("bestaudio/best", {"extractor_args": {"youtube": {"player_client": ["ios"]}}}),
+]
+
 @app.route("/stream/<video_id>")
 def stream_url(video_id):
-    # Try preferred format first, then fall back to any available audio.
-    formats_to_try = [
-        "bestaudio[ext=m4a]/bestaudio[acodec=aac]/bestaudio",
-        "bestaudio/best",
-    ]
     last_err = None
-    for fmt in formats_to_try:
+    for fmt, extra in _STREAM_ATTEMPTS:
         try:
-            info = _ydl_extract_url(video_id, fmt)
+            info = _ydl_extract_url(video_id, fmt, extra_opts=extra)
             url = info.get("url")
             if not url and info.get("formats"):
                 audio_fmts = [f for f in info["formats"]
@@ -1209,7 +1215,6 @@ def stream_url(video_id):
         except Exception as e:
             last_err = e
             err_str = str(e)
-            # Don't retry on hard errors (video removed, regional block, premium)
             if any(k in err_str for k in ("Video unavailable", "This video is not available", "Music Premium")):
                 break
             _logging.warning(f"[stream] {video_id} fmt={fmt} failed, trying next: {e}")
@@ -1236,12 +1241,8 @@ def stream_prepare(video_id):
 
     import yt_dlp
     outtmpl = os.path.join(cache_dir, "%(id)s.%(ext)s")
-    formats_to_try = [
-        "bestaudio[ext=m4a]/bestaudio[acodec=aac]/bestaudio",
-        "bestaudio/best",
-    ]
     last_err = None
-    for fmt in formats_to_try:
+    for fmt, extra in _STREAM_ATTEMPTS:
         try:
             ydl_opts = {
                 "format": fmt,
@@ -1249,6 +1250,8 @@ def stream_prepare(video_id):
                 "quiet": True,
                 "no_warnings": True,
             }
+            if extra:
+                ydl_opts.update(extra)
             _apply_ydl_auth(ydl_opts)
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(
@@ -1266,7 +1269,7 @@ def stream_prepare(video_id):
             _logging.warning(f"[stream-prepare] {video_id} fmt={fmt} failed, trying next: {e}")
     err_str = str(last_err) if last_err else "Download failed"
     premium = "Music Premium" in err_str
-    unavailable = any(k in err_str for k in ("Video unavailable", "not available"))
+    unavailable = any(k in err_str for k in ("Video unavailable", "This video is not available"))
     _logging.error(f"[stream-prepare] {video_id}: {type(last_err).__name__}: {err_str}")
     return jsonify({"error": err_str, "premium_only": premium, "unavailable": unavailable}), 500
 
