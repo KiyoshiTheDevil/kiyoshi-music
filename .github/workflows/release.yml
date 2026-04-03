@@ -24,7 +24,7 @@ jobs:
           script: |
             const tag = context.ref.replace('refs/tags/', '');
             const isPrerelease = tag.includes('alpha') || tag.includes('beta');
-            const { data } = await github.rest.releases.createRelease({
+            const { data } = await github.rest.repos.createRelease({
               owner: context.repo.owner,
               repo: context.repo.repo,
               tag_name: tag,
