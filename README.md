@@ -35,11 +35,13 @@ If you have suggestions or ideas on how the player could be improved, do not hes
 ### Known Issues:
 | Issue | Progress |
 |---|---|
-| :3 | Hai! |
+| Performance Issues | In progress |
+| Higher RAM usage sometimes | Known |
+| Disabling Animations not disabling all animations in app | Known |
 
 If you find more issues and bugs, please report then in the Issues-Tab! Thank you!
 
-A Google Account is required to use this app in order to sync the library and playlists with YouTube Music! 
+A Google Account is not mandatory to use the app itself. It is only required to, if you wish to sync the library and playlists with your YouTube Music-Library.
 
 ---
 
