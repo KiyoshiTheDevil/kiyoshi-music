@@ -35,9 +35,9 @@ If you have suggestions or ideas on how the player could be improved, do not hes
 ### Known Issues:
 | Issue | Progress |
 |---|---|
-| Performance Issues | In progress |
-| Higher RAM usage sometimes | Known |
-| Disabling Animations not disabling all animations in app | Known |
+| Performance Issues | Fixed |
+| Higher RAM usage sometimes | Fixed |
+| Disabling Animations not disabling all animations in app | In progress |
 
 If you find more issues and bugs, please report then in the Issues-Tab! Thank you!
 
