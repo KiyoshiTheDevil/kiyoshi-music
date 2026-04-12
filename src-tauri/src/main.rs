@@ -7,6 +7,8 @@ mod server;
 mod obs;
 
 use tauri::Manager;
+use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
+use tauri::tray::{MouseButton, TrayIconBuilder, TrayIconEvent};
 use audio::{AudioPlayer, start_audio_thread, audio_play, audio_pause, audio_resume, audio_stop, audio_seek, audio_set_volume};
 use discord::{DiscordRpc, disconnect_rpc, update_discord_rpc, clear_discord_rpc};
 use window::{WasMaximized, set_fullscreen, open_login_window, close_login_window};
@@ -22,13 +24,18 @@ fn relaunch_app(app: tauri::AppHandle) {
     app.restart();
 }
 
+#[tauri::command]
+fn quit_app(app: tauri::AppHandle) {
+    app.exit(0);
+}
+
 fn main() {
     #[cfg(target_os = "linux")]
     {
         env::set_var("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
         env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
     }
-    
+
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_opener::init())
@@ -46,6 +53,38 @@ fn main() {
             #[cfg(windows)]
             start_audio_session_tagger();
 
+            // ── System Tray ────────────────────────────────────────────────────
+            let show = MenuItem::with_id(app, "show", "Kiyoshi Music anzeigen", true, None::<&str>)?;
+            let quit = MenuItem::with_id(app, "quit", "Beenden", true, None::<&str>)?;
+            let sep  = PredefinedMenuItem::separator(app)?;
+            let menu = Menu::with_items(app, &[&show, &sep, &quit])?;
+
+            let _tray = TrayIconBuilder::new()
+                .icon(app.default_window_icon().unwrap().clone())
+                .menu(&menu)
+                .tooltip("Kiyoshi Music")
+                .on_menu_event(|app, event| match event.id.as_ref() {
+                    "show" => {
+                        if let Some(win) = app.get_webview_window("main") {
+                            let _ = win.show();
+                            let _ = win.set_focus();
+                        }
+                    }
+                    "quit" => app.exit(0),
+                    _ => {}
+                })
+                .on_tray_icon_event(|tray, event| {
+                    // Links-Klick auf Tray-Icon → Fenster zeigen/fokussieren
+                    if let TrayIconEvent::Click { button: MouseButton::Left, .. } = event {
+                        let app = tray.app_handle();
+                        if let Some(win) = app.get_webview_window("main") {
+                            let _ = win.show();
+                            let _ = win.set_focus();
+                        }
+                    }
+                })
+                .build(app)?;
+
             #[cfg(not(debug_assertions))]
             {
                 let mut none: Option<std::process::Child> = None;
@@ -59,14 +98,27 @@ fn main() {
             update_discord_rpc, clear_discord_rpc,
             audio_play, audio_pause, audio_resume,
             audio_stop, audio_seek, audio_set_volume,
-            relaunch_app,
+            relaunch_app, quit_app,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app_handle, event| {
-            if let tauri::RunEvent::Exit = event {
-                disconnect_rpc(app_handle);
-                stop_server(app_handle);
+            match event {
+                // X-Button → Fenster verstecken statt schließen
+                tauri::RunEvent::WindowEvent { ref label, event: tauri::WindowEvent::CloseRequested { api, .. }, .. }
+                    if label == "main" =>
+                {
+                    api.prevent_close();
+                    if let Some(win) = app_handle.get_webview_window("main") {
+                        let _ = win.hide();
+                    }
+                }
+                // Echtes Beenden (via Tray-Menü oder quit_app-Command)
+                tauri::RunEvent::Exit => {
+                    disconnect_rpc(app_handle);
+                    stop_server(app_handle);
+                }
+                _ => {}
             }
         });
 }

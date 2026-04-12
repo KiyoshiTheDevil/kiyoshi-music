@@ -65,7 +65,15 @@ os.makedirs(CUSTOM_LYRICS_DIR, exist_ok=True)
 # Active YTMusic instance and current profile
 _ytm = None
 _current_profile = None
-_playlist_cache = {}  # in-memory for this session
+_PLAYLIST_CACHE_MAX = 20
+_playlist_cache = collections.OrderedDict()  # in-memory LRU, max 20 entries
+
+def _playlist_cache_put(playlist_id, data):
+    """Insert/update entry and evict the oldest if over the size limit."""
+    _playlist_cache[playlist_id] = data
+    _playlist_cache.move_to_end(playlist_id)
+    while len(_playlist_cache) > _PLAYLIST_CACHE_MAX:
+        _playlist_cache.popitem(last=False)
 _adding_account = False
 _download_status = {}  # video_id -> "downloading" | "done" | "error"
 _download_queue  = {}  # video_id -> {title, artists, thumbnail, status, progress (0-1)}
@@ -343,6 +351,17 @@ def get_local_db(name):
     db.commit()
     return db
 
+from contextlib import contextmanager
+
+@contextmanager
+def local_db(name):
+    """Context-Manager um get_local_db — schließt die Verbindung garantiert."""
+    db = get_local_db(name)
+    try:
+        yield db
+    finally:
+        db.close()
+
 # Short-lived cookies that expire in minutes and break the session.
 # YouTube rotates these via Set-Cookie but ytmusicapi doesn't update them.
 _SHORT_LIVED_COOKIES = {
@@ -375,7 +394,7 @@ def load_profile(name):
     if is_local_profile(name):
         _ytm = YTMusic()
         _current_profile = name
-        _playlist_cache = {}
+        _playlist_cache.clear()
         return True
     path = profile_path(name)
     if not os.path.exists(path):
@@ -675,7 +694,7 @@ def setup_auth():
         global _ytm, _current_profile, _playlist_cache
         _ytm = ytm_temp
         _current_profile = profile_name
-        _playlist_cache = {}
+        _playlist_cache.clear()
         threading.Thread(target=fetch_account_info, args=(profile_name,), daemon=True).start()
         return jsonify({"ok": True, "profile": profile_name})
     except Exception as e:
@@ -735,7 +754,7 @@ def cookie_login():
         global _ytm, _current_profile, _playlist_cache
         _ytm = ytm_temp
         _current_profile = profile_name
-        _playlist_cache = {}
+        _playlist_cache.clear()
 
         # Save meta
         meta_path = os.path.join(PROFILES_DIR, f"{profile_name}.meta.json")
@@ -792,8 +811,8 @@ def local_create():
     with open(meta_path(name), "w") as f:
         json.dump({"displayName": display_name, "type": "local"}, f)
     # Init SQLite schema
-    db = get_local_db(name)
-    db.close()
+    with local_db(name):
+        pass
     # Activate profile
     load_profile(name)
     return jsonify({"ok": True, "profile": name, "displayName": display_name})
@@ -977,12 +996,19 @@ def shutdown():
 def status():
     return jsonify({"ok": True, "message": "Kiyoshi Music Backend laeuft"})
 
-# In-memory cache für Lyrics-Übersetzungen
-_translation_cache = {}
+# In-memory LRU cache für Lyrics-Übersetzungen (max 500 Einträge)
+_LYRICS_CACHE_MAX = 500
+_translation_cache = collections.OrderedDict()
+_romaji_cache      = collections.OrderedDict()
+
+def _lru_put(cache, key, value):
+    cache[key] = value
+    cache.move_to_end(key)
+    if len(cache) > _LYRICS_CACHE_MAX:
+        cache.popitem(last=False)
 
 # Romaji-Konverter (lazy init)
 _kakasi = None
-_romaji_cache = {}
 _JP_RE = __import__('re').compile(r'[\u3040-\u309f\u30a0-\u30ff\u4e00-\u9fff\uff66-\uff9f]')
 
 def _get_kakasi():
@@ -1021,7 +1047,7 @@ def romanize_lyrics():
             for item in converted
             if (item.get('hepburn') or item.get('orig', '')).strip()
         )
-        _romaji_cache[cache_key] = romaji
+        _lru_put(_romaji_cache, cache_key, romaji)
         result.append(romaji)
 
     return jsonify({"romanizations": result})
@@ -1090,7 +1116,7 @@ def translate_lyrics():
 
     try:
         translated_lines = _google_translate_batch(non_empty_lines, target_lang)
-        _translation_cache[cache_key] = translated_lines
+        _lru_put(_translation_cache, cache_key, translated_lines)
         result = list(lines)
         for idx, translated in zip(non_empty_indices, translated_lines):
             result[idx] = translated
@@ -1134,7 +1160,7 @@ def cache_clear():
             except Exception:
                 pass
         if cat == "playlists":
-            _playlist_cache = {}
+            _playlist_cache.clear()
         if cat == "songs":
             _download_status = {}
     return jsonify({"ok": True})
@@ -1154,11 +1180,10 @@ def cache_settings():
 def liked_songs():
     try:
         if is_local_profile(_current_profile):
-            db = get_local_db(_current_profile)
-            rows = db.execute(
-                "SELECT video_id, title, artists, album, thumbnail, duration FROM liked_songs ORDER BY liked_at DESC"
-            ).fetchall()
-            db.close()
+            with local_db(_current_profile) as db:
+                rows = db.execute(
+                    "SELECT video_id, title, artists, album, thumbnail, duration FROM liked_songs ORDER BY liked_at DESC"
+                ).fetchall()
             tracks = [{"videoId": r[0], "title": r[1], "artists": r[2], "album": r[3],
                        "thumbnail": r[4], "duration": r[5]} for r in rows]
             return jsonify({"tracks": tracks})
@@ -1237,17 +1262,19 @@ def _ydl_pick_any_audio(video_id, extra_opts=None, skip_auth=False):
 _WEB_MUSIC_OPTS = {"extractor_args": {"youtube": {"player_client": ["web_music"]}}}
 _ANDROID_OPTS   = {"extractor_args": {"youtube": {"player_client": ["android_music"], "player_skip": ["js"]}}}
 _IOS_OPTS       = {"extractor_args": {"youtube": {"player_client": ["ios"],           "player_skip": ["js"]}}}
+_M4A_FMT = "bestaudio[ext=m4a]/bestaudio[acodec=aac]"
+
 _STREAM_ATTEMPTS = [
-    # ── anonymous first (no PO-token issues) ─────────────────────────────────
-    ("bestaudio[ext=m4a]/bestaudio[acodec=aac]/bestaudio", None,            True),
-    ("bestaudio/best",                                      None,            True),
-    ("bestaudio/best",                                      _WEB_MUSIC_OPTS, True),   # YTMusic exclusives
-    ("bestaudio/best",                                      _ANDROID_OPTS,   True),
-    ("bestaudio/best",                                      _IOS_OPTS,       True),
+    # ── anonymous first (no PO-token issues), m4a/AAC only ───────────────────
+    # symphonia 0.5 has no Opus decoder — WebM/Opus files would skip immediately
+    (_M4A_FMT, None,            True),
+    (_M4A_FMT, _WEB_MUSIC_OPTS, True),   # YTMusic exclusives
+    (_M4A_FMT, _ANDROID_OPTS,   True),
+    (_M4A_FMT, _IOS_OPTS,       True),
     # ── authenticated fallback (premium / geo-restricted content) ────────────
-    ("bestaudio/best",                                      None,            False),
-    ("bestaudio/best",                                      _WEB_MUSIC_OPTS, False),
-    ("bestaudio/best",                                      _ANDROID_OPTS,   False),
+    (_M4A_FMT, None,            False),
+    (_M4A_FMT, _WEB_MUSIC_OPTS, False),
+    (_M4A_FMT, _ANDROID_OPTS,   False),
 ]
 
 def _stream_url_from_info(info):
@@ -1315,11 +1342,20 @@ def stream_prepare(video_id):
     cache_dir = os.path.join(tempfile.gettempdir(), "kiyoshi-audio")
     os.makedirs(cache_dir, exist_ok=True)
 
-    # Check if already downloaded
+    # Check if already downloaded (skip WebM — symphonia has no Opus decoder)
+    _PLAYABLE_EXTS = {".m4a", ".mp4", ".mp3", ".ogg", ".flac", ".wav"}
     existing = _glob.glob(os.path.join(cache_dir, f"{video_id}.*"))
-    if existing and os.path.getsize(existing[0]) > 0:
-        print(f"[stream-prepare] Cache hit: {existing[0]}", flush=True)
-        return jsonify({"path": existing[0]})
+    for ex in existing:
+        ext = os.path.splitext(ex)[1].lower()
+        if ext in _PLAYABLE_EXTS and os.path.getsize(ex) > 0:
+            print(f"[stream-prepare] Cache hit: {ex}", flush=True)
+            return jsonify({"path": ex})
+        elif ext not in _PLAYABLE_EXTS and os.path.exists(ex):
+            print(f"[stream-prepare] Removing unplayable cache file: {ex}", flush=True)
+            try:
+                os.remove(ex)
+            except OSError:
+                pass
 
     import yt_dlp
     outtmpl = os.path.join(cache_dir, "%(id)s.%(ext)s")
@@ -1361,11 +1397,10 @@ def stream_prepare(video_id):
 def library_playlists():
     try:
         if is_local_profile(_current_profile):
-            db = get_local_db(_current_profile)
-            rows = db.execute(
-                "SELECT playlist_id, title, description, (SELECT COUNT(*) FROM playlist_tracks WHERE playlist_id=p.playlist_id) FROM playlists p ORDER BY updated_at DESC"
-            ).fetchall()
-            db.close()
+            with local_db(_current_profile) as db:
+                rows = db.execute(
+                    "SELECT playlist_id, title, description, (SELECT COUNT(*) FROM playlist_tracks WHERE playlist_id=p.playlist_id) FROM playlists p ORDER BY updated_at DESC"
+                ).fetchall()
             result = [{"playlistId": r[0], "title": r[1], "description": r[2], "count": str(r[3]), "thumbnail": ""} for r in rows]
             return jsonify({"playlists": result})
         playlists = get_ytmusic().get_library_playlists(limit=50)
@@ -1395,13 +1430,12 @@ def create_playlist():
         if is_local_profile(_current_profile):
             playlist_id = str(uuid.uuid4())
             now = int(time.time())
-            db = get_local_db(_current_profile)
-            db.execute(
-                "INSERT INTO playlists (playlist_id, title, description, privacy, created_at, updated_at) VALUES (?,?,?,?,?,?)",
-                (playlist_id, title, description, privacy, now, now)
-            )
-            db.commit()
-            db.close()
+            with local_db(_current_profile) as db:
+                db.execute(
+                    "INSERT INTO playlists (playlist_id, title, description, privacy, created_at, updated_at) VALUES (?,?,?,?,?,?)",
+                    (playlist_id, title, description, privacy, now, now)
+                )
+                db.commit()
             return jsonify({"ok": True, "playlistId": playlist_id})
         video_ids = data.get("videoIds")
         result = get_ytmusic().create_playlist(title, description, privacy_status=privacy, video_ids=video_ids)
@@ -1417,22 +1451,21 @@ def playlist_add_tracks(playlist_id):
         if not video_ids:
             return jsonify({"error": "videoIds required"}), 400
         if is_local_profile(_current_profile):
-            db = get_local_db(_current_profile)
             tracks_meta = {t["videoId"]: t for t in data.get("tracks", []) if "videoId" in t}
             now = int(time.time())
-            max_pos = db.execute("SELECT COALESCE(MAX(position),0) FROM playlist_tracks WHERE playlist_id=?", (playlist_id,)).fetchone()[0]
-            for i, vid in enumerate(video_ids):
-                meta = tracks_meta.get(vid, {})
-                svid = str(uuid.uuid4())
-                db.execute(
-                    "INSERT INTO playlist_tracks (playlist_id, video_id, title, artists, album, thumbnail, duration, set_video_id, position, added_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
-                    (playlist_id, vid, meta.get("title",""), meta.get("artists",""),
-                     meta.get("album",""), meta.get("thumbnail",""), meta.get("duration",""),
-                     svid, max_pos + i + 1, now)
-                )
-            db.execute("UPDATE playlists SET updated_at=? WHERE playlist_id=?", (now, playlist_id))
-            db.commit()
-            db.close()
+            with local_db(_current_profile) as db:
+                max_pos = db.execute("SELECT COALESCE(MAX(position),0) FROM playlist_tracks WHERE playlist_id=?", (playlist_id,)).fetchone()[0]
+                for i, vid in enumerate(video_ids):
+                    meta = tracks_meta.get(vid, {})
+                    svid = str(uuid.uuid4())
+                    db.execute(
+                        "INSERT INTO playlist_tracks (playlist_id, video_id, title, artists, album, thumbnail, duration, set_video_id, position, added_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                        (playlist_id, vid, meta.get("title",""), meta.get("artists",""),
+                         meta.get("album",""), meta.get("thumbnail",""), meta.get("duration",""),
+                         svid, max_pos + i + 1, now)
+                    )
+                db.execute("UPDATE playlists SET updated_at=? WHERE playlist_id=?", (now, playlist_id))
+                db.commit()
             return jsonify({"ok": True})
         get_ytmusic().add_playlist_items(playlist_id, video_ids)
         _purge_playlist_cache(playlist_id)
@@ -1448,16 +1481,15 @@ def playlist_remove_tracks(playlist_id):
         if not videos:
             return jsonify({"error": "videos required"}), 400
         if is_local_profile(_current_profile):
-            db = get_local_db(_current_profile)
-            for v in videos:
-                svid = v.get("setVideoId")
-                if svid:
-                    db.execute("DELETE FROM playlist_tracks WHERE playlist_id=? AND set_video_id=?", (playlist_id, svid))
-                else:
-                    db.execute("DELETE FROM playlist_tracks WHERE playlist_id=? AND video_id=?", (playlist_id, v.get("videoId","")))
-            db.execute("UPDATE playlists SET updated_at=? WHERE playlist_id=?", (int(time.time()), playlist_id))
-            db.commit()
-            db.close()
+            with local_db(_current_profile) as db:
+                for v in videos:
+                    svid = v.get("setVideoId")
+                    if svid:
+                        db.execute("DELETE FROM playlist_tracks WHERE playlist_id=? AND set_video_id=?", (playlist_id, svid))
+                    else:
+                        db.execute("DELETE FROM playlist_tracks WHERE playlist_id=? AND video_id=?", (playlist_id, v.get("videoId","")))
+                db.execute("UPDATE playlists SET updated_at=? WHERE playlist_id=?", (int(time.time()), playlist_id))
+                db.commit()
             return jsonify({"ok": True})
         get_ytmusic().remove_playlist_items(playlist_id, videos)
         _purge_playlist_cache(playlist_id)
@@ -1473,15 +1505,14 @@ def playlist_edit(playlist_id):
         description = data.get("description")
         privacy = data.get("privacyStatus")
         if is_local_profile(_current_profile):
-            db = get_local_db(_current_profile)
-            if title:
-                db.execute("UPDATE playlists SET title=?, updated_at=? WHERE playlist_id=?", (title, int(time.time()), playlist_id))
-            if description is not None:
-                db.execute("UPDATE playlists SET description=? WHERE playlist_id=?", (description, playlist_id))
-            if privacy:
-                db.execute("UPDATE playlists SET privacy=? WHERE playlist_id=?", (privacy, playlist_id))
-            db.commit()
-            db.close()
+            with local_db(_current_profile) as db:
+                if title:
+                    db.execute("UPDATE playlists SET title=?, updated_at=? WHERE playlist_id=?", (title, int(time.time()), playlist_id))
+                if description is not None:
+                    db.execute("UPDATE playlists SET description=? WHERE playlist_id=?", (description, playlist_id))
+                if privacy:
+                    db.execute("UPDATE playlists SET privacy=? WHERE playlist_id=?", (privacy, playlist_id))
+                db.commit()
             return jsonify({"ok": True})
         get_ytmusic().edit_playlist(playlist_id, title=title, description=description, privacyStatus=privacy)
         _purge_playlist_cache(playlist_id)
@@ -1493,11 +1524,10 @@ def playlist_edit(playlist_id):
 def delete_playlist(playlist_id):
     try:
         if is_local_profile(_current_profile):
-            db = get_local_db(_current_profile)
-            db.execute("DELETE FROM playlist_tracks WHERE playlist_id=?", (playlist_id,))
-            db.execute("DELETE FROM playlists WHERE playlist_id=?", (playlist_id,))
-            db.commit()
-            db.close()
+            with local_db(_current_profile) as db:
+                db.execute("DELETE FROM playlist_tracks WHERE playlist_id=?", (playlist_id,))
+                db.execute("DELETE FROM playlists WHERE playlist_id=?", (playlist_id,))
+                db.commit()
             return jsonify({"ok": True})
         get_ytmusic().delete_playlist(playlist_id)
         _purge_playlist_cache(playlist_id)
@@ -1560,24 +1590,23 @@ def stream_playlist(playlist_id):
 
             # Local profile: serve from SQLite
             if is_local_profile(_current_profile):
-                db = get_local_db(_current_profile)
-                if playlist_id == "LM":
-                    rows = db.execute(
-                        "SELECT video_id, title, artists, album, thumbnail, duration FROM liked_songs ORDER BY liked_at DESC"
-                    ).fetchall()
-                    tracks = [{"videoId": r[0], "setVideoId": r[0], "title": r[1], "artists": r[2],
-                               "album": r[3], "thumbnail": r[4], "duration": r[5]} for r in rows]
-                    pl_title = "Gelikte Songs"
-                else:
-                    pl_row = db.execute("SELECT title FROM playlists WHERE playlist_id=?", (playlist_id,)).fetchone()
-                    pl_title = pl_row[0] if pl_row else playlist_id
-                    rows = db.execute(
-                        "SELECT video_id, set_video_id, title, artists, album, thumbnail, duration FROM playlist_tracks WHERE playlist_id=? ORDER BY position ASC",
-                        (playlist_id,)
-                    ).fetchall()
-                    tracks = [{"videoId": r[0], "setVideoId": r[1], "title": r[2], "artists": r[3],
-                               "album": r[4], "thumbnail": r[5], "duration": r[6]} for r in rows]
-                db.close()
+                with local_db(_current_profile) as db:
+                    if playlist_id == "LM":
+                        rows = db.execute(
+                            "SELECT video_id, title, artists, album, thumbnail, duration FROM liked_songs ORDER BY liked_at DESC"
+                        ).fetchall()
+                        tracks = [{"videoId": r[0], "setVideoId": r[0], "title": r[1], "artists": r[2],
+                                   "album": r[3], "thumbnail": r[4], "duration": r[5]} for r in rows]
+                        pl_title = "Gelikte Songs"
+                    else:
+                        pl_row = db.execute("SELECT title FROM playlists WHERE playlist_id=?", (playlist_id,)).fetchone()
+                        pl_title = pl_row[0] if pl_row else playlist_id
+                        rows = db.execute(
+                            "SELECT video_id, set_video_id, title, artists, album, thumbnail, duration FROM playlist_tracks WHERE playlist_id=? ORDER BY position ASC",
+                            (playlist_id,)
+                        ).fetchall()
+                        tracks = [{"videoId": r[0], "setVideoId": r[1], "title": r[2], "artists": r[3],
+                                   "album": r[4], "thumbnail": r[5], "duration": r[6]} for r in rows]
                 yield f"data: {json.dumps({'type':'header','title':pl_title,'thumbnail':'','total':len(tracks),'cached':True})}\n\n"
                 for i in range(0, len(tracks), CHUNK):
                     yield f"data: {json.dumps({'type':'tracks','tracks':tracks[i:i+CHUNK]})}\n\n"
@@ -1627,7 +1656,7 @@ def stream_playlist(playlist_id):
                 # 2. Disk cache
                 disk = _load_playlist_disk(playlist_id)
                 if disk:
-                    _playlist_cache[playlist_id] = disk  # warm in-memory cache too
+                    _playlist_cache_put(playlist_id, disk)  # warm in-memory cache too
                     yield from serve_cached(disk)
                     return
 
@@ -1643,7 +1672,7 @@ def stream_playlist(playlist_id):
                     yield send({"type": "tracks", "tracks": all_tracks[i:i+CHUNK]})
                 data = {"title": "Liked Songs", "thumbnail": "", "tracks": all_tracks}
                 if _cache_enabled["playlists"]:
-                    _playlist_cache[playlist_id] = data
+                    _playlist_cache_put(playlist_id, data)
                     _save_playlist_disk(playlist_id, data)
                 yield send({"type": "done"})
                 return
@@ -1662,7 +1691,7 @@ def stream_playlist(playlist_id):
                 yield send({"type": "tracks", "tracks": all_tracks[i:i+CHUNK]})
             data = {"title": playlist.get("title", ""), "thumbnail": thumbnail, "tracks": all_tracks}
             if _cache_enabled["playlists"]:
-                _playlist_cache[playlist_id] = data
+                _playlist_cache_put(playlist_id, data)
                 _save_playlist_disk(playlist_id, data)
             yield send({"type": "done"})
 
@@ -1679,22 +1708,20 @@ def stream_playlist(playlist_id):
 def get_playlist(playlist_id):
     try:
         if is_local_profile(_current_profile):
-            db = get_local_db(_current_profile)
-            if playlist_id == "LM":
+            with local_db(_current_profile) as db:
+                if playlist_id == "LM":
+                    rows = db.execute(
+                        "SELECT video_id, title, artists, album, thumbnail, duration FROM liked_songs ORDER BY liked_at DESC"
+                    ).fetchall()
+                    tracks = [{"videoId": r[0], "setVideoId": r[0], "title": r[1], "artists": r[2],
+                               "album": r[3], "thumbnail": r[4], "duration": r[5]} for r in rows]
+                    return jsonify({"title": "Gelikte Songs", "thumbnail": "", "tracks": tracks})
+                pl_row = db.execute("SELECT title FROM playlists WHERE playlist_id=?", (playlist_id,)).fetchone()
+                pl_title = pl_row[0] if pl_row else playlist_id
                 rows = db.execute(
-                    "SELECT video_id, title, artists, album, thumbnail, duration FROM liked_songs ORDER BY liked_at DESC"
+                    "SELECT video_id, set_video_id, title, artists, album, thumbnail, duration FROM playlist_tracks WHERE playlist_id=? ORDER BY position ASC",
+                    (playlist_id,)
                 ).fetchall()
-                db.close()
-                tracks = [{"videoId": r[0], "setVideoId": r[0], "title": r[1], "artists": r[2],
-                           "album": r[3], "thumbnail": r[4], "duration": r[5]} for r in rows]
-                return jsonify({"title": "Gelikte Songs", "thumbnail": "", "tracks": tracks})
-            pl_row = db.execute("SELECT title FROM playlists WHERE playlist_id=?", (playlist_id,)).fetchone()
-            pl_title = pl_row[0] if pl_row else playlist_id
-            rows = db.execute(
-                "SELECT video_id, set_video_id, title, artists, album, thumbnail, duration FROM playlist_tracks WHERE playlist_id=? ORDER BY position ASC",
-                (playlist_id,)
-            ).fetchall()
-            db.close()
             tracks = [{"videoId": r[0], "setVideoId": r[1], "title": r[2], "artists": r[3],
                        "album": r[4], "thumbnail": r[5], "duration": r[6]} for r in rows]
             return jsonify({"title": pl_title, "thumbnail": "", "tracks": tracks})
@@ -2098,18 +2125,17 @@ def like_song(video_id):
         data = request.get_json() or {}
         rating = data.get("rating", "LIKE")
         if is_local_profile(_current_profile):
-            db = get_local_db(_current_profile)
-            if rating == "LIKE":
-                db.execute(
-                    "INSERT OR REPLACE INTO liked_songs (video_id, title, artists, album, thumbnail, duration, liked_at) VALUES (?,?,?,?,?,?,?)",
-                    (video_id, data.get("title",""), data.get("artists",""),
-                     data.get("album",""), data.get("thumbnail",""),
-                     data.get("duration",""), int(time.time()))
-                )
-            else:
-                db.execute("DELETE FROM liked_songs WHERE video_id=?", (video_id,))
-            db.commit()
-            db.close()
+            with local_db(_current_profile) as db:
+                if rating == "LIKE":
+                    db.execute(
+                        "INSERT OR REPLACE INTO liked_songs (video_id, title, artists, album, thumbnail, duration, liked_at) VALUES (?,?,?,?,?,?,?)",
+                        (video_id, data.get("title",""), data.get("artists",""),
+                         data.get("album",""), data.get("thumbnail",""),
+                         data.get("duration",""), int(time.time()))
+                    )
+                else:
+                    db.execute("DELETE FROM liked_songs WHERE video_id=?", (video_id,))
+                db.commit()
             return jsonify({"ok": True, "rating": rating})
         get_ytmusic().rate_song(video_id, rating)
         return jsonify({"ok": True, "rating": rating})
@@ -2120,9 +2146,8 @@ def like_song(video_id):
 def liked_ids():
     try:
         if is_local_profile(_current_profile):
-            db = get_local_db(_current_profile)
-            ids = [r[0] for r in db.execute("SELECT video_id FROM liked_songs").fetchall()]
-            db.close()
+            with local_db(_current_profile) as db:
+                ids = [r[0] for r in db.execute("SELECT video_id FROM liked_songs").fetchall()]
             return jsonify({"ids": ids})
         songs = get_ytmusic().get_liked_songs(limit=None)
         ids = [t.get("videoId") for t in songs.get("tracks", []) if t.get("videoId")]

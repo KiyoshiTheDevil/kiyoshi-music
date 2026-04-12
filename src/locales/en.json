@@ -30,7 +30,7 @@
   "singles": "Singles & EPs",
   "back": "Back",
   "showAll": "Show all",
-  "playAll": "▶ Play",
+  "playAll": "Play",
   "likedTracks": "Tracks",
   "fetchingSongs": "Fetching songs…",
   "noPlaylists": "No playlists found.",
@@ -63,6 +63,7 @@
   "appSettings": "App Settings",
   "settings": "Settings",
   "close": "Close",
+  "quit": "Quit app",
   "selectLanguage": "Select Language",
 
   "appearance": "Appearance",
@@ -212,6 +213,9 @@
   "customLyricsActive": "Custom Lyrics Active",
   "lyricsSource": "Lyrics Source",
 
+  "storage": "Storage",
+  "storageDownloads": "Downloads",
+  "storageCache": "Cache",
   "downloads": "Downloads",
   "saveAsMp3": "Save as MP3",
   "saveAsOpus": "Save as OPUS",
@@ -249,6 +253,7 @@
   "totalDuration": "Total Duration",
   "searchInPlaylist": "Search in playlist…",
   "xOfY": "of",
+  "allSongs": "All Songs",
 
   "hideExplicit": "Hide Explicit Content",
   "hideExplicitDesc": "Songs with the \"E\" badge will be hidden",

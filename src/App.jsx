@@ -49,7 +49,18 @@ import {
   WifiHigh,
   WifiX,
   Bug,
-} from "@phosphor-icons/react";
+  TextSize,
+  Sliders,
+  EyeSlash,
+  Tag,
+  CircleHalf,
+  WaveformLines,
+  Sparkles,
+  ShareNodes,
+  Globe,
+  Lock,
+  LockOpen,
+} from "./icons.jsx";
 
 const API = "http://localhost:9847";
 
@@ -78,7 +89,7 @@ const _MAX_FRONTEND_LOGS = 500;
 const APP_VERSION = "0.9.3-alpha";
 
 // ─── Update Checker (GitHub Releases) ───────────────────────────────────────
-const APP_TAG = "v0.9.3.9-alpha";
+const APP_TAG = "v0.9.4.0-alpha";
 const GITHUB_RELEASES_API = "https://api.github.com/repos/KiyoshiTheDevil/kiyoshi-music/releases?per_page=1";
 
 function isNewerVersion(latest, current) {
@@ -143,6 +154,25 @@ function spring(prop, opts = {}) {
 // Global keyframes injected once
 const GLOBAL_KEYFRAMES = `
   @keyframes pulse { 0%,100%{opacity:.4} 50%{opacity:.9} }
+  @keyframes skipLeft {
+    0%   { transform: translateX(0); }
+    30%  { transform: translateX(-6px); }
+    65%  { transform: translateX(3px); }
+    100% { transform: translateX(0); }
+  }
+  @keyframes skipRight {
+    0%   { transform: translateX(0); }
+    30%  { transform: translateX(6px); }
+    65%  { transform: translateX(-3px); }
+    100% { transform: translateX(0); }
+  }
+  @keyframes heartPop {
+    0%   { transform: scale(1); }
+    25%  { transform: scale(1.5); }
+    55%  { transform: scale(0.88); }
+    80%  { transform: scale(1.15); }
+    100% { transform: scale(1); }
+  }
   @keyframes flashbangFade { 0%,50%{opacity:1} 100%{opacity:0} }
   @keyframes tetoSlideIn {
     from { transform: translateX(110%); }
@@ -188,6 +218,38 @@ const GLOBAL_KEYFRAMES = `
   @keyframes splashGlow {
     0%,100% { transform: scale(1);   opacity: 0.6; }
     50%     { transform: scale(1.25); opacity: 1; }
+  }
+  .icon-btn {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: background 0.15s, color 0.15s;
+  }
+  .icon-btn:hover {
+    background: var(--bg-hover);
+  }
+  .dbg-btn:hover {
+    background: var(--bg-elevated) !important;
+    color: var(--text-primary) !important;
+  }
+  @keyframes noteFloat {
+    0%, 100% { transform: translateY(0px) scale(1); }
+    50%       { transform: translateY(-14px) scale(1.08); }
+  }
+  .grid-card:hover .grid-card-footer {
+    background: rgb(32,32,36) !important;
+  }
+  .view-tab-btn:not(.active):hover {
+    background: color-mix(in srgb, var(--accent) 10%, transparent) !important;
+    color: var(--text-primary) !important;
   }
 `;
 
@@ -832,7 +894,7 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
               fontSize: "var(--t13)",
             }}
           >
-            <span style={{ flexShrink: 0, display: "flex", alignItems: "center" }}>{item.iconEl}</span>
+            <span style={{ flexShrink: 0, width: 18, display: "flex", alignItems: "center", justifyContent: "center" }}>{item.iconEl}</span>
             {!collapsed && item.label}
           </div>
         </React.Fragment>
@@ -1069,18 +1131,46 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
 }
 
 const ACCENT_PRESETS = [
-  { label: "Purple",      value: "#e040fb" },
-  { label: "Pink",        value: "#f50057" },
-  { label: "Red",         value: "#ff1744" },
-  { label: "Orange",      value: "#ff6d00" },
-  { label: "Yellow",      value: "#ffd740" },
-  { label: "Green",       value: "#00e676" },
-  { label: "Teal",        value: "#1de9b6" },
-  { label: "Cyan",        value: "#00e5ff" },
-  { label: "Blue",        value: "#448aff" },
-  { label: "Indigo",      value: "#7c4dff" },
-  { label: "White",       value: "#f0f0f0" },
-  { label: "Gold",        value: "#ffab40" },
+  // Row 1 — saturated
+  { label: "Red",            value: "#e53935" },
+  { label: "Orange",         value: "#f4511e" },
+  { label: "Amber",          value: "#fb8c00" },
+  { label: "Lime",           value: "#7cb342" },
+  { label: "Teal",           value: "#00897b" },
+  { label: "Cyan",           value: "#0097a7" },
+  { label: "Blue",           value: "#1e88e5" },
+  { label: "Purple",         value: "#8e24aa" },
+  { label: "Pink",           value: "#e91e8c" },
+  // Row 2 — medium
+  { label: "Salmon",         value: "#ef7070" },
+  { label: "Coral",          value: "#f48060" },
+  { label: "Gold",           value: "#fba840" },
+  { label: "Yellow-Green",   value: "#a0c464" },
+  { label: "Medium Teal",    value: "#3aab9f" },
+  { label: "Medium Cyan",    value: "#3ab4c4" },
+  { label: "Cornflower",     value: "#5ca8ec" },
+  { label: "Orchid",         value: "#aa5cc4" },
+  { label: "Hot Pink",       value: "#ee60a8" },
+  // Row 3 — light
+  { label: "Light Red",      value: "#f4a0a0" },
+  { label: "Peach",          value: "#f4a890" },
+  { label: "Light Amber",    value: "#fcc880" },
+  { label: "Light Lime",     value: "#bcd888" },
+  { label: "Mint",           value: "#7cccc4" },
+  { label: "Light Cyan",     value: "#7cd0dc" },
+  { label: "Light Blue",     value: "#94c4f4" },
+  { label: "Lavender",       value: "#c494dc" },
+  { label: "Light Pink",     value: "#f4a0c8" },
+  // Row 4 — pastel
+  { label: "Pastel Red",     value: "#f9cece" },
+  { label: "Pastel Peach",   value: "#f8ccb8" },
+  { label: "Pastel Yellow",  value: "#fde4b8" },
+  { label: "Pastel Green",   value: "#d8ecb8" },
+  { label: "Pastel Mint",    value: "#b0e0dc" },
+  { label: "Pastel Cyan",    value: "#b0e4ec" },
+  { label: "Pastel Blue",    value: "#c4dcf8" },
+  { label: "Pastel Purple",  value: "#dcbcec" },
+  { label: "Pastel Pink",    value: "#f8cce0" },
 ];
 
 // ─── Color picker helpers ──────────────────────────────────────────────────
@@ -1291,12 +1381,24 @@ function Toggle({ value, onChange }) {
   );
 }
 
-function SettingRow({ label, description, children }) {
+function SettingRow({ label, description, icon, children }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, padding: "10px 0", borderBottom: "0.5px solid var(--border)" }}>
-      <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: "var(--t13)", fontWeight: 500 }}>{label}</div>
-        {description && <div style={{ fontSize: "var(--t11)", color: "var(--text-muted)", marginTop: 2 }}>{description}</div>}
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, padding: "14px 0", borderBottom: "0.5px solid var(--border)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+        {icon && (
+          <div style={{
+            width: 32, height: 32, borderRadius: 8, flexShrink: 0,
+            background: "var(--bg-elevated)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            color: "var(--accent)",
+          }}>
+            {React.cloneElement(icon, { size: 15 })}
+          </div>
+        )}
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: "var(--t13)", fontWeight: 500 }}>{label}</div>
+          {description && <div style={{ fontSize: "var(--t11)", color: "var(--text-muted)", marginTop: 2 }}>{description}</div>}
+        </div>
       </div>
       <div style={{ flexShrink: 0 }}>{children}</div>
     </div>
@@ -1313,20 +1415,23 @@ function fmtBytes(b) {
 
 const MAX_CACHE_STEPS = [100, 250, 500, 1000, 2000, 5000, 0]; // 0 = unlimited
 
+function StorageTab({ t }) {
+  return (
+    <div>
+      <div style={{ fontSize: "var(--t11)", fontWeight: 700, textTransform: "uppercase", color: "var(--text-secondary)", letterSpacing: 0.8, marginBottom: 14 }}>
+        {t("storageDownloads")}
+      </div>
+      <DownloadsTab t={t} />
+      <div style={{ fontSize: "var(--t11)", fontWeight: 700, textTransform: "uppercase", color: "var(--text-secondary)", letterSpacing: 0.8, marginTop: 32, marginBottom: 14 }}>
+        {t("storageCache")}
+      </div>
+      <CacheTab t={t} />
+    </div>
+  );
+}
+
 function DownloadsTab({ t }) {
   const [mp3Dir, setMp3Dir] = useState(() => localStorage.getItem("kiyoshi-mp3-dir") || "");
-  const [maxCacheMb, setMaxCacheMb] = useState(() => {
-    const v = localStorage.getItem("kiyoshi-max-cache-mb");
-    return v ? parseInt(v, 10) : 0; // 0 = unlimited
-  });
-  const [songStats, setSongStats] = useState(null);
-
-  useEffect(() => {
-    fetch(`${API}/cache/stats`)
-      .then(r => r.json())
-      .then(d => setSongStats(d.songs || null))
-      .catch(() => {});
-  }, []);
 
   const handleChangePath = async () => {
     try {
@@ -1344,22 +1449,6 @@ function DownloadsTab({ t }) {
     localStorage.removeItem("kiyoshi-mp3-dir");
   };
 
-  const sliderIndex = MAX_CACHE_STEPS.indexOf(maxCacheMb);
-  const handleSlider = (idx) => {
-    const val = MAX_CACHE_STEPS[idx];
-    setMaxCacheMb(val);
-    if (val === 0) localStorage.removeItem("kiyoshi-max-cache-mb");
-    else localStorage.setItem("kiyoshi-max-cache-mb", String(val));
-  };
-
-  const stepLabel = (v) => {
-    if (v === 0) return t("unlimited");
-    if (v >= 1000) return `${v / 1000} GB`;
-    return `${v} MB`;
-  };
-
-  const overLimit = maxCacheMb > 0 && songStats && songStats.size > maxCacheMb * 1024 * 1024;
-
   return (
     <div>
       {/* Default save path */}
@@ -1369,7 +1458,7 @@ function DownloadsTab({ t }) {
       <div style={{
         display: "flex", alignItems: "center", gap: 10, padding: "12px 16px",
         background: "var(--bg-elevated)", borderRadius: "var(--radius-lg)",
-        border: "0.5px solid var(--border)", marginBottom: 8,
+        marginBottom: 8,
       }}>
         <DownloadSimple size={16} style={{ color: "var(--accent)", flexShrink: 0 }} />
         <div style={{ flex: 1, fontSize: "var(--t12)", color: mp3Dir ? "var(--text-primary)" : "var(--text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -1377,56 +1466,14 @@ function DownloadsTab({ t }) {
         </div>
         {mp3Dir && (
           <button onClick={handleResetPath} style={{
-            padding: "4px 10px", borderRadius: 6, border: "0.5px solid var(--border)",
+            padding: "4px 10px", borderRadius: 6, border: "none",
             background: "transparent", color: "var(--text-secondary)", fontSize: "var(--t11)", cursor: "pointer",
           }}>{t("resetPath")}</button>
         )}
         <button onClick={handleChangePath} style={{
-          padding: "4px 12px", borderRadius: 6, border: "0.5px solid var(--border)",
+          padding: "4px 12px", borderRadius: 6, border: "none",
           background: "var(--accent)", color: "#fff", fontSize: "var(--t11)", fontWeight: 500, cursor: "pointer",
         }}>{t("changePath")}</button>
-      </div>
-
-      {/* Stats */}
-      <div style={{ fontSize: "var(--t11)", fontWeight: 600, textTransform: "uppercase", color: "var(--text-secondary)", letterSpacing: 0.5, marginTop: 24, marginBottom: 10 }}>
-        {t("storageUsed")}
-      </div>
-      <div style={{
-        display: "flex", alignItems: "center", gap: 14, padding: "14px 16px",
-        background: overLimit ? "rgba(255,60,60,0.08)" : "var(--bg-elevated)",
-        borderRadius: "var(--radius-lg)", border: `0.5px solid ${overLimit ? "rgba(255,60,60,0.4)" : "var(--border)"}`,
-        marginBottom: 8,
-      }}>
-        <MusicNote size={18} style={{ color: overLimit ? "#ff6b6b" : "var(--accent)", flexShrink: 0 }} />
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: "var(--t13)", fontWeight: 500 }}>
-            {songStats ? `${songStats.count} ${t("songsCount")}` : "…"}
-          </div>
-          <div style={{ fontSize: "var(--t11)", color: overLimit ? "#ff6b6b" : "var(--text-secondary)", marginTop: 2 }}>
-            {songStats ? fmtBytes(songStats.size) : "…"}
-            {overLimit && ` — ${t("cacheWarning")}`}
-          </div>
-        </div>
-      </div>
-
-      {/* Max cache size slider */}
-      <div style={{ fontSize: "var(--t11)", fontWeight: 600, textTransform: "uppercase", color: "var(--text-secondary)", letterSpacing: 0.5, marginTop: 24, marginBottom: 10 }}>
-        {t("maxCacheSize")}
-      </div>
-      <div style={{ padding: "14px 16px", background: "var(--bg-elevated)", borderRadius: "var(--radius-lg)", border: "0.5px solid var(--border)" }}>
-        <Slider
-          min={0}
-          max={MAX_CACHE_STEPS.length - 1}
-          step={1}
-          value={sliderIndex >= 0 ? sliderIndex : MAX_CACHE_STEPS.length - 1}
-          onChange={handleSlider}
-          width="100%"
-        />
-        <div style={{ display: "flex", justifyContent: "space-between", fontSize: "var(--t10)", color: "var(--text-muted)", marginTop: 8 }}>
-          {MAX_CACHE_STEPS.map((v, i) => (
-            <span key={i} style={{ fontWeight: i === sliderIndex ? 600 : 400, color: i === sliderIndex ? "var(--accent)" : undefined }}>{stepLabel(v)}</span>
-          ))}
-        </div>
       </div>
     </div>
   );
@@ -1434,9 +1481,10 @@ function DownloadsTab({ t }) {
 
 function CacheTab({ t }) {
   const [stats, setStats] = useState(null);
-  const [clearing, setClearing] = useState({}); // { albums: true, ... }
+  const [clearing, setClearing] = useState({});
   const [cleared, setCleared] = useState({});
   const [fetchError, setFetchError] = useState(null);
+
   const load = useCallback(() => {
     fetch(`${API}/cache/stats`)
       .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status} ${r.statusText}`); return r.json(); })
@@ -1449,8 +1497,7 @@ function CacheTab({ t }) {
   const toggleEnabled = (cat, val) => {
     setStats(s => s ? { ...s, [cat]: { ...s[cat], enabled: val } } : s);
     fetch(`${API}/cache/settings`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+      method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ [cat]: val }),
     }).catch(() => {});
   };
@@ -1458,8 +1505,7 @@ function CacheTab({ t }) {
   const clear = async (cat) => {
     setClearing(c => ({ ...c, [cat]: true }));
     await fetch(`${API}/cache/clear`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+      method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ category: cat }),
     }).catch(() => {});
     setClearing(c => ({ ...c, [cat]: false }));
@@ -1469,65 +1515,184 @@ function CacheTab({ t }) {
   };
 
   const categories = [
-    { key: "songs",     label: t("cacheSongs"),     icon: <MusicNote size={18} /> },
-    { key: "lyrics",    label: t("cacheLyrics"),    icon: <Microphone size={18} /> },
-    { key: "playlists", label: t("cachePlaylists"), icon: <Queue size={18} /> },
-    { key: "albums",    label: t("cacheAlbums"),    icon: <VinylRecord size={18} /> },
-    { key: "images",    label: t("cacheImages"),    icon: <ImageSquare size={18} /> },
+    { key: "songs",     label: t("cacheSongs"),     icon: <MusicNote size={16} />,    color: "var(--accent)",  colorRaw: "180,80,180" },
+    { key: "lyrics",    label: t("cacheLyrics"),    icon: <Microphone size={16} />,   color: "#7c6ff7",        colorRaw: "124,111,247" },
+    { key: "playlists", label: t("cachePlaylists"), icon: <Queue size={16} />,        color: "#3a9fd6",        colorRaw: "58,159,214" },
+    { key: "albums",    label: t("cacheAlbums"),    icon: <VinylRecord size={16} />,  color: "#c8860a",        colorRaw: "200,134,10" },
+    { key: "images",    label: t("cacheImages"),    icon: <ImageSquare size={16} />,  color: "#2e9e5b",        colorRaw: "46,158,91" },
   ];
 
+  const totalBytes = stats ? categories.reduce((sum, c) => sum + (stats[c.key]?.size ?? 0), 0) : 0;
+
+  const [maxCacheMb, setMaxCacheMb] = useState(() => {
+    const v = localStorage.getItem("kiyoshi-max-cache-mb");
+    return v ? parseInt(v, 10) : 0;
+  });
+  const sliderIndex = MAX_CACHE_STEPS.indexOf(maxCacheMb);
+  const handleSlider = (idx) => {
+    const val = MAX_CACHE_STEPS[idx];
+    setMaxCacheMb(val);
+    if (val === 0) localStorage.removeItem("kiyoshi-max-cache-mb");
+    else localStorage.setItem("kiyoshi-max-cache-mb", String(val));
+  };
+  const stepLabel = (v) => {
+    if (v === 0) return t("unlimited");
+    if (v >= 1000) return `${v / 1000} GB`;
+    return `${v} MB`;
+  };
+  const overLimit = maxCacheMb > 0 && totalBytes > maxCacheMb * 1024 * 1024;
+
   return (
-    <div>
+    <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
       {fetchError && (
         <div style={{ padding: "8px 12px", marginBottom: 12, borderRadius: 8, background: "rgba(255,60,60,0.15)", color: "#ff6b6b", fontSize: "var(--t11)" }}>
           Cache-Stats Fehler: {fetchError}
         </div>
       )}
-      {categories.map(({ key, label, icon }) => {
-        const s = stats?.[key];
-        const isClearing = clearing[key];
-        const wasCleared = cleared[key];
-        return (
-          <div key={key} style={{
-            display: "flex", alignItems: "center", gap: 12,
-            padding: "12px 0", borderBottom: "0.5px solid var(--border)",
-          }}>
-            {/* Icon + Label */}
-            <div style={{ color: "var(--accent)", flexShrink: 0 }}>{icon}</div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: "var(--t13)", fontWeight: 500 }}>{label}</div>
-              <div style={{ fontSize: "var(--t11)", color: "var(--text-secondary)", marginTop: 2 }}>
-                {s ? fmtBytes(s.size) : "…"}
-                {s?.count != null ? ` · ${s.count} ${key === "images" ? t("cacheFiles") : t("cacheEntries")}` : ""}
+
+      {/* ── One big box ── */}
+      <div style={{
+        background: "var(--bg-elevated)", borderRadius: 14, overflow: "hidden",
+        transition: "background 0.2s",
+      }}>
+
+        {/* Summary header */}
+        <div style={{
+          padding: "16px 20px",
+          background: overLimit ? "rgba(255,60,60,0.07)" : "transparent",
+          transition: "background 0.2s",
+        }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 10 }}>
+            <div style={{ fontSize: "var(--t11)", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+              {t("cacheTotal") || "Gesamt"}
+            </div>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+              {overLimit && (
+                <div style={{ fontSize: "var(--t11)", color: "#ff6b6b", fontWeight: 600 }}>
+                  {t("cacheWarning")}
+                </div>
+              )}
+              <div style={{ fontSize: "var(--t18)", fontWeight: 700, color: overLimit ? "#ff6b6b" : "var(--text-primary)" }}>
+                {stats ? fmtBytes(totalBytes) : "…"}
               </div>
             </div>
-            {/* Toggle */}
-            <Toggle value={s?.enabled ?? true} onChange={v => toggleEnabled(key, v)} />
-            {/* Clear button */}
-            <button onClick={() => clear(key)} disabled={isClearing} style={{
-              padding: "5px 12px", borderRadius: 7, border: "0.5px solid var(--border)",
-              background: wasCleared ? "rgba(76,175,80,0.15)" : "var(--bg-elevated)",
-              color: wasCleared ? "#4caf50" : isClearing ? "var(--text-muted)" : "var(--text-secondary)",
-              fontSize: "var(--t11)", fontWeight: 500, cursor: isClearing ? "default" : "pointer",
-              transition: "all 0.2s", whiteSpace: "nowrap", minWidth: 64,
-            }}>
-              {wasCleared ? t("cacheCleared") : isClearing ? "…" : t("cacheClear")}
-            </button>
           </div>
-        );
-      })}
-      {/* Clear all */}
-      <div style={{ marginTop: 20, display: "flex", justifyContent: "flex-end" }}>
-        <button onClick={() => categories.forEach(c => clear(c.key))} style={{
-          padding: "7px 18px", borderRadius: 8, border: "0.5px solid var(--border)",
-          background: "var(--bg-elevated)", color: "var(--text-secondary)",
-          fontSize: "var(--t12)", fontWeight: 500, cursor: "pointer", transition: "all 0.15s",
-        }}
-        onMouseEnter={e => { e.currentTarget.style.background = "var(--bg-hover)"; e.currentTarget.style.color = "var(--text-primary)"; }}
-        onMouseLeave={e => { e.currentTarget.style.background = "var(--bg-elevated)"; e.currentTarget.style.color = "var(--text-secondary)"; }}
-        >
-          {t("cacheClearAll")}
-        </button>
+          {/* Stacked bar */}
+          <div style={{ height: 6, borderRadius: 99, overflow: "hidden", background: "var(--bg-base)", display: "flex" }}>
+            {stats && totalBytes > 0 && categories.map(c => {
+              const pct = (stats[c.key]?.size ?? 0) / totalBytes * 100;
+              return pct > 0 ? (
+                <div key={c.key} style={{ width: `${pct}%`, background: c.color, transition: "width 0.4s ease" }} />
+              ) : null;
+            })}
+          </div>
+          {/* Legend */}
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 16px", marginTop: 8 }}>
+            {categories.map(c => (
+              <div key={c.key} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: "var(--t10)", color: "var(--text-muted)" }}>
+                <div style={{ width: 8, height: 8, borderRadius: 99, background: c.color, flexShrink: 0 }} />
+                {c.label}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Divider */}
+        <div style={{ height: "0.5px", background: "var(--border)" }} />
+
+        {/* ── Category rows ── */}
+        {categories.map(({ key, label, icon, color, colorRaw }, idx) => {
+          const s = stats?.[key];
+          const isClearing = clearing[key];
+          const wasCleared = cleared[key];
+          const pct = (totalBytes > 0 && s?.size) ? s.size / totalBytes * 100 : 0;
+
+          return (
+            <div key={key} style={{ opacity: s?.enabled === false ? 0.5 : 1, transition: "opacity 0.2s" }}>
+              {idx > 0 && <div style={{ height: "0.5px", background: "var(--border)", marginLeft: 64 }} />}
+              <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "12px 16px" }}>
+                {/* Colored icon badge */}
+                <div style={{
+                  width: 34, height: 34, borderRadius: 9, flexShrink: 0,
+                  background: `rgba(${colorRaw},0.15)`, color: color,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                }}>{icon}</div>
+
+                {/* Label + stats */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: "var(--t13)", fontWeight: 600, color: "var(--text-primary)" }}>{label}</div>
+                  <div style={{ fontSize: "var(--t11)", color: "var(--text-muted)", marginTop: 1 }}>
+                    {s ? <span style={{ color: color, fontWeight: 600 }}>{fmtBytes(s.size)}</span> : "…"}
+                    {s?.count != null && <span> · {s.count} {key === "images" ? t("cacheFiles") : t("cacheEntries")}</span>}
+                  </div>
+                </div>
+
+                {/* Toggle */}
+                <Toggle value={s?.enabled ?? true} onChange={v => toggleEnabled(key, v)} />
+
+                {/* Clear button */}
+                <button onClick={() => clear(key)} disabled={isClearing || wasCleared} style={{
+                  padding: "5px 12px", borderRadius: 7, border: "none",
+                  background: wasCleared ? "rgba(76,175,80,0.12)" : "var(--bg-base)",
+                  color: wasCleared ? "#4caf50" : isClearing ? "var(--text-muted)" : "var(--text-secondary)",
+                  fontSize: "var(--t11)", fontWeight: 500, cursor: isClearing || wasCleared ? "default" : "pointer",
+                  transition: "all 0.2s", whiteSpace: "nowrap", minWidth: 68, fontFamily: "var(--font)",
+                }}>
+                  {wasCleared ? <><Check size={11} style={{ marginRight: 4 }} />{t("cacheCleared")}</> : isClearing ? "…" : t("cacheClear")}
+                </button>
+              </div>
+
+              {/* Usage bar */}
+              {pct > 0 && (
+                <div style={{ height: 2, background: "var(--bg-base)" }}>
+                  <div style={{ height: "100%", width: `${pct}%`, background: color, transition: "width 0.4s ease", opacity: 0.6 }} />
+                </div>
+              )}
+            </div>
+          );
+        })}
+
+        {/* Divider */}
+        <div style={{ height: "0.5px", background: "var(--border)" }} />
+
+        {/* ── Max cache size slider ── */}
+        <div style={{ padding: "14px 20px" }}>
+          <div style={{ fontSize: "var(--t11)", fontWeight: 600, textTransform: "uppercase", color: "var(--text-muted)", letterSpacing: 0.5, marginBottom: 12 }}>
+            {t("maxCacheSize")}
+          </div>
+          <Slider
+            min={0}
+            max={MAX_CACHE_STEPS.length - 1}
+            step={1}
+            value={sliderIndex >= 0 ? sliderIndex : MAX_CACHE_STEPS.length - 1}
+            onChange={handleSlider}
+            width="100%"
+          />
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: "var(--t10)", color: "var(--text-muted)", marginTop: 8 }}>
+            {MAX_CACHE_STEPS.map((v, i) => (
+              <span key={i} style={{ fontWeight: i === sliderIndex ? 600 : 400, color: i === sliderIndex ? "var(--accent)" : undefined }}>{stepLabel(v)}</span>
+            ))}
+          </div>
+        </div>
+
+        {/* Divider */}
+        <div style={{ height: "0.5px", background: "var(--border)" }} />
+
+        {/* Clear all */}
+        <div style={{ padding: "10px 16px", display: "flex", justifyContent: "flex-end" }}>
+          <button onClick={() => categories.forEach(c => clear(c.key))} style={{
+            padding: "6px 16px", borderRadius: 8, border: "none",
+            background: "var(--bg-base)", color: "var(--text-secondary)",
+            fontSize: "var(--t12)", fontWeight: 500, cursor: "pointer", transition: "all 0.15s",
+            fontFamily: "var(--font)",
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = "var(--bg-hover)"; e.currentTarget.style.color = "var(--text-primary)"; }}
+          onMouseLeave={e => { e.currentTarget.style.background = "var(--bg-base)"; e.currentTarget.style.color = "var(--text-secondary)"; }}
+          >
+            {t("cacheClearAll")}
+          </button>
+        </div>
+
       </div>
     </div>
   );
@@ -1538,6 +1703,7 @@ function CreatePlaylistModal({ onClose, onCreated, t }) {
   const [description, setDescription] = useState("");
   const [privacy, setPrivacy] = useState("PRIVATE");
   const [creating, setCreating] = useState(false);
+  const anim = useAnimations();
 
   const handleCreate = async () => {
     if (!title.trim() || creating) return;
@@ -1558,65 +1724,132 @@ function CreatePlaylistModal({ onClose, onCreated, t }) {
     setCreating(false);
   };
 
+  const fieldLabel = (text) => (
+    <div style={{
+      fontSize: "var(--t10)", fontWeight: 700, color: "var(--text-muted)",
+      textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10,
+      fontFamily: "var(--font)",
+    }}>{text}</div>
+  );
+
+  const inputBase = {
+    width: "100%", padding: "10px 14px", borderRadius: 10,
+    border: "0.5px solid var(--border)", background: "var(--bg-base)",
+    color: "var(--text-primary)", fontSize: "var(--t13)", outline: "none",
+    boxSizing: "border-box", fontFamily: "var(--font)",
+  };
+
   return (
     <>
-      <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 9000 }} />
+      <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 9000 }} />
+      <div style={{ position: "fixed", inset: 0, zIndex: 9001, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
       <div style={{
-        position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)", zIndex: 9001,
-        background: "var(--bg-elevated)", borderRadius: 16, padding: 28, minWidth: 380, maxWidth: 440,
-        border: "0.5px solid var(--border)", boxShadow: "0 12px 40px rgba(0,0,0,0.5)",
+        pointerEvents: "auto",
+        background: "var(--bg-elevated)", borderRadius: 12, overflow: "hidden", width: 660,
+        maxWidth: "calc(100vw - 48px)",
+        border: "0.5px solid var(--border)", boxShadow: "0 32px 80px rgba(0,0,0,0.7)",
+        fontFamily: "var(--font)", display: "flex", flexDirection: "column",
+        animation: anim ? "fadeSlideIn 0.28s cubic-bezier(0.34,1.56,0.64,1)" : undefined,
       }}>
-        <div style={{ fontSize: "var(--t16)", fontWeight: 600, marginBottom: 20 }}>{t("createPlaylist")}</div>
-
-        <div style={{ marginBottom: 14 }}>
-          <div style={{ fontSize: "var(--t11)", fontWeight: 500, color: "var(--text-secondary)", marginBottom: 6 }}>{t("playlistTitle")} *</div>
-          <input value={title} onChange={e => setTitle(e.target.value)} autoFocus
-            onKeyDown={e => e.key === "Enter" && handleCreate()}
-            style={{
-              width: "100%", padding: "8px 12px", borderRadius: 8, border: "0.5px solid var(--border)",
-              background: "var(--bg-main)", color: "var(--text-primary)", fontSize: "var(--t13)", outline: "none",
-              boxSizing: "border-box",
-            }}
-          />
+        {/* Header */}
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "18px 24px", borderBottom: "0.5px solid var(--border)", flexShrink: 0,
+        }}>
+          <div style={{ fontSize: "var(--t15)", fontWeight: 600, fontFamily: "var(--font)" }}>
+            {t("createPlaylist")}
+          </div>
+          <button onClick={onClose} style={{
+            background: "transparent", border: "none", cursor: "pointer",
+            color: "var(--text-muted)", display: "flex", alignItems: "center", justifyContent: "center",
+            borderRadius: 8, width: 28, height: 28, padding: 0, transition: "background 0.15s, color 0.15s",
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = "var(--bg-hover)"; e.currentTarget.style.color = "var(--text-primary)"; }}
+          onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--text-muted)"; }}
+          >
+            <X size={15} />
+          </button>
         </div>
 
-        <div style={{ marginBottom: 14 }}>
-          <div style={{ fontSize: "var(--t11)", fontWeight: 500, color: "var(--text-secondary)", marginBottom: 6 }}>{t("playlistDescription")}</div>
-          <textarea value={description} onChange={e => setDescription(e.target.value)} rows={3}
-            style={{
-              width: "100%", padding: "8px 12px", borderRadius: 8, border: "0.5px solid var(--border)",
-              background: "var(--bg-main)", color: "var(--text-primary)", fontSize: "var(--t13)", outline: "none",
-              resize: "vertical", fontFamily: "inherit", boxSizing: "border-box",
-            }}
-          />
-        </div>
+        {/* Body */}
+        <div style={{ display: "flex", gap: 24, padding: "24px 24px 20px" }}>
+          {/* Left: Titel + Beschreibung */}
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 18 }}>
+            <div>
+              {fieldLabel(t("playlistTitle"))}
+              <input value={title} onChange={e => setTitle(e.target.value)} autoFocus
+                onKeyDown={e => e.key === "Enter" && handleCreate()}
+                style={inputBase}
+              />
+            </div>
+            <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+              {fieldLabel(t("playlistDescription"))}
+              <textarea value={description} onChange={e => setDescription(e.target.value)}
+                style={{ ...inputBase, flex: 1, minHeight: 110, resize: "none" }}
+              />
+            </div>
+          </div>
 
-        <div style={{ marginBottom: 20 }}>
-          <div style={{ fontSize: "var(--t11)", fontWeight: 500, color: "var(--text-secondary)", marginBottom: 6 }}>{t("playlistPrivacy")}</div>
-          <div style={{ display: "flex", gap: 8 }}>
-            {[["PRIVATE", t("privacyPrivate")], ["PUBLIC", t("privacyPublic")], ["UNLISTED", t("privacyUnlisted")]].map(([val, label]) => (
-              <button key={val} onClick={() => setPrivacy(val)} style={{
-                padding: "6px 14px", borderRadius: 8, border: "0.5px solid var(--border)",
-                background: privacy === val ? "var(--accent)" : "var(--bg-main)",
-                color: privacy === val ? "#fff" : "var(--text-secondary)",
-                fontSize: "var(--t12)", fontWeight: 500, cursor: "pointer", transition: "all 0.15s",
-              }}>{label}</button>
-            ))}
+          {/* Divider */}
+          <div style={{ width: "0.5px", background: "var(--border)", flexShrink: 0, margin: "4px 0" }} />
+
+          {/* Right: Sichtbarkeit */}
+          <div style={{ width: 185, display: "flex", flexDirection: "column" }}>
+            {fieldLabel(t("playlistPrivacy"))}
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {[
+                ["PRIVATE",  t("privacyPrivate"),  <Lock size={13} />],
+                ["UNLISTED", t("privacyUnlisted"), <EyeSlash size={13} />],
+                ["PUBLIC",   t("privacyPublic"),   <Globe size={13} />],
+              ].map(([val, label, icon]) => {
+                const active = privacy === val;
+                return (
+                  <button key={val} onClick={() => setPrivacy(val)}
+                    onMouseEnter={e => { if (!active) e.currentTarget.style.background = "var(--bg-hover)"; }}
+                    onMouseLeave={e => { if (!active) e.currentTarget.style.background = "transparent"; }}
+                    style={{
+                      width: "100%", padding: "10px 14px", borderRadius: 8,
+                      border: "none",
+                      background: active ? "color-mix(in srgb, var(--accent) 14%, transparent)" : "transparent",
+                      color: active ? "var(--accent)" : "var(--text-secondary)",
+                      fontSize: "var(--t13)", fontWeight: active ? 600 : 400,
+                      cursor: "pointer", textAlign: "left", fontFamily: "var(--font)",
+                      transition: "background 0.15s, color 0.15s, border-color 0.15s",
+                      display: "flex", alignItems: "center", gap: 9,
+                    }}>
+                    <span style={{ opacity: active ? 1 : 0.55, transition: "opacity 0.15s", display: "flex", width: 16, justifyContent: "center", flexShrink: 0 }}>{icon}</span>
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
 
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+        {/* Footer */}
+        <div style={{
+          display: "flex", justifyContent: "flex-end", gap: 8,
+          padding: "14px 24px", borderTop: "0.5px solid var(--border)", flexShrink: 0,
+        }}>
           <button onClick={onClose} style={{
-            padding: "8px 18px", borderRadius: 8, border: "0.5px solid var(--border)",
-            background: "var(--bg-main)", color: "var(--text-secondary)", fontSize: "var(--t13)", cursor: "pointer",
-          }}>{t("cancel")}</button>
+            padding: "9px 20px", borderRadius: 8, border: "0.5px solid var(--border)",
+            background: "transparent", color: "var(--text-secondary)",
+            fontSize: "var(--t13)", fontWeight: 500, cursor: "pointer", fontFamily: "var(--font)",
+            transition: "background 0.15s, color 0.15s",
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = "var(--bg-hover)"; e.currentTarget.style.color = "var(--text-primary)"; }}
+          onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--text-secondary)"; }}
+          >{t("cancel")}</button>
           <button onClick={handleCreate} disabled={!title.trim() || creating} style={{
-            padding: "8px 18px", borderRadius: 8, border: "none",
-            background: !title.trim() ? "var(--text-muted)" : "var(--accent)", color: "#fff",
-            fontSize: "var(--t13)", fontWeight: 500, cursor: !title.trim() ? "default" : "pointer",
-            opacity: creating ? 0.6 : 1,
+            padding: "9px 20px", borderRadius: 8, border: "none",
+            background: "var(--accent)", color: "#fff",
+            fontSize: "var(--t13)", fontWeight: 600, fontFamily: "var(--font)",
+            cursor: !title.trim() || creating ? "default" : "pointer",
+            opacity: !title.trim() || creating ? 0.35 : 1,
+            transition: "opacity 0.15s",
           }}>{creating ? t("loadingDots") : t("create")}</button>
         </div>
+      </div>
       </div>
     </>
   );
@@ -1736,8 +1969,8 @@ const _debugLevelBg = (level) => {
 };
 const _debugFmtTs = (ts) => new Date(ts * 1000).toTimeString().slice(0, 8);
 const _debugBtnStyle = (active) => ({
-  padding: "3px 9px", borderRadius: 5, border: "0.5px solid var(--border)",
-  background: active ? "rgba(224,64,251,0.15)" : "var(--bg-elevated)",
+  padding: "3px 9px", borderRadius: 5, border: "none",
+  background: active ? "rgba(224,64,251,0.15)" : "transparent",
   color: active ? "var(--accent)" : "var(--text-secondary)",
   fontSize: "var(--t11)", cursor: "pointer", transition: "all 0.12s",
   fontFamily: "var(--font)", fontWeight: active ? 600 : 400,
@@ -1858,8 +2091,8 @@ function DebugFloatingWindow({ onClose }) {
       }}>
         <Bug size={13} style={{ color: "var(--accent)", flexShrink: 0 }} />
         <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)", flex: 1 }}>Debug</span>
-        <button style={_debugBtnStyle(activeTab === "info")}  onClick={() => setActiveTab("info")}>Sysinfo</button>
-        <button style={_debugBtnStyle(activeTab === "logs")}  onClick={() => setActiveTab("logs")}>Logs</button>
+        <button className="dbg-btn" style={_debugBtnStyle(activeTab === "info")}  onClick={() => setActiveTab("info")}>Sysinfo</button>
+        <button className="dbg-btn" style={_debugBtnStyle(activeTab === "logs")}  onClick={() => setActiveTab("logs")}>Logs</button>
         <div style={{ width: 1, height: 12, background: "var(--border)", margin: "0 2px" }} />
         <button
           onClick={onClose}
@@ -1990,6 +2223,7 @@ function DebugTab({ t }) {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
           <div style={{ fontSize: "var(--t11)", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em" }}>{t("debugSysInfo")}</div>
           <button
+            className="dbg-btn"
             onClick={openFloat}
             style={{ ..._debugBtnStyle(false), display: "flex", alignItems: "center", gap: 5, padding: "4px 10px" }}
             title={t("debugOpenFloat")}
@@ -2016,7 +2250,7 @@ function DebugTab({ t }) {
               ["Plattform",  info.platform],
               ["Uptime",     info.uptime],
             ].map(([k, v]) => (
-              <div key={k} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderRadius: 6, background: "var(--bg-elevated)", border: "0.5px solid var(--border)" }}>
+              <div key={k} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderRadius: 6, background: "var(--bg-elevated)" }}>
                 <span style={{ fontSize: "var(--t11)", color: "var(--text-muted)", minWidth: 76, flexShrink: 0 }}>{k}</span>
                 <span style={{ fontSize: "var(--t12)", color: "var(--text-primary)", fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{v}</span>
               </div>
@@ -2030,20 +2264,20 @@ function DebugTab({ t }) {
         <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6, flexWrap: "wrap" }}>
           <span style={{ fontSize: "var(--t11)", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginRight: 4 }}>Logs</span>
           {["ALL","INFO","WARN","ERROR"].map(f => (
-            <button key={f} style={_debugBtnStyle(filter === f)} onClick={() => setFilter(f)}>{f}</button>
+            <button key={f} className="dbg-btn" style={_debugBtnStyle(filter === f)} onClick={() => setFilter(f)}>{f}</button>
           ))}
           <div style={{ width: 1, height: 14, background: "var(--border)", margin: "0 2px" }} />
           {["ALL","frontend","backend"].map(s => (
-            <button key={s} style={_debugBtnStyle(source === s)} onClick={() => setSource(s)}>{s === "ALL" ? "Alle" : s}</button>
+            <button key={s} className="dbg-btn" style={_debugBtnStyle(source === s)} onClick={() => setSource(s)}>{s === "ALL" ? "Alle" : s}</button>
           ))}
           <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
-            <button style={{ ..._debugBtnStyle(autoScroll), display: "flex", alignItems: "center", gap: 4 }} onClick={() => setAutoScroll(a => !a)}>
+            <button className="dbg-btn" style={{ ..._debugBtnStyle(autoScroll), display: "flex", alignItems: "center", gap: 4 }} onClick={() => setAutoScroll(a => !a)}>
               <CaretDown size={11} /> Auto-Scroll
             </button>
-            <button style={{ ..._debugBtnStyle(false), display: "flex", alignItems: "center", gap: 4 }} onClick={() => setRefreshKey(k => k + 1)}>
+            <button className="dbg-btn" style={{ ..._debugBtnStyle(false), display: "flex", alignItems: "center", gap: 4 }} onClick={() => setRefreshKey(k => k + 1)}>
               <ArrowClockwise size={11} /> {t("refresh")}
             </button>
-            <button style={{ ..._debugBtnStyle(false), display: "flex", alignItems: "center", gap: 4 }} onClick={handleCopy}>
+            <button className="dbg-btn" style={{ ..._debugBtnStyle(false), display: "flex", alignItems: "center", gap: 4 }} onClick={handleCopy}>
               {copied ? <><Check size={11} weight="bold" /> {t("copied")}</> : <><Copy size={11} /> {t("copyAll")}</>}
             </button>
           </div>
@@ -2072,6 +2306,13 @@ function DebugTab({ t }) {
   );
 }
 
+// Extracted outside SettingsPanel to avoid remount on every parent render
+function SettingsSectionLabel({ children }) {
+  return (
+    <div style={{ fontSize: "var(--t11)", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", margin: "24px 0 8px" }}>{children}</div>
+  );
+}
+
 function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, animations, onAnimationsChange, lyricsFontSize, onLyricsFontSizeChange, lyricsTranslationFontSize, onLyricsTranslationFontSizeChange, lyricsRomajiFontSize, onLyricsRomajiFontSizeChange, lyricsProviders, onLyricsProvidersChange, autoplay, onAutoplayChange, crossfade, onCrossfadeChange, discordRpc, onDiscordRpcChange, language, onLanguageChange, updateInfo, onCheckUpdate, updateDownloading, updateDownloadProgress, updateDownloaded, onDownloadUpdate, onInstallUpdate, onCancelDownload, initialTab, onTabOpened, hideExplicit, onHideExplicitChange, uiZoom, onUiZoomChange, appFontScale, onFontScaleChange, showRomaji, onToggleRomaji, showAgentTags, onToggleAgentTags, highContrast, onToggleHighContrast, appFont, onAppFontChange, ambientVisualizer, onToggleAmbientVisualizer }) {
   const anim = useAnimations();
   const t = useLang();
@@ -2089,8 +2330,7 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
     { id: "accessibility",  label: t("accessibility"), iconEl: <PersonArmsSpread size={18} /> },
     { id: "shortcuts",   label: t("shortcuts"),   iconEl: <Keyboard size={18} /> },
     { id: "language",    label: t("language"),    iconEl: <Translate size={18} /> },
-    { id: "cache",       label: t("cache"),       iconEl: <HardDrives size={18} /> },
-    { id: "downloads",  label: t("downloads"),   iconEl: <DownloadSimple size={18} /> },
+    { id: "storage",    label: t("storage"),     iconEl: <HardDrives size={18} /> },
     { id: "update",     label: t("update"),      iconEl: <ArrowsClockwise size={18} /> },
     { id: "debug",      label: t("debug"),       iconEl: <Bug size={18} /> },
   ];
@@ -2111,14 +2351,22 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
     { key: "Ctrl + −",  action: t("scZoomOut") },
   ];
 
-  const SectionLabel = ({ children }) => (
-    <div style={{ fontSize: "var(--t11)", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", margin: "24px 0 8px" }}>{children}</div>
-  );
+  const SectionLabel = SettingsSectionLabel;
 
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", animation: anim ? "fadeIn 0.18s ease" : undefined }}>
       <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.7)" }} />
-      <div style={{ position: "relative", borderRadius: 12, overflow: "hidden", width: 900, height: 640, maxWidth: "calc(100% - 40px)", maxHeight: "calc(100% - 40px)", display: "flex", boxShadow: "0 32px 80px rgba(0,0,0,0.7)", animation: anim ? "fadeSlideIn 0.28s cubic-bezier(0.34,1.56,0.64,1)" : undefined, border: "0.5px solid var(--border)" }}>
+      <div style={{ position: "relative", borderRadius: 12, overflow: "hidden", width: 1140, height: 740, maxWidth: "calc(100% - 40px)", maxHeight: "calc(100% - 40px)", display: "flex", boxShadow: "0 32px 80px rgba(0,0,0,0.7)", animation: anim ? "fadeSlideIn 0.28s cubic-bezier(0.34,1.56,0.64,1)" : undefined, border: "0.5px solid var(--border)" }}>
+        {/* Close button — top right */}
+        <button onClick={onClose} className="icon-btn" style={{
+          position: "absolute", top: 12, right: 12, zIndex: 10,
+          color: "var(--text-muted)",
+        }}
+        onMouseEnter={e => { e.currentTarget.style.background = "var(--bg-hover)"; e.currentTarget.style.color = "var(--text-primary)"; }}
+        onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--text-muted)"; }}
+        >
+          <X size={16} />
+        </button>
 
         {/* Left Sidebar */}
         <div style={{ width: 220, background: "var(--bg-elevated)", flexShrink: 0, display: "flex", flexDirection: "column", padding: "20px 12px", borderRight: "0.5px solid var(--border)" }}>
@@ -2156,7 +2404,7 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
             onMouseEnter={e => { if (tab !== item.id) { e.currentTarget.style.background = "var(--bg-hover)"; e.currentTarget.style.color = "var(--text-primary)"; }}}
             onMouseLeave={e => { if (tab !== item.id) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--text-secondary)"; }}}
             >
-              <span style={{ flexShrink: 0, display: "flex", alignItems: "center" }}>{item.iconEl || <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor">{item.icon}</svg>}</span>
+              <span style={{ flexShrink: 0, width: 20, display: "flex", alignItems: "center", justifyContent: "center" }}>{item.iconEl || <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor">{item.icon}</svg>}</span>
               {item.label}
               {item.id === "update" && updateInfo && (
                 <span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--accent)", marginLeft: "auto", flexShrink: 0 }} />
@@ -2173,16 +2421,16 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                 Chromium {chromiumVersion}
               </div>
             </div>
-            <div onClick={onClose} style={{
+            <div onClick={() => import("@tauri-apps/api/core").then(({ invoke }) => invoke("quit_app"))} style={{
               display: "flex", alignItems: "center", gap: 10,
               padding: "8px 10px", borderRadius: "var(--radius)", cursor: "pointer",
               color: "var(--text-muted)", fontSize: "var(--t13)", transition: "all 0.15s",
             }}
-            onMouseEnter={e => { e.currentTarget.style.background = "var(--bg-hover)"; e.currentTarget.style.color = "#f44336"; }}
+            onMouseEnter={e => { e.currentTarget.style.background = "rgba(244,67,54,0.08)"; e.currentTarget.style.color = "#f44336"; }}
             onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--text-muted)"; }}
             >
-              <X size={16} />
-              {t("close")}
+              <span style={{ width: 20, display: "flex", alignItems: "center", justifyContent: "center" }}><ArrowSquareOut size={16} /></span>
+              {t("quit")}
             </div>
           </div>
         </div>
@@ -2245,11 +2493,11 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                     <div style={{ display: "flex", gap: 10, alignItems: "stretch", marginBottom: 14 }}>
                       {/* Left: preset grid + custom box — stretches to picker height */}
                       <div style={{ display: "flex", gap: GAP, flex: 1, minWidth: 0 }}>
-                        {/* Preset grid — fills all available space, 4 cols × 3 rows */}
+                        {/* Preset grid — fills all available space, 9 cols × 4 rows */}
                         <div style={{
                           display: "grid",
-                          gridTemplateColumns: "repeat(4, 1fr)",
-                          gridTemplateRows: "repeat(3, 1fr)",
+                          gridTemplateColumns: "repeat(9, 1fr)",
+                          gridTemplateRows: "repeat(4, 1fr)",
                           gap: GAP, flex: 1,
                         }}>
                           {ACCENT_PRESETS.map(p => (
@@ -2265,7 +2513,7 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                         </div>
                         {/* Custom color box — stretches to full grid height */}
                         <Tooltip text={t("customColor")}><div style={{
-                          width: 36, flexShrink: 0, borderRadius: 7,
+                          width: 56, flexShrink: 0, borderRadius: 7,
                           background: isCustom ? accent : "var(--bg-elevated)",
                           border: `0.5px solid ${isCustom ? "transparent" : "var(--border)"}`,
                           outline: isCustom ? `2.5px solid ${accent}` : "2.5px solid transparent", outlineOffset: 2,
@@ -2284,10 +2532,10 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                   );
                 })()}
                 <SectionLabel>{t("appearance")}</SectionLabel>
-                <SettingRow label={t("animations")} description={t("animationsDesc")}>
+                <SettingRow label={t("animations")} description={t("animationsDesc")} icon={<Sparkles />}>
                   <Toggle value={animations} onChange={onAnimationsChange} />
                 </SettingRow>
-                <SettingRow label={t("uiZoom")} description={t("uiZoomDesc")}>
+                <SettingRow label={t("uiZoom")} description={t("uiZoomDesc")} icon={<MagnifyingGlass />}>
                   <div style={{ width: 360 }}>
                     <Slider min={0} max={ZOOM_STEPS.length - 1} step={1}
                       value={Math.max(0, ZOOM_STEPS.indexOf(uiZoom))}
@@ -2299,7 +2547,7 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                     </div>
                   </div>
                 </SettingRow>
-                <SettingRow label={t("fontSize")} description={t("fontSizeDesc")}>
+                <SettingRow label={t("fontSize")} description={t("fontSizeDesc")} icon={<TextSize />}>
                   <div style={{ width: 360 }}>
                     <Slider min={0} max={FONT_STEPS.length - 1} step={1}
                       value={Math.max(0, FONT_STEPS.indexOf(appFontScale))}
@@ -2317,19 +2565,19 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
             {tab === "wiedergabe" && (
               <>
                 <SectionLabel>{t("playback")}</SectionLabel>
-                <SettingRow label={t("autoplay")} description={t("autoplayDesc")}>
+                <SettingRow label={t("autoplay")} description={t("autoplayDesc")} icon={<PlayCircle />}>
                   <Toggle value={autoplay} onChange={onAutoplayChange} />
                 </SettingRow>
-                <SettingRow label={t("crossfade")} description={`${t("crossfadeDesc")}: ${crossfade}s`}>
+                <SettingRow label={t("crossfade")} description={`${t("crossfadeDesc")}: ${crossfade}s`} icon={<Sliders />}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <Slider min={0} max={12} step={1} value={crossfade} onChange={onCrossfadeChange} width={120} />
                     <span style={{ fontSize: "var(--t12)", color: "var(--text-muted)", width: 28 }}>{crossfade}s</span>
                   </div>
                 </SettingRow>
-                <SettingRow label={t("discordRpc")} description={t("discordRpcDesc")}>
+                <SettingRow label={t("discordRpc")} description={t("discordRpcDesc")} icon={<ShareNodes />}>
                   <Toggle value={discordRpc} onChange={onDiscordRpcChange} />
                 </SettingRow>
-                <SettingRow label={t("hideExplicit")} description={t("hideExplicitDesc")}>
+                <SettingRow label={t("hideExplicit")} description={t("hideExplicitDesc")} icon={<EyeSlash />}>
                   <Toggle value={hideExplicit} onChange={onHideExplicitChange} />
                 </SettingRow>
               </>
@@ -2338,25 +2586,25 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
             {tab === "lyrics" && (
               <>
                 <SectionLabel>{t("lyrics")}</SectionLabel>
-                <SettingRow label={t("fontSize")} description={`${t("fontSizeDesc")}: ${lyricsFontSize}px`}>
+                <SettingRow label={t("fontSize")} description={`${t("fontSizeDesc")}: ${lyricsFontSize}px`} icon={<TextSize />}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <Slider min={18} max={52} step={2} value={lyricsFontSize} onChange={onLyricsFontSizeChange} width={120} />
                     <span style={{ fontSize: "var(--t12)", color: "var(--text-muted)", width: 36 }}>{lyricsFontSize}px</span>
                   </div>
                 </SettingRow>
-                <SettingRow label={t("translationFontSize")} description={`${t("fontSizeDesc")}: ${lyricsTranslationFontSize}px`}>
+                <SettingRow label={t("translationFontSize")} description={`${t("fontSizeDesc")}: ${lyricsTranslationFontSize}px`} icon={<Translate />}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <Slider min={12} max={40} step={2} value={lyricsTranslationFontSize} onChange={onLyricsTranslationFontSizeChange} width={120} />
                     <span style={{ fontSize: "var(--t12)", color: "var(--text-muted)", width: 36 }}>{lyricsTranslationFontSize}px</span>
                   </div>
                 </SettingRow>
-                <SettingRow label={t("showRomaji")} description={t("romajiLyrics")}>
+                <SettingRow label={t("showRomaji")} description={t("romajiLyrics")} icon={<Globe />}>
                   <Toggle value={showRomaji} onChange={onToggleRomaji} />
                 </SettingRow>
-                <SettingRow label={t("showAgentTags")} description={t("showAgentTagsDesc")}>
+                <SettingRow label={t("showAgentTags")} description={t("showAgentTagsDesc")} icon={<Tag />}>
                   <Toggle value={showAgentTags} onChange={onToggleAgentTags} />
                 </SettingRow>
-                <SettingRow label={t("romajiFontSize")} description={`${t("fontSizeDesc")}: ${lyricsRomajiFontSize}px`}>
+                <SettingRow label={t("romajiFontSize")} description={`${t("fontSizeDesc")}: ${lyricsRomajiFontSize}px`} icon={<TextSize />}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <Slider min={12} max={40} step={2} value={lyricsRomajiFontSize} onChange={onLyricsRomajiFontSizeChange} width={120} />
                     <span style={{ fontSize: "var(--t12)", color: "var(--text-muted)", width: 36 }}>{lyricsRomajiFontSize}px</span>
@@ -2371,10 +2619,10 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
             {tab === "accessibility" && (
               <>
                 <SectionLabel>{t("appearance")}</SectionLabel>
-                <SettingRow label={t("highContrast")} description={t("highContrastDesc")}>
+                <SettingRow label={t("highContrast")} description={t("highContrastDesc")} icon={<CircleHalf />}>
                   <Toggle value={highContrast} onChange={onToggleHighContrast} />
                 </SettingRow>
-                <SettingRow label={t("ambientVisualizer")} description={t("ambientVisualizerDesc")}>
+                <SettingRow label={t("ambientVisualizer")} description={t("ambientVisualizerDesc")} icon={<WaveformLines />}>
                   <Toggle value={ambientVisualizer} onChange={onToggleAmbientVisualizer} />
                 </SettingRow>
 
@@ -2420,9 +2668,7 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
               </>
             )}
 
-            {tab === "cache" && <CacheTab t={t} />}
-
-            {tab === "downloads" && <DownloadsTab t={t} />}
+            {tab === "storage" && <StorageTab t={t} />}
 
             {tab === "language" && (
               <>
@@ -2438,7 +2684,7 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                   onMouseEnter={e => { if (language !== lang.code) e.currentTarget.style.background = "var(--bg-hover)"; }}
                   onMouseLeave={e => { if (language !== lang.code) e.currentTarget.style.background = "var(--bg-elevated)"; }}
                   >
-                    <div dangerouslySetInnerHTML={{ __html: lang.flag }} style={{ width: 32, height: 20, flexShrink: 0, borderRadius: 3, overflow: "hidden", border: "0.5px solid var(--border)" }} />
+                    <div dangerouslySetInnerHTML={{ __html: lang.flag }} style={{ width: 48, height: 30, flexShrink: 0, borderRadius: 4, overflow: "hidden", border: "0.5px solid var(--border)" }} />
                     <div style={{ fontSize: "var(--t13)", fontWeight: 500, color: language === lang.code ? "var(--accent)" : "var(--text-primary)" }}>{lang.label}</div>
                     {language === lang.code && (
                       <Check size={14} style={{ marginLeft: "auto", color: "var(--accent)" }} />
@@ -2824,7 +3070,7 @@ function QueuePanel({ queue, setQueue, currentTrack, setTrack, onClose }) {
   );
 }
 
-function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPlaying, expanded, onExpandToggle, showLyrics, onToggleLyrics, queueOpen, onToggleQueue, fullscreen, onToggleFullscreen, crossfade = 0, onOpenAlbum, onOpenArtist, onExportSong, onRefetchLyrics, lyricsProviders = DEFAULT_LYRICS_PROVIDERS, currentLyricsSource = "", onSwitchLyricsProvider, failedLyricsProviders = new Set(), language = "de", showLyricsTranslation = false, onToggleLyricsTranslation, lyricsTranslationLang = "DE", onSetLyricsTranslationLang, showRomaji = false, onToggleRomaji, isCustomLyrics = false, onImportLyrics, onRemoveCustomLyrics, onPremiumDetected }) {
+function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPlaying, expanded, onExpandToggle, showLyrics, onToggleLyrics, queueOpen, onToggleQueue, fullscreen, onToggleFullscreen, crossfade = 0, onOpenAlbum, onOpenArtist, onExportSong, onDownloadSong, cachedSongIds, downloadingIds, onRefetchLyrics, lyricsProviders = DEFAULT_LYRICS_PROVIDERS, currentLyricsSource = "", onSwitchLyricsProvider, failedLyricsProviders = new Set(), language = "de", showLyricsTranslation = false, onToggleLyricsTranslation, lyricsTranslationLang = "DE", onSetLyricsTranslationLang, showRomaji = false, onToggleRomaji, isCustomLyrics = false, onImportLyrics, onRemoveCustomLyrics, onPremiumDetected }) {
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(() => {
@@ -2834,6 +3080,9 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
   const [streamUrl, setStreamUrl] = useState(null);
   const [loading, setLoading] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
+  const [likePulsing, setLikePulsing] = useState(false);
+  const [prevBouncing, setPrevBouncing] = useState(false);
+  const [nextBouncing, setNextBouncing] = useState(false);
   const [songStats, setSongStats] = useState(null);
   const [moreOpen, setMoreOpen] = useState(false);
   const [moreClosing, setMoreClosing] = useState(false);
@@ -2914,7 +3163,13 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
       .then(r => r.ok ? r.json() : null)
       .then(d => {
         if (d && !d.error) {
-          setFetchedBrowseIds(prev => ({ ...prev, [track.videoId]: d }));
+          setFetchedBrowseIds(prev => {
+            const next = { ...prev, [track.videoId]: d };
+            // Keep at most 100 entries — evict oldest keys when over limit
+            const keys = Object.keys(next);
+            if (keys.length > 100) keys.slice(0, keys.length - 100).forEach(k => delete next[k]);
+            return next;
+          });
         }
       })
       .catch(() => {});
@@ -2937,8 +3192,9 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
   const [repeat, setRepeat] = useState("none");
   const t = useLang();
 
-  // Cache: videoId -> url
-  const urlCache = useRef({});
+  // LRU cache: videoId -> url (max 50 entries, Map preserves insertion order)
+  const URL_CACHE_MAX = 50;
+  const urlCache = useRef(new Map());
 
   const repeatRef = useRef(repeat);
   const shuffleRef = useRef(shuffle);
@@ -2954,6 +3210,7 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
   const crossfadeActiveRef = useRef(false);
   const crossfadeNextTrackRef = useRef(null);
   const skipStreamResetRef = useRef(false);
+  const _lastProgressTs = useRef(0); // throttle: last time setProgress was called
   useEffect(() => { repeatRef.current = repeat; }, [repeat]);
   useEffect(() => { shuffleRef.current = shuffle; }, [shuffle]);
   useEffect(() => { queueRef.current = queue; }, [queue]);
@@ -2991,14 +3248,31 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
     return q[(idx - 1 + q.length) % q.length];
   }, []);
 
+  const urlCacheGet = (videoId) => {
+    const c = urlCache.current;
+    if (!c.has(videoId)) return null;
+    // Move to end (most-recently-used)
+    const val = c.get(videoId);
+    c.delete(videoId);
+    c.set(videoId, val);
+    return val;
+  };
+  const urlCachePut = (videoId, url) => {
+    const c = urlCache.current;
+    c.delete(videoId); // remove old position if exists
+    c.set(videoId, url);
+    if (c.size > URL_CACHE_MAX) c.delete(c.keys().next().value); // evict oldest
+  };
+
   const fetchUrl = useCallback(async (videoId) => {
-    if (urlCache.current[videoId]) return urlCache.current[videoId];
+    const cached = urlCacheGet(videoId);
+    if (cached) return cached;
     // Prefer locally cached song (served via backend, works for both Rust & HTML5)
     try {
       const cr = await fetch(`${API}/song/cached/${videoId}`, { method: "HEAD" });
       if (cr.ok) {
         const cachedUrl = `${API}/song/cached/${videoId}`;
-        urlCache.current[videoId] = cachedUrl;
+        urlCachePut(videoId, cachedUrl);
         return cachedUrl;
       }
     } catch {}
@@ -3013,7 +3287,7 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
         if (d.path) {
           // Prefix with file:// so Rust knows it's a local path
           const fileUrl = `file://${d.path.replace(/\\/g, "/")}`;
-          urlCache.current[videoId] = fileUrl;
+          urlCachePut(videoId, fileUrl);
           return fileUrl;
         }
       } catch (e) { console.error(`[stream-prepare] ${videoId}:`, e); }
@@ -3025,7 +3299,7 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
         const r = await fetch(`${API}/stream/${videoId}`);
         const d = await r.json();
         if (d.premium_only) { onPremiumDetected?.(videoId); return null; }
-        if (d.url) { urlCache.current[videoId] = d.url; return d.url; }
+        if (d.url) { urlCachePut(videoId, d.url); return d.url; }
         if (d.error) lastStreamError = d.error;
       } catch (e) { lastStreamError = String(e); }
       if (i < 3) await new Promise(res => setTimeout(res, 800));
@@ -3039,8 +3313,8 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
     await new Promise(res => setTimeout(res, 2000)); // wait 2s after track change
     const next = getAdjacentTrack("next");
     const prev = getAdjacentTrack("prev");
-    if (next && !urlCache.current[next.videoId]) fetchUrl(next.videoId);
-    if (prev && !urlCache.current[prev.videoId]) fetchUrl(prev.videoId);
+    if (next && !urlCache.current.has(next.videoId)) fetchUrl(next.videoId);
+    if (prev && !urlCache.current.has(prev.videoId)) fetchUrl(prev.videoId);
   }, [getAdjacentTrack, fetchUrl]);
 
   useEffect(() => {
@@ -3096,7 +3370,6 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
     setIsPlaying(true);
     setProgress(0);
 
-    const onTime = () => setProgress(a.currentTime);
     // IpcAudio may return 0 when Rust can't determine duration from metadata;
     // fall back to the track's formatted duration string in that case.
     const onDur = () => {
@@ -3129,8 +3402,16 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
       }
     };
 
-    // Crossfade: fade out current, fade in next track simultaneously
+    // Combined timeupdate handler: progress update (throttled) + crossfade logic
     const onTimeUpdate = () => {
+      // Throttle setProgress to max 4× per second to avoid excessive re-renders.
+      // Rust emits audio-progress every 100 ms (10×/sec); we only need ~4× for the seekbar.
+      const now = performance.now();
+      if (now - _lastProgressTs.current >= 250) {
+        _lastProgressTs.current = now;
+        setProgress(a.currentTime);
+      }
+
       if (!crossfadeRef.current || crossfadeRef.current <= 0 || !a.duration) return;
       const remaining = a.duration - a.currentTime;
 
@@ -3166,12 +3447,10 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
     };
 
     a.addEventListener("timeupdate", onTimeUpdate);
-    a.addEventListener("timeupdate", onTime);
     a.addEventListener("loadedmetadata", onDur);
     a.addEventListener("ended", onEnd);
     return () => {
       a.removeEventListener("timeupdate", onTimeUpdate);
-      a.removeEventListener("timeupdate", onTime);
       a.removeEventListener("loadedmetadata", onDur);
       a.removeEventListener("ended", onEnd);
     };
@@ -3187,6 +3466,13 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
   const isDragging = useRef(false);
   const seekBarRef = useRef(null);
   const [dragPct, setDragPct] = useState(null);
+  const [seekTooltip, setSeekTooltip] = useState(null); // { clientX, top, time }
+
+  const makeSeekTooltip = (clientX, p) => {
+    if (!seekBarRef.current) return null;
+    const rect = seekBarRef.current.getBoundingClientRect();
+    return { clientX, top: rect.top - 10, time: fmt(p * duration) };
+  };
 
   const getPct = (clientX, rect) =>
     Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
@@ -3195,17 +3481,23 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
     const a = audioRef.current;
     if (!a || !duration) return;
     const rect = e.currentTarget.getBoundingClientRect();
+    _lastProgressTs.current = 0; // reset throttle so progress updates immediately after seek
     a.currentTime = getPct(e.clientX, rect) * duration;
   };
 
   const onSeekMouseDown = e => {
     isDragging.current = true;
-    setDragPct(getPct(e.clientX, e.currentTarget.getBoundingClientRect()) * 100);
+    const rect0 = e.currentTarget.getBoundingClientRect();
+    const pct0 = getPct(e.clientX, rect0);
+    setDragPct(pct0 * 100);
+    setSeekTooltip(makeSeekTooltip(e.clientX, pct0));
 
     const onMove = ev => {
       if (!isDragging.current || !seekBarRef.current) return;
       const rect = seekBarRef.current.getBoundingClientRect();
-      setDragPct(getPct(ev.clientX, rect) * 100);
+      const p = getPct(ev.clientX, rect);
+      setDragPct(p * 100);
+      setSeekTooltip(makeSeekTooltip(ev.clientX, p));
     };
 
     const onUp = ev => {
@@ -3214,9 +3506,11 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
       const a = audioRef.current;
       if (a && duration && seekBarRef.current) {
         const rect = seekBarRef.current.getBoundingClientRect();
+        _lastProgressTs.current = 0; // reset throttle so progress updates immediately after seek
         a.currentTime = getPct(ev.clientX, rect) * duration;
       }
       setDragPct(null);
+      setSeekTooltip(null);
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
     };
@@ -3229,6 +3523,10 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
     if (!track) return;
     const newRating = isLiked ? "INDIFFERENT" : "LIKE";
     setIsLiked(!isLiked);
+    if (!isLiked) {
+      setLikePulsing(true);
+      setTimeout(() => setLikePulsing(false), 450);
+    }
     try {
       await fetch(`${API}/like/${track.videoId}`, {
         method: "POST",
@@ -3282,19 +3580,51 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
           ref={seekBarRef}
           onMouseDown={track ? onSeekMouseDown : undefined}
           onMouseEnter={track ? (e => e.currentTarget.querySelector(".seek-bar").style.height = "5px") : undefined}
-          onMouseLeave={track ? (e => { if (!isDragging.current) e.currentTarget.querySelector(".seek-bar").style.height = "3px"; }) : undefined}
+          onMouseMove={track ? (e => {
+            if (!seekBarRef.current || !duration) return;
+            const rect = seekBarRef.current.getBoundingClientRect();
+            setSeekTooltip(makeSeekTooltip(e.clientX, getPct(e.clientX, rect)));
+          }) : undefined}
+          onMouseLeave={track ? (e => {
+            if (!isDragging.current) {
+              e.currentTarget.querySelector(".seek-bar").style.height = "3px";
+              setSeekTooltip(null);
+            }
+          }) : undefined}
           style={{ position: "absolute", top: -8, left: 0, right: 0, height: 16, display: "flex", alignItems: "center", cursor: track ? "pointer" : "default", zIndex: 10 }}
         >
           <div className="seek-bar" style={{ width: "100%", height: 3, background: "var(--bg-elevated)", transition: "height 0.15s ease", pointerEvents: "none" }}>
             <div style={{ width: `${pct}%`, height: "100%", background: "var(--accent)", transition: dragPct !== null ? "none" : "width 0.5s linear" }} />
           </div>
+          {seekTooltip && createPortal(
+            <div style={{
+              position: "fixed",
+              left: seekTooltip.clientX,
+              top: seekTooltip.top,
+              transform: "translateX(-50%) translateY(-100%)",
+              background: "var(--bg-elevated)",
+              color: "var(--text-primary)",
+              fontSize: "var(--t11)",
+              fontWeight: 600,
+              padding: "3px 8px",
+              borderRadius: 5,
+              border: "0.5px solid var(--border)",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.4)",
+              pointerEvents: "none",
+              whiteSpace: "nowrap",
+              zIndex: 99999,
+            }}>
+              {seekTooltip.time}
+            </div>,
+            document.body
+          )}
         </div>
       </div>
-      <div style={{ height: 68, display: "flex", alignItems: "center", padding: "0 20px", gap: 16 }}>
+      <div style={{ height: 68, display: "flex", alignItems: "center", padding: "0 20px 0 0", gap: 16 }}>
 
         <div style={{ display: "flex", alignItems: "center", gap: 10, width: 340, minWidth: 0 }}>
           <div style={{
-            width: 40, height: 40, borderRadius: 6, flexShrink: 0, overflow: "hidden", background: "var(--bg-elevated)",
+            width: 69, height: 69, borderRadius: 0, flexShrink: 0, overflow: "hidden", background: "var(--bg-elevated)",
             animation: anim && track ? "coverPop 0.5s cubic-bezier(0.34,1.56,0.64,1)" : "none",
           }}>
             {track?.thumbnail
@@ -3314,16 +3644,17 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
             </div>
           </div>
           {/* Like button */}
-          <Tooltip text={isLiked ? t("unlike") : t("like")}><button onClick={track ? toggleLike : undefined} style={{ visibility: track ? "visible" : "hidden",
-            background: "none", border: "none", cursor: "pointer", padding: 6, flexShrink: 0,
+          <Tooltip text={isLiked ? t("unlike") : t("like")}><button onClick={track ? toggleLike : undefined}
+          className="icon-btn" style={{
+            visibility: track ? "visible" : "hidden",
             color: isLiked ? "var(--accent)" : "var(--text-muted)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            transition: anim ? "color 0.2s, transform 0.2s cubic-bezier(0.34,1.56,0.64,1)" : "color 0.2s",
+            transition: anim ? "background 0.15s, color 0.2s, transform 0.2s cubic-bezier(0.34,1.56,0.64,1)" : "background 0.15s, color 0.2s",
           }}
-          onMouseEnter={e => { e.currentTarget.style.color = isLiked ? "var(--accent)" : "var(--text-secondary)"; if (anim) e.currentTarget.style.transform = "scale(1.2)"; }}
+          onMouseEnter={e => { e.currentTarget.style.color = isLiked ? "var(--accent)" : "var(--text-secondary)"; if (anim) e.currentTarget.style.transform = "scale(1.1)"; }}
           onMouseLeave={e => { e.currentTarget.style.color = isLiked ? "var(--accent)" : "var(--text-muted)"; if (anim) e.currentTarget.style.transform = "scale(1)"; }}
           >
-            {isLiked ? <Heart size={16} weight="fill" /> : <Heart size={16} />}
+            <Heart size={16} weight={isLiked ? "fill" : "regular"}
+              style={likePulsing ? { animation: "heartPop 0.45s cubic-bezier(0.34,1.56,0.64,1) forwards" } : undefined} />
           </button></Tooltip>
         </div>
 
@@ -3335,6 +3666,7 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
           <Tooltip text={t("scPrev")}><button
             disabled={!track}
             onClick={() => {
+              if (anim) { setPrevBouncing(true); setTimeout(() => setPrevBouncing(false), 400); }
               const audio = audioRef.current;
               if (audio && audio.currentTime >= 4) {
                 audio.currentTime = 0;
@@ -3363,10 +3695,10 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
             onMouseDown={e => { if (track && anim) e.currentTarget.style.transform = "scale(0.93)"; }}
             onMouseUp={e => { if (track && anim) e.currentTarget.style.transform = "scale(1.05)"; }}
           >
-            <SkipBack size={22} />
+            <SkipBack size={22} style={prevBouncing ? { animation: "skipLeft 0.38s cubic-bezier(0.34,1.56,0.64,1) forwards" } : undefined} />
           </button></Tooltip>
           <button disabled={!track} onClick={track ? togglePlay : undefined} style={{
-            width: 42, height: 42, borderRadius: "50%",
+            width: 64, height: 42, borderRadius: 21,
             background: track ? "var(--accent)" : "var(--bg-elevated)",
             border: "none", cursor: track ? "pointer" : "default",
             display: "flex", alignItems: "center", justifyContent: "center",
@@ -3383,7 +3715,7 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
           </button>
           <Tooltip text={t("scNext")}><button
             disabled={!track}
-            onClick={() => { const t = getAdjacentTrack("next"); if (t) setTrack(t); }}
+            onClick={() => { if (anim) { setNextBouncing(true); setTimeout(() => setNextBouncing(false), 400); } const t = getAdjacentTrack("next"); if (t) setTrack(t); }}
             style={{
               width: 42, height: 34, borderRadius: 10,
               background: "transparent",
@@ -3405,7 +3737,7 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
             onMouseDown={e => { if (track && anim) e.currentTarget.style.transform = "scale(0.93)"; }}
             onMouseUp={e => { if (track && anim) e.currentTarget.style.transform = "scale(1.05)"; }}
           >
-            <SkipForward size={22} />
+            <SkipForward size={22} style={nextBouncing ? { animation: "skipRight 0.38s cubic-bezier(0.34,1.56,0.64,1) forwards" } : undefined} />
           </button></Tooltip>
           {ctrlBtn(cycleRepeat, repeat !== "none",
             repeat === "one"
@@ -3415,7 +3747,7 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
           )}
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 6, width: 340, justifyContent: "flex-end" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 2, width: 340, justifyContent: "flex-end" }}>
           {/* Volume icon + slider */}
           <div data-volume-area style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <Tooltip text={volume === 0 ? t("unmute") : t("mute")}><button onClick={() => {
@@ -3423,10 +3755,8 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
             if (!a) return;
             const newVol = volume > 0 ? 0 : prevVolumeRef.current;
             a.volume = volCurve(newVol);
-          }} style={{
-            background: "none", border: "none", cursor: "pointer", padding: 6, borderRadius: "50%", flexShrink: 0,
+          }} className="icon-btn" style={{
             color: volume === 0 ? "var(--text-muted)" : "var(--text-secondary)",
-            display: "flex", alignItems: "center", justifyContent: "center", transition: "color 0.15s",
           }}
           onMouseEnter={e => e.currentTarget.style.color = "var(--text-primary)"}
           onMouseLeave={e => e.currentTarget.style.color = volume === 0 ? "var(--text-muted)" : "var(--text-secondary)"}
@@ -3472,11 +3802,10 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
           {/* Sleep Timer */}
           <div ref={sleepMenuRef} style={{ position: "relative", flexShrink: 0 }}>
             <Tooltip text={sleepRemaining !== null ? `${translate(language, "sleepTimer")}: ${formatSleepRemaining(sleepRemaining)}` : translate(language, "sleepTimer")}>
-            <button onClick={() => { sleepMenuOpen ? closeSleepMenu() : setSleepMenuOpen(true); }} style={{
-              background: "none", border: "none", cursor: "pointer", padding: 6, borderRadius: "50%",
+            <button onClick={() => { sleepMenuOpen ? closeSleepMenu() : setSleepMenuOpen(true); }}
+            className="icon-btn" style={{
               color: sleepRemaining !== null ? "var(--accent)" : (sleepMenuOpen ? "var(--text-primary)" : "var(--text-secondary)"),
-              display: "flex", alignItems: "center", justifyContent: "center",
-              transition: "color 0.15s", position: "relative",
+              position: "relative",
             }}
             onMouseEnter={e => e.currentTarget.style.color = sleepRemaining !== null ? "var(--accent)" : "var(--text-primary)"}
             onMouseLeave={e => e.currentTarget.style.color = sleepRemaining !== null ? "var(--accent)" : (sleepMenuOpen ? "var(--text-primary)" : "var(--text-secondary)")}
@@ -3557,16 +3886,11 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
               <button onClick={() => {
                 if (!moreOpen && moreRef.current) {
                   const r = moreRef.current.getBoundingClientRect();
-                  // getBoundingClientRect() gibt bereits visuelle (viewport) Koordinaten zurück.
-                  // Das Portal liegt außerhalb des gezoomten Containers → Position unverändert,
-                  // aber Größe muss mit zoom skaliert werden.
                   setMorePos({ right: window.innerWidth - r.right, bottom: window.innerHeight - r.top + 8 });
                 }
                 moreOpen ? closeMoreMenu() : setMoreOpen(true);
-              }} style={{
-                background: "none", border: "none", cursor: "pointer", padding: 6,
+              }} className="icon-btn" style={{
                 color: moreOpen ? "var(--accent)" : "var(--text-secondary)",
-                display: "flex", alignItems: "center", justifyContent: "center", transition: "color 0.15s",
               }}
               onMouseEnter={e => e.currentTarget.style.color = moreOpen ? "var(--accent)" : "var(--text-primary)"}
               onMouseLeave={e => e.currentTarget.style.color = moreOpen ? "var(--accent)" : "var(--text-secondary)"}
@@ -3771,8 +4095,35 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
                     );
                   })}
 
-                  {/* Separator before export */}
+                  {/* Separator before download/export */}
                   <div style={{ height: "0.5px", background: "var(--border)", margin: "2px 8px" }} />
+
+                  {/* Download */}
+                  {track && (cachedSongIds?.has(track.videoId) ? (
+                    <div
+                      style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 12px", borderRadius: "var(--radius)", fontSize: "var(--t13)", color: "var(--text-muted)", cursor: "default" }}
+                    >
+                      <DownloadSimple size={14} />
+                      {translate(language, "downloaded")}
+                    </div>
+                  ) : downloadingIds?.has(track.videoId) ? (
+                    <div
+                      style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 12px", borderRadius: "var(--radius)", fontSize: "var(--t13)", color: "var(--text-muted)", cursor: "default" }}
+                    >
+                      <DownloadSimple size={14} />
+                      {translate(language, "downloading")}
+                    </div>
+                  ) : (
+                    <div
+                      onClick={() => { closeMoreMenu(); onDownloadSong?.(track); }}
+                      style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "var(--text-primary)" }}
+                      onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
+                      onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                    >
+                      <DownloadSimple size={14} />
+                      {translate(language, "download")}
+                    </div>
+                  ))}
 
                   {/* Export */}
                   {[
@@ -3795,46 +4146,32 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
           )}
 
           {/* Queue toggle */}
-          <Tooltip text={t("queueTooltip")}><button onClick={onToggleQueue} style={{
-            background: "none", border: "none", cursor: "pointer", padding: 6,
-            color: queueOpen ? "var(--accent)" : "var(--text-secondary)",
-            display: "flex", alignItems: "center", justifyContent: "center", transition: "color 0.15s",
-          }}
+          <Tooltip text={t("queueTooltip")}><button onClick={onToggleQueue}
+          className="icon-btn" style={{ color: queueOpen ? "var(--accent)" : "var(--text-secondary)" }}
           onMouseEnter={e => e.currentTarget.style.color = queueOpen ? "var(--accent)" : "var(--text-primary)"}
           onMouseLeave={e => e.currentTarget.style.color = queueOpen ? "var(--accent)" : "var(--text-secondary)"}
           >
             <Queue size={16} />
           </button></Tooltip>
           {/* Lyrics toggle */}
-          <Tooltip text={t("lyricsTooltip")}><button onClick={onToggleLyrics} style={{
-            background: "none", border: "none", cursor: "pointer", padding: 6,
-            color: (expanded && showLyrics) ? "var(--accent)" : "var(--text-secondary)",
-            display: "flex", alignItems: "center", justifyContent: "center", transition: "color 0.15s",
-          }}
+          <Tooltip text={t("lyricsTooltip")}><button onClick={onToggleLyrics}
+          className="icon-btn" style={{ color: (expanded && showLyrics) ? "var(--accent)" : "var(--text-secondary)" }}
           onMouseEnter={e => e.currentTarget.style.color = (expanded && showLyrics) ? "var(--accent)" : "var(--text-primary)"}
           onMouseLeave={e => e.currentTarget.style.color = (expanded && showLyrics) ? "var(--accent)" : "var(--text-secondary)"}
           >
             <ChatText size={16} />
           </button></Tooltip>
           {/* Expand toggle */}
-          <button onClick={onExpandToggle} style={{
-            background: "none", border: "none", cursor: "pointer", padding: 6,
-            color: expanded ? "var(--accent)" : "var(--text-secondary)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            transition: "color 0.15s",
-          }}
+          <button onClick={onExpandToggle}
+          className="icon-btn" style={{ color: expanded ? "var(--accent)" : "var(--text-secondary)" }}
           onMouseEnter={e => e.currentTarget.style.color = expanded ? "var(--accent)" : "var(--text-primary)"}
           onMouseLeave={e => e.currentTarget.style.color = expanded ? "var(--accent)" : "var(--text-secondary)"}
           >
             <CaretUp size={16} style={{ transform: expanded ? "rotate(180deg)" : "none", transition: "transform 0.3s cubic-bezier(0.4,0,0.2,1)" }} />
           </button>
           {/* Fullscreen toggle */}
-          <Tooltip text={t("fullscreenTooltip")}><button onClick={onToggleFullscreen} style={{
-            background: "none", border: "none", cursor: "pointer", padding: 6,
-            color: fullscreen ? "var(--accent)" : "var(--text-secondary)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            transition: "color 0.15s",
-          }}
+          <Tooltip text={t("fullscreenTooltip")}><button onClick={onToggleFullscreen}
+          className="icon-btn" style={{ color: fullscreen ? "var(--accent)" : "var(--text-secondary)" }}
           onMouseEnter={e => e.currentTarget.style.color = fullscreen ? "var(--accent)" : "var(--text-primary)"}
           onMouseLeave={e => e.currentTarget.style.color = fullscreen ? "var(--accent)" : "var(--text-secondary)"}
           >
@@ -3859,17 +4196,7 @@ function CoverView({ track, isPlaying, onClose, ambientVisualizer = true }) {
   const hq = hiResThumb(track.thumbnail);
 
   return (
-    <div style={{ width: "100%", height: "100%", position: "relative", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", background: "#0d0d0d" }}>
-      {/* Blurred background */}
-      <div style={{
-        position: "absolute", inset: 0, zIndex: 0,
-        backgroundImage: hq ? `url(${thumb(hq)})` : "none",
-        backgroundSize: "cover", backgroundPosition: "center",
-        filter: "blur(60px) brightness(0.35)",
-        transform: "scale(1.15)",
-        animation: ambientVisualizer ? "ambientBreatheCover 14s ease-in-out infinite" : "none",
-      }} />
-      <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 1 }} />
+    <div style={{ width: "100%", height: "100%", position: "relative", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
 
       {/* Ambient colour blobs — negative inset keeps edges outside the visible area */}
       {ambientVisualizer && (<>
@@ -4195,11 +4522,13 @@ function LyricsOverlay({ track, audioRef, onClose, fontSize = 32, providers = DE
   const [romajiLines, setRomajiLines] = useState(null); // array of romaji strings
   const [isCustomLyrics, setIsCustomLyrics] = useState(false);
   const [customLyricsKey, setCustomLyricsKey] = useState(0);
+  const [inGap, setInGap] = useState(false);
   const t = useLang();
   const containerRef = useRef(null);
   const rafRef = useRef(null);
   const lyricsDataRef = useRef(null); // rAF loop reads lyrics without closure
   const lastIdxRef = useRef(-1);      // tracks active line to detect changes
+  const inGapRef = useRef(false);     // tracks inter-line gap state without closure
   const wordElsRef = useRef([]);      // DOM refs to active line's word spans
   const activeWordIdxRef = useRef(-1); // tracks active word within line
   // High-resolution playback time: interpolate between timeupdate events
@@ -4294,6 +4623,13 @@ function LyricsOverlay({ track, audioRef, onClose, fontSize = 32, providers = DE
         activeWordIdxRef.current = -1;
         wordElsRef.current = []; // cleared until useLayoutEffect repopulates after render
         setTick(n => n + 1);
+      }
+
+      // Gap indicator: true only when a line has played but we're between lines (gap > 3s)
+      const isGap = newIdx >= 0 && displayIdx === -1;
+      if (isGap !== inGapRef.current) {
+        inGapRef.current = isGap;
+        setInGap(isGap);
       }
 
       // Word highlighting — direct DOM, bypasses React entirely (uses newIdx, not displayIdx)
@@ -4536,18 +4872,7 @@ function LyricsOverlay({ track, audioRef, onClose, fontSize = 32, providers = DE
     <div style={{
       position: "absolute", inset: 0, zIndex: 50,
       display: "flex", flexDirection: "column", overflow: "hidden",
-      background: "#0d0d0d",
     }}>
-      {/* Blurred background */}
-      <div style={{
-        position: "absolute", inset: 0,
-        backgroundImage: track?.thumbnail ? `url(${track.thumbnail})` : "none",
-        backgroundSize: "cover", backgroundPosition: "center",
-        filter: "blur(40px) brightness(0.35)",
-        transform: "scale(1.1)",
-        animation: ambientVisualizer ? "ambientBreathe 12s ease-in-out infinite" : "none",
-      }} />
-      <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.5)" }} />
 
       {/* Ambient colour blobs — negative inset keeps edges outside the visible area */}
       {ambientVisualizer && (<>
@@ -4599,6 +4924,27 @@ function LyricsOverlay({ track, audioRef, onClose, fontSize = 32, providers = DE
           })}
         </div>
       )}
+
+      {/* Gap overlay: blur + bouncing note during inter-line pauses */}
+      <div style={{
+        position: "absolute", inset: 0, zIndex: 55, pointerEvents: "none",
+        backdropFilter: inGap ? "blur(10px)" : "blur(0px)",
+        WebkitBackdropFilter: inGap ? "blur(10px)" : "blur(0px)",
+        transition: "backdrop-filter 0.7s ease, -webkit-backdrop-filter 0.7s ease",
+      }} />
+      <div style={{
+        position: "absolute", inset: 0, zIndex: 56, pointerEvents: "none",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        opacity: inGap ? 1 : 0,
+        transition: "opacity 0.7s ease",
+      }}>
+        <MusicNote size={52} weight="fill" style={{
+          color: "rgba(255,255,255,0.75)",
+          animation: "noteFloat 2.2s ease-in-out infinite",
+          filter: "drop-shadow(0 0 28px rgba(255,255,255,0.35))",
+          display: "block",
+        }} />
+      </div>
 
       {/* Lyrics */}
       <div ref={containerRef} className="scrollable" style={{
@@ -4759,21 +5105,42 @@ function LyricsOverlay({ track, audioRef, onClose, fontSize = 32, providers = DE
 
 function GridCard({ thumbnail, title, subtitle, onClick, onContextMenu }) {
   return (
-    <div onClick={onClick} onContextMenu={onContextMenu} style={{
-      cursor: "pointer", borderRadius: 8, overflow: "hidden",
-      background: "var(--bg-surface)", transition: "transform 0.15s, background 0.15s",
-    }}
-    onMouseEnter={e => e.currentTarget.style.background = "var(--bg-elevated)"}
-    onMouseLeave={e => e.currentTarget.style.background = "var(--bg-surface)"}
+    <div
+      onClick={onClick}
+      onContextMenu={onContextMenu}
+      onMouseEnter={e => {
+        e.currentTarget.style.transform = "scale(1.03)";
+        e.currentTarget.style.boxShadow = "0 12px 32px rgba(0,0,0,0.55)";
+      }}
+      onMouseLeave={e => {
+        e.currentTarget.style.transform = "scale(1)";
+        e.currentTarget.style.boxShadow = "0 2px 10px rgba(0,0,0,0.3)";
+      }}
+      className="grid-card"
+      style={{
+        cursor: "pointer", borderRadius: 14, overflow: "hidden",
+        background: "var(--bg-surface)",
+        boxShadow: "0 2px 10px rgba(0,0,0,0.3)",
+        transition: "transform 0.2s ease, box-shadow 0.2s ease",
+      }}
     >
+      {/* Thumbnail */}
       <div style={{ width: "100%", aspectRatio: "1", background: "var(--bg-elevated)", overflow: "hidden" }}>
         {thumbnail
-          ? <img src={thumb(thumbnail)} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          ? <img src={thumb(thumbnail)} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
           : <div style={{ width: "100%", height: "100%", background: "linear-gradient(135deg,#2a1535,#1a0a25)" }} />}
       </div>
-      <div style={{ padding: "10px 12px 12px" }}>
-        <div style={{ fontSize: "var(--t13)", fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{title}</div>
-        {subtitle && <div style={{ fontSize: "var(--t11)", color: "var(--text-muted)", marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{subtitle}</div>}
+      {/* Info footer */}
+      <div className="grid-card-footer" style={{ padding: "12px 14px 14px", background: "rgb(10,10,12)", transition: "background 0.2s ease", minHeight: 52 }}>
+        <div style={{
+          fontSize: "var(--t13)", fontWeight: 600, color: "#fff",
+          whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+        }}>{title}</div>
+        <div style={{
+          fontSize: "var(--t11)", color: "var(--text-muted)", marginTop: 4,
+          whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+          minHeight: 14,
+        }}>{subtitle || ""}</div>
       </div>
     </div>
   );
@@ -4816,28 +5183,32 @@ function LibraryView({ onPlay, currentTrack, isPlaying, onOpenPlaylist, onOpenAl
   }, [tab, refreshKey]);
 
   const tabs = [
-    { id: "playlists", label: t("filterPlaylists") },
-    { id: "albums",    label: t("filterAlbums") },
-    { id: "artists",   label: t("filterArtists") },
+    { id: "playlists", label: t("filterPlaylists"), icon: <Playlist size={14} /> },
+    { id: "albums",    label: t("filterAlbums"),    icon: <VinylRecord size={14} /> },
+    { id: "artists",   label: t("filterArtists"),   icon: <Microphone size={14} /> },
   ];
 
   const items = tab === "playlists" ? playlists : tab === "albums" ? albums : artists;
 
   return (
-    <div style={{ padding: "24px 24px" }}>
-      <div style={{ fontSize: "var(--t22)", fontWeight: 600, marginBottom: 20 }}>{t("library")}</div>
-
-      {/* Tabs */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 24 }}>
-        {tabs.map(tab_ => (
-          <button key={tab_.id} onClick={() => setTab(tab_.id)} style={{
-            background: tab === tab_.id ? "var(--accent)" : "var(--bg-elevated)",
-            color: tab === tab_.id ? "#fff" : "var(--text-secondary)",
-            border: "none", borderRadius: 20, padding: "6px 16px",
-            fontSize: "var(--t13)", cursor: "pointer", fontFamily: "var(--font)",
-            transition: "all 0.15s",
-          }}>{tab_.label}</button>
-        ))}
+    <div style={{ padding: "24px 24px 0" }}>
+      {/* Header row: title left, tabs centered */}
+      <div style={{ position: "relative", display: "flex", alignItems: "center", marginBottom: 24, height: 36 }}>
+        <div style={{ fontSize: "var(--t22)", fontWeight: 600 }}>{t("library")}</div>
+        <div style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", display: "flex", gap: 4 }}>
+          {tabs.map(tab_ => (
+            <button key={tab_.id} onClick={() => setTab(tab_.id)}
+              className={`view-tab-btn${tab === tab_.id ? " active" : ""}`}
+              style={{
+                display: "flex", alignItems: "center", gap: 6,
+                background: tab === tab_.id ? "color-mix(in srgb, var(--accent) 20%, transparent)" : "transparent",
+                color: tab === tab_.id ? "var(--accent)" : "var(--text-secondary)",
+                border: "none", borderRadius: 8, padding: "7px 14px",
+                fontSize: "var(--t13)", cursor: "pointer", fontFamily: "var(--font)",
+                transition: "all 0.15s", fontWeight: tab === tab_.id ? 600 : 400,
+              }}>{tab_.icon}{tab_.label}</button>
+          ))}
+        </div>
       </div>
 
       {loading && <div style={{ color: "var(--text-secondary)" }}>{t("loadingDots")}</div>}
@@ -4845,7 +5216,7 @@ function LibraryView({ onPlay, currentTrack, isPlaying, onOpenPlaylist, onOpenAl
       {!loading && !error && (
         <div style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
+          gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))",
           gap: 16,
         }}>
           {items.map((item, i) => {
@@ -4930,18 +5301,19 @@ function TableRow({ track, index, isPlaying, onPlay, onOpenArtist, onOpenAlbum, 
       onMouseLeave={() => setHovered(false)}
       style={{
         display: "grid",
-        gridTemplateColumns: isAlbum ? "minmax(0,2fr) minmax(0,1fr) 28px 48px" : "minmax(0,2fr) minmax(0,1fr) minmax(0,1fr) 28px 48px",
+        gridTemplateColumns: isAlbum ? "minmax(0,2fr) minmax(0,1fr) 28px 52px" : "minmax(0,2fr) minmax(0,1fr) minmax(0,1fr) 28px 52px",
         alignItems: "center", gap: 8,
-        padding: "5px 16px", borderRadius: "var(--radius)",
+        padding: "4px 16px", borderRadius: 8,
         cursor: isPremiumOnly ? "default" : "pointer",
         background: isPlaying ? "rgba(224,64,251,0.08)" : hovered ? "var(--bg-hover)" : "transparent",
         transition: "background 0.15s",
         opacity: isPremiumOnly ? 0.4 : 1,
+        minHeight: 52,
       }}
     >
       {/* Title */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
-        <div style={{ width: 40, height: 40, borderRadius: 4, flexShrink: 0, overflow: "hidden", background: "var(--bg-elevated)", position: "relative" }}>
+        <div style={{ width: 40, height: 40, borderRadius: 6, flexShrink: 0, overflow: "hidden", background: "var(--bg-elevated)", position: "relative" }}>
           {track.thumbnail
             ? <img src={thumb(track.thumbnail)} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
             : <div style={{ width: "100%", height: "100%", background: "linear-gradient(135deg,#2a1535,#1a0a25)" }} />}
@@ -5036,26 +5408,38 @@ function PlaylistLayout({ title, thumbnail, tracks, total, loading, progress, ca
 
       {/* Hero header */}
       <div style={{
-        position: "relative", padding: "86px 28px 28px",
-        background: `linear-gradient(to bottom, rgba(${accentColor},0.55) 0%, rgba(${accentColor},0.15) 60%, transparent 100%)`,
+        position: "relative",
+        background: `linear-gradient(to bottom, rgba(${accentColor},0.52) 0%, rgba(${accentColor},0.14) 65%, transparent 100%)`,
         transition: "background 0.6s ease",
       }}>
-        {onBack && (
-          <button onClick={onBack} style={{
-            position: "absolute", top: 44, left: 16, zIndex: 10,
-            background: "rgba(0,0,0,0.4)", border: "none", borderRadius: "50%",
-            width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center",
-            cursor: "pointer", color: "#fff", backdropFilter: "blur(8px)",
-          }}>
-            <ArrowLeft size={18} />
+        {/* Navigation row */}
+        <div style={{ padding: "48px 22px 18px", display: "flex", gap: 8 }}>
+          <button
+            onClick={onBack || undefined}
+            disabled={!onBack}
+            style={{
+              width: 36, height: 36, borderRadius: "50%",
+              background: "rgba(0,0,0,0.38)", border: "0.5px solid rgba(255,255,255,0.12)",
+              color: onBack ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.25)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              cursor: onBack ? "pointer" : "default",
+              backdropFilter: "blur(8px)", transition: "background 0.15s",
+              padding: 0,
+            }}
+            onMouseEnter={e => { if (onBack) e.currentTarget.style.background = "rgba(0,0,0,0.58)"; }}
+            onMouseLeave={e => e.currentTarget.style.background = "rgba(0,0,0,0.38)"}
+          >
+            <ArrowLeft size={16} />
           </button>
-        )}
-        <div style={{ display: "flex", gap: 24, alignItems: "flex-end" }}>
+        </div>
+
+        {/* Album / playlist info */}
+        <div style={{ display: "flex", gap: 26, alignItems: "flex-end", padding: "0 28px 28px" }}>
           {/* Cover */}
           <div style={{
-            width: 180, height: 180, borderRadius: 10, flexShrink: 0,
+            width: 190, height: 190, borderRadius: 12, flexShrink: 0,
             overflow: "hidden", background: "var(--bg-elevated)",
-            boxShadow: `0 16px 48px rgba(${accentColor},0.35)`,
+            boxShadow: `0 18px 52px rgba(${accentColor},0.38)`,
           }}>
             {isLiked && !thumbnail
               ? <div style={{ width: "100%", height: "100%", background: `linear-gradient(135deg, rgba(${accentColor},0.8), rgba(${accentColor},0.3))`, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -5065,136 +5449,187 @@ function PlaylistLayout({ title, thumbnail, tracks, total, loading, progress, ca
               ? <img src={thumb(thumbnail)} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
               : <div style={{ width: "100%", height: "100%", background: "linear-gradient(135deg,#2a1535,#1a0a25)" }} />}
           </div>
+
           {/* Info */}
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: "var(--t11)", fontWeight: 500, color: "rgba(255,255,255,0.6)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>{isAlbum ? t("album") : t("playlist")}</div>
-            <div style={{ fontSize: 42, fontWeight: 700, lineHeight: 1.1, marginBottom: 12, color: "#fff", textShadow: "0 2px 12px rgba(0,0,0,0.4)" }}>{title}</div>
-            <div style={{ fontSize: "var(--t13)", color: "rgba(255,255,255,0.7)", marginBottom: 16, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            {/* Type label */}
+            <div style={{ fontSize: "var(--t11)", fontWeight: 600, color: "rgba(255,255,255,0.5)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8 }}>
+              {isAlbum ? t("album") : t("playlist")}
+            </div>
+
+            {/* Title */}
+            <div style={{ fontSize: 38, fontWeight: 800, lineHeight: 1.1, marginBottom: 14, color: "#fff", textShadow: "0 2px 20px rgba(0,0,0,0.55)" }}>{title}</div>
+
+            {/* Metadata row with pipe separators */}
+            <div style={{ fontSize: "var(--t13)", color: "rgba(255,255,255,0.65)", marginBottom: 20, display: "flex", alignItems: "center", gap: 0, flexWrap: "wrap" }}>
               {isAlbum && albumArtists && (
-                <span
-                  onClick={() => albumArtistBrowseId && onOpenArtist?.({ browseId: albumArtistBrowseId, artist: albumArtists })}
-                  style={{ cursor: albumArtistBrowseId ? "pointer" : "default", fontWeight: 600, color: "#fff", transition: "opacity 0.15s" }}
-                  onMouseEnter={e => { if (albumArtistBrowseId) e.currentTarget.style.opacity = "0.7"; }}
-                  onMouseLeave={e => e.currentTarget.style.opacity = "1"}
-                >{albumArtists}</span>
-              )}
-              {isAlbum && year && <span>· {year}</span>}
-              {isAlbum && <span>· {total || tracks.length} {t("songs")}</span>}
-              {!isAlbum && <span>{total || tracks.length} {t("songs")}</span>}
-              {totalDuration && <span>· {totalDuration}</span>}
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <button onClick={() => tracks.length && onPlay(tracks[0], tracks)} style={{
-                background: "var(--accent)", border: "none", borderRadius: "50%",
-                width: 48, height: 48, display: "flex", alignItems: "center", justifyContent: "center",
-                cursor: "pointer", boxShadow: "0 4px 16px rgba(0,0,0,0.3)", transition: "transform 0.15s",
-              }}
-              onMouseEnter={e => e.currentTarget.style.transform = "scale(1.08)"}
-              onMouseLeave={e => e.currentTarget.style.transform = "scale(1)"}
-              >
-                <Play size={16} style={{ color: "white" }} />
-              </button>
-              {onDownloadAll && tracks.length > 0 && (() => {
-                const allCached = cachedSongIds && tracks.every(tr => cachedSongIds.has(tr.videoId));
-                const someDownloading = downloadingIds && tracks.some(tr => downloadingIds.has(tr.videoId));
-                return allCached ? (
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <div style={{
-                      borderRadius: 20, height: 36, display: "flex", alignItems: "center",
-                      padding: "0 14px", gap: 6, fontSize: "var(--t12)", fontWeight: 500,
-                      color: "#4caf50", background: "rgba(76,175,80,0.12)", border: "0.5px solid rgba(76,175,80,0.3)",
-                    }}>
-                      <CheckCircle size={14} weight="fill" />
-                      {t("downloaded")}
-                    </div>
-                    {onRemoveAll && (
-                      <Tooltip text={t("removeDownload")}><button
-                        onClick={() => onRemoveAll(tracks)}
-                        style={{
-                          background: "rgba(255,255,255,0.1)", border: "0.5px solid rgba(255,255,255,0.2)",
-                          borderRadius: "50%", width: 36, height: 36, display: "flex", alignItems: "center",
-                          justifyContent: "center", cursor: "pointer", transition: "background 0.15s",
-                          color: "rgba(255,255,255,0.7)", padding: 0,
-                        }}
-                        onMouseEnter={e => { e.currentTarget.style.background = "rgba(224,82,82,0.25)"; e.currentTarget.style.color = "#e05252"; }}
-                        onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.1)"; e.currentTarget.style.color = "rgba(255,255,255,0.7)"; }}
-                      >
-                        <Trash size={14} />
-                      </button></Tooltip>
-                    )}
-                  </div>
-                ) : (
-                  <Tooltip text={t("downloadAll")}><button
-                    onClick={() => onDownloadAll(tracks)}
-                    disabled={someDownloading}
+                <>
+                  <span
+                    onClick={() => albumArtistBrowseId && onOpenArtist?.({ browseId: albumArtistBrowseId, artist: albumArtists })}
                     style={{
-                      background: "rgba(255,255,255,0.1)", border: "0.5px solid rgba(255,255,255,0.2)",
-                      borderRadius: "50%", width: 36, height: 36, display: "flex", alignItems: "center",
-                      justifyContent: "center", cursor: someDownloading ? "default" : "pointer", transition: "background 0.15s",
-                      color: "rgba(255,255,255,0.8)", padding: 0,
-                      opacity: someDownloading ? 0.6 : 1,
+                      cursor: albumArtistBrowseId ? "pointer" : "default",
+                      display: "inline-flex", alignItems: "center",
+                      background: `rgba(${accentColor},0.25)`,
+                      border: `1px solid rgba(${accentColor},0.42)`,
+                      borderRadius: 20, padding: "3px 12px",
+                      fontSize: "var(--t13)", fontWeight: 600,
+                      color: "var(--accent)", transition: "background 0.15s, border-color 0.15s",
+                      marginRight: 10,
                     }}
-                    onMouseEnter={e => { if (!someDownloading) e.currentTarget.style.background = "rgba(255,255,255,0.2)"; }}
-                    onMouseLeave={e => e.currentTarget.style.background = "rgba(255,255,255,0.1)"}
-                  >
-                    {someDownloading ? <DownloadSimple size={14} style={{ animation: "pulse 1s ease-in-out infinite" }} /> : <DownloadSimple size={14} />}
-                  </button></Tooltip>
-                );
-              })()}
-              {cached && onRefresh && (
-                <Tooltip text={t("refresh")}><button
-                  onClick={onRefresh}
-                  style={{
-                    background: "rgba(255,255,255,0.1)", border: "0.5px solid rgba(255,255,255,0.2)",
-                    borderRadius: "50%", width: 36, height: 36, display: "flex", alignItems: "center",
-                    justifyContent: "center", cursor: "pointer", transition: "background 0.15s, transform 0.15s",
-                    color: "rgba(255,255,255,0.8)",
-                  }}
-                  onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.2)"; e.currentTarget.style.transform = "rotate(30deg)"; }}
-                  onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.1)"; e.currentTarget.style.transform = "rotate(0deg)"; }}
-                >
-                  <ArrowClockwise size={14} />
-                </button></Tooltip>
+                    onMouseEnter={e => { if (albumArtistBrowseId) { e.currentTarget.style.background = `rgba(${accentColor},0.38)`; e.currentTarget.style.borderColor = `rgba(${accentColor},0.65)`; } }}
+                    onMouseLeave={e => { e.currentTarget.style.background = `rgba(${accentColor},0.25)`; e.currentTarget.style.borderColor = `rgba(${accentColor},0.42)`; }}
+                  >{albumArtists}</span>
+                  <span style={{ color: "rgba(255,255,255,0.2)", margin: "0 10px", fontSize: "var(--t14)" }}>|</span>
+                </>
               )}
-              {/* Search toggle */}
-              <Tooltip text={t("searchInPlaylist")}><button
-                onClick={() => { setSearchVisible(v => !v); if (searchVisible) setTrackSearch(""); }}
-                style={{
-                  background: searchVisible ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.1)",
-                  border: "0.5px solid rgba(255,255,255,0.2)",
-                  borderRadius: "50%", width: 36, height: 36, display: "flex", alignItems: "center",
-                  justifyContent: "center", cursor: "pointer", transition: "background 0.15s",
-                  color: "rgba(255,255,255,0.8)",
-                }}
-                onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.22)"}
-                onMouseLeave={e => e.currentTarget.style.background = searchVisible ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.1)"}
-              >
-                <MagnifyingGlass size={14} />
-              </button></Tooltip>
-              {/* Inline search input — slides in next to buttons */}
-              <div style={{
-                width: searchVisible ? 220 : 0, overflow: "hidden",
-                transition: "width 0.25s cubic-bezier(0.4,0,0.2,1)",
-                display: "flex", alignItems: "center", gap: 8,
-              }}>
-                <input
-                  ref={searchInputRef}
-                  value={trackSearch}
-                  onChange={e => setTrackSearch(e.target.value)}
-                  placeholder={t("searchInPlaylist")}
-                  style={{
-                    background: "rgba(0,0,0,0.35)", border: "0.5px solid rgba(255,255,255,0.2)",
-                    borderRadius: 20, padding: "7px 14px", fontSize: "var(--t13)", color: "#fff",
-                    outline: "none", width: 220, flexShrink: 0, fontFamily: "var(--font)",
-                  }}
-                />
-              </div>
-              {searchVisible && trackSearch && (
-                <span style={{ fontSize: "var(--t12)", color: "rgba(255,255,255,0.55)", whiteSpace: "nowrap" }}>
-                  {visibleTracks.length} {t("xOfY")} {tracks.length}
-                </span>
+              {isAlbum && year && (
+                <>
+                  <span>{year}</span>
+                  <span style={{ color: "rgba(255,255,255,0.2)", margin: "0 10px", fontSize: "var(--t14)" }}>|</span>
+                </>
+              )}
+              <span>{total || tracks.length} {t("songs")}</span>
+              {totalDuration && (
+                <>
+                  <span style={{ color: "rgba(255,255,255,0.2)", margin: "0 10px", fontSize: "var(--t14)" }}>|</span>
+                  <span>{totalDuration}</span>
+                </>
               )}
             </div>
+
+            {/* Action buttons — play left, secondary right */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+              {/* Left: play */}
+              <button onClick={() => tracks.length && onPlay(tracks[0], tracks)} style={{
+                background: `rgba(${accentColor},0.18)`,
+                border: `1px solid rgba(${accentColor},0.38)`,
+                borderRadius: 28, height: 50, padding: "0 28px",
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
+                cursor: "pointer", transition: "background 0.18s, border-color 0.18s, transform 0.15s",
+                fontSize: "var(--t15)", fontWeight: 700, color: "var(--accent)",
+                backdropFilter: "blur(6px)",
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = `rgba(${accentColor},0.3)`; e.currentTarget.style.borderColor = `rgba(${accentColor},0.6)`; e.currentTarget.style.transform = "scale(1.03)"; }}
+              onMouseLeave={e => { e.currentTarget.style.background = `rgba(${accentColor},0.18)`; e.currentTarget.style.borderColor = `rgba(${accentColor},0.38)`; e.currentTarget.style.transform = "scale(1)"; }}
+              >
+                <Play size={14} weight="fill" style={{ color: "var(--accent)" }} />
+                {t("playAll")}
+              </button>
+
+              {/* Right: secondary actions */}
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                {/* Inline search input */}
+                <div style={{
+                  width: searchVisible ? 200 : 0, overflow: "hidden",
+                  transition: "width 0.25s cubic-bezier(0.4,0,0.2,1)",
+                  display: "flex", alignItems: "center",
+                }}>
+                  <input
+                    ref={searchInputRef}
+                    value={trackSearch}
+                    onChange={e => setTrackSearch(e.target.value)}
+                    placeholder={t("searchInPlaylist")}
+                    style={{
+                      background: "rgba(0,0,0,0.35)", border: "0.5px solid rgba(255,255,255,0.18)",
+                      borderRadius: 20, padding: "9px 14px", fontSize: "var(--t13)", color: "#fff",
+                      outline: "none", width: 200, flexShrink: 0, fontFamily: "var(--font)",
+                    }}
+                  />
+                </div>
+                {searchVisible && trackSearch && (
+                  <span style={{ fontSize: "var(--t12)", color: "rgba(255,255,255,0.5)", whiteSpace: "nowrap" }}>
+                    {visibleTracks.length} {t("xOfY")} {tracks.length}
+                  </span>
+                )}
+                {/* Search toggle */}
+                <Tooltip text={t("searchInPlaylist")}><button
+                  onClick={() => { setSearchVisible(v => !v); if (searchVisible) setTrackSearch(""); }}
+                  style={{
+                    background: searchVisible ? "rgba(255,255,255,0.16)" : "rgba(0,0,0,0.3)",
+                    border: "0.5px solid rgba(255,255,255,0.15)",
+                    borderRadius: "50%", width: 42, height: 42, display: "flex", alignItems: "center",
+                    justifyContent: "center", cursor: "pointer", transition: "background 0.15s",
+                    color: "rgba(255,255,255,0.85)", padding: 0, backdropFilter: "blur(6px)",
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.2)"}
+                  onMouseLeave={e => e.currentTarget.style.background = searchVisible ? "rgba(255,255,255,0.16)" : "rgba(0,0,0,0.3)"}
+                >
+                  <MagnifyingGlass size={15} />
+                </button></Tooltip>
+
+                {/* Download / downloaded state */}
+                {onDownloadAll && tracks.length > 0 && (() => {
+                  const allCached = cachedSongIds && tracks.every(tr => cachedSongIds.has(tr.videoId));
+                  const someDownloading = downloadingIds && tracks.some(tr => downloadingIds.has(tr.videoId));
+                  const btnBase = {
+                    borderRadius: 28, height: 42, display: "flex", alignItems: "center",
+                    padding: "0 18px", gap: 8, fontSize: "var(--t13)", fontWeight: 600,
+                    cursor: "pointer", transition: "background 0.15s, border-color 0.15s",
+                    backdropFilter: "blur(6px)", border: "0.5px solid rgba(255,255,255,0.15)",
+                  };
+                  return allCached ? (
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <div style={{ ...btnBase, cursor: "default", color: "#4caf50", background: "rgba(76,175,80,0.12)", border: "0.5px solid rgba(76,175,80,0.3)" }}>
+                        <CheckCircle size={14} weight="fill" />
+                        {t("downloaded")}
+                      </div>
+                      {onRemoveAll && (
+                        <Tooltip text={t("removeDownload")}><button
+                          onClick={() => onRemoveAll(tracks)}
+                          style={{
+                            background: "rgba(0,0,0,0.3)", border: "0.5px solid rgba(255,255,255,0.15)",
+                            borderRadius: "50%", width: 42, height: 42, display: "flex", alignItems: "center",
+                            justifyContent: "center", cursor: "pointer", transition: "background 0.15s",
+                            color: "rgba(255,255,255,0.7)", padding: 0, backdropFilter: "blur(6px)",
+                          }}
+                          onMouseEnter={e => { e.currentTarget.style.background = "rgba(224,82,82,0.25)"; e.currentTarget.style.color = "#e05252"; }}
+                          onMouseLeave={e => { e.currentTarget.style.background = "rgba(0,0,0,0.3)"; e.currentTarget.style.color = "rgba(255,255,255,0.7)"; }}
+                        >
+                          <Trash size={14} />
+                        </button></Tooltip>
+                      )}
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => onDownloadAll(tracks)}
+                      disabled={someDownloading}
+                      style={{
+                        ...btnBase,
+                        background: "rgba(0,0,0,0.3)",
+                        color: "rgba(255,255,255,0.85)",
+                        opacity: someDownloading ? 0.65 : 1,
+                        cursor: someDownloading ? "default" : "pointer",
+                      }}
+                      onMouseEnter={e => { if (!someDownloading) e.currentTarget.style.background = "rgba(255,255,255,0.14)"; }}
+                      onMouseLeave={e => e.currentTarget.style.background = "rgba(0,0,0,0.3)"}
+                    >
+                      {someDownloading
+                        ? <DownloadSimple size={14} style={{ animation: "pulse 1s ease-in-out infinite" }} />
+                        : <DownloadSimple size={14} />}
+                      {t("downloadAll")}
+                    </button>
+                  );
+                })()}
+
+                {/* Refresh */}
+                {cached && onRefresh && (
+                  <Tooltip text={t("refresh")}><button
+                    onClick={onRefresh}
+                    style={{
+                      background: "rgba(0,0,0,0.3)", border: "0.5px solid rgba(255,255,255,0.15)",
+                      borderRadius: "50%", width: 42, height: 42, display: "flex", alignItems: "center",
+                      justifyContent: "center", cursor: "pointer", transition: "background 0.15s, transform 0.15s",
+                      color: "rgba(255,255,255,0.85)", padding: 0, backdropFilter: "blur(6px)",
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.14)"; e.currentTarget.style.transform = "rotate(30deg)"; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = "rgba(0,0,0,0.3)"; e.currentTarget.style.transform = "rotate(0deg)"; }}
+                  >
+                    <ArrowClockwise size={14} />
+                  </button></Tooltip>
+                )}
+              </div>
+            </div>
+
           </div>
         </div>
       </div>
@@ -5214,11 +5649,11 @@ function PlaylistLayout({ title, thumbnail, tracks, total, loading, progress, ca
 
       {/* Column headers */}
       <div style={{
-        display: "grid", gridTemplateColumns: isAlbum ? "minmax(0,2fr) minmax(0,1fr) 28px 48px" : "minmax(0,2fr) minmax(0,1fr) minmax(0,1fr) 28px 48px",
+        display: "grid", gridTemplateColumns: isAlbum ? "minmax(0,2fr) minmax(0,1fr) 28px 52px" : "minmax(0,2fr) minmax(0,1fr) minmax(0,1fr) 28px 52px",
         gap: 8, padding: "8px 16px", margin: "0 12px",
         borderBottom: "0.5px solid var(--border)",
-        fontSize: "var(--t11)", fontWeight: 500, color: "var(--text-muted)",
-        textTransform: "uppercase", letterSpacing: "0.07em",
+        fontSize: "var(--t11)", fontWeight: 600, color: "var(--text-muted)",
+        textTransform: "uppercase", letterSpacing: "0.08em",
       }}>
         <div>{t("colTitle")}</div>
         <div>{t("colArtist")}</div>
@@ -5269,10 +5704,12 @@ function SkeletonRow() {
   );
 }
 
-function DownloadsView({ onPlay, currentTrack, isPlaying, cachedSongIds, downloadingIds, premiumSongIds, onDownloadSong, onTrackContextMenu, hideExplicit }) {
+function DownloadsView({ onPlay, currentTrack, isPlaying, cachedSongIds, downloadingIds, premiumSongIds, onDownloadSong, onTrackContextMenu, hideExplicit, onOpenAlbum, onOpenArtist }) {
   const t = useLang();
   const [songs, setSongs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState("songs");
+  const [selectedGroup, setSelectedGroup] = useState(null);
 
   useEffect(() => {
     setLoading(true);
@@ -5290,28 +5727,149 @@ function DownloadsView({ onPlay, currentTrack, isPlaying, cachedSongIds, downloa
     return () => { cancelled = true; };
   }, [cachedSongIds.size]);
 
+  const albums = useMemo(() => {
+    const map = new Map();
+    songs.forEach(song => {
+      if (!song.album) return;
+      const key = song.albumBrowseId || song.album;
+      if (!map.has(key)) map.set(key, { key, title: song.album, browseId: song.albumBrowseId, thumbnail: song.thumbnail, artists: song.artists, songs: [] });
+      map.get(key).songs.push(song);
+    });
+    return Array.from(map.values()).sort((a, b) => a.title.localeCompare(b.title));
+  }, [songs]);
+
+  const artists = useMemo(() => {
+    const map = new Map();
+    songs.forEach(song => {
+      if (!song.artists) return;
+      const key = song.artistBrowseId || song.artists;
+      if (!map.has(key)) map.set(key, { key, artist: song.artists, browseId: song.artistBrowseId, thumbnail: song.thumbnail, songs: [] });
+      map.get(key).songs.push(song);
+    });
+    return Array.from(map.values()).sort((a, b) => a.artist.localeCompare(b.artist));
+  }, [songs]);
+
+  const tabDefs = [
+    { id: "songs",   label: t("filterSongs"),   icon: <MusicNote size={14} /> },
+    { id: "albums",  label: t("filterAlbums"),  icon: <VinylRecord size={14} /> },
+    { id: "artists", label: t("filterArtists"), icon: <Microphone size={14} /> },
+  ];
+
+  // Detail view for a selected album or artist
+  if (selectedGroup) {
+    return (
+      <PlaylistLayout
+        title={selectedGroup.title}
+        thumbnail={selectedGroup.thumbnail}
+        tracks={selectedGroup.songs}
+        total={selectedGroup.songs.length}
+        loading={false}
+        progress={1}
+        cached={true}
+        onPlay={onPlay}
+        currentTrack={currentTrack}
+        isPlaying={isPlaying}
+        onBack={() => setSelectedGroup(null)}
+        onOpenArtist={onOpenArtist}
+        onOpenAlbum={onOpenAlbum}
+        onTrackContextMenu={onTrackContextMenu}
+        cachedSongIds={cachedSongIds}
+        downloadingIds={downloadingIds}
+        premiumSongIds={premiumSongIds}
+        onDownloadSong={onDownloadSong}
+        hideExplicit={hideExplicit}
+      />
+    );
+  }
+
+  // Header in normal flow — sits above PlaylistLayout via zIndex:5 (safe, below any overlay)
+  const HEADER_H = 60; // 24px top padding + 36px row height
+  const tabBar = (
+    <div style={{ position: "relative", zIndex: 5, flexShrink: 0, padding: "24px 24px 0" }}>
+      <div style={{ position: "relative", display: "flex", alignItems: "center", height: 36 }}>
+      <div style={{ fontSize: "var(--t22)", fontWeight: 600 }}>{t("downloads")}</div>
+      <div style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", display: "flex", gap: 4 }}>
+        {tabDefs.map(tb => (
+          <button key={tb.id} onClick={() => setTab(tb.id)}
+            className={`view-tab-btn${tab === tb.id ? " active" : ""}`}
+            style={{
+              display: "flex", alignItems: "center", gap: 6,
+              background: tab === tb.id ? "color-mix(in srgb, var(--accent) 20%, transparent)" : "transparent",
+              color: tab === tb.id ? "var(--accent)" : "var(--text-secondary)",
+              border: "none", borderRadius: 8, padding: "7px 14px",
+              fontSize: "var(--t13)", cursor: "pointer", fontFamily: "var(--font)",
+              transition: "all 0.15s", fontWeight: tab === tb.id ? 600 : 400,
+            }}>{tb.icon}{tb.label}</button>
+        ))}
+      </div>
+      </div>
+    </div>
+  );
+
+  if (tab === "songs") {
+    return (
+      <div style={{ minHeight: "100%", display: "flex", flexDirection: "column" }}>
+        {tabBar}
+        {/* Negative margin pulls PlaylistLayout's gradient up behind the header */}
+        <div style={{ marginTop: -HEADER_H, flex: 1 }}>
+          <PlaylistLayout
+            title={t("allSongs")}
+            thumbnail={null}
+            tracks={songs}
+            total={songs.length}
+            loading={loading}
+            progress={1}
+            cached={false}
+            onPlay={onPlay}
+            currentTrack={currentTrack}
+            isPlaying={isPlaying}
+            onBack={null}
+            onOpenArtist={onOpenArtist}
+            onOpenAlbum={onOpenAlbum}
+            onTrackContextMenu={onTrackContextMenu}
+            cachedSongIds={cachedSongIds}
+            downloadingIds={downloadingIds}
+            premiumSongIds={premiumSongIds}
+            onDownloadSong={onDownloadSong}
+            hideExplicit={hideExplicit}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // Albums / Artists grid
+  const items = tab === "albums" ? albums : artists;
   return (
-    <PlaylistLayout
-      title={t("downloads")}
-      thumbnail={null}
-      tracks={songs}
-      total={songs.length}
-      loading={loading}
-      progress={1}
-      cached={false}
-      onPlay={onPlay}
-      currentTrack={currentTrack}
-      isPlaying={isPlaying}
-      onBack={null}
-      onTrackContextMenu={onTrackContextMenu}
-      cachedSongIds={cachedSongIds}
-      downloadingIds={downloadingIds}
-      premiumSongIds={premiumSongIds}
-      onDownloadSong={onDownloadSong}
-      onDownloadAll={null}
-      onRemoveAll={null}
-      hideExplicit={hideExplicit}
-    />
+    <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+      {tabBar}
+      <div style={{ flex: 1, overflowY: "auto", padding: "16px 24px 32px" }}>
+        {loading ? (
+          <div style={{ color: "var(--text-muted)", fontSize: "var(--t13)" }}>{t("loading")}…</div>
+        ) : items.length === 0 ? (
+          <div style={{ color: "var(--text-muted)", fontSize: "var(--t13)" }}>{t("noResults")}</div>
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))", gap: 16 }}>
+            {tab === "albums" && albums.map((album, i) => (
+              <GridCard key={i}
+                thumbnail={album.thumbnail}
+                title={album.title}
+                subtitle={`${album.artists || ""} · ${album.songs.length} ${t("songs")}`}
+                onClick={() => setSelectedGroup({ title: album.title, thumbnail: album.thumbnail, songs: album.songs })}
+              />
+            ))}
+            {tab === "artists" && artists.map((artist, i) => (
+              <GridCard key={i}
+                thumbnail={artist.thumbnail}
+                title={artist.artist}
+                subtitle={`${artist.songs.length} ${t("songs")}`}
+                onClick={() => setSelectedGroup({ title: artist.artist, thumbnail: artist.thumbnail, songs: artist.songs })}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -5407,7 +5965,7 @@ function SearchView({ query, onPlay, currentTrack, isPlaying, onOpenArtist, onOp
       {filter === "artists" && (
         <div style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
+          gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))",
           gap: 16, padding: "0 16px",
         }}>
           {results.map((a, i) => (
@@ -5432,7 +5990,7 @@ function SearchView({ query, onPlay, currentTrack, isPlaying, onOpenArtist, onOp
       {filter === "albums" && (
         <div style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
+          gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))",
           gap: 16, padding: "0 16px",
         }}>
           {results.map((a, i) => (
@@ -6161,6 +6719,31 @@ function ArtistView({ browseId, onPlay, currentTrack, isPlaying, onOpenAlbum, on
 
 // ─── Profile Manager ────────────────────────────────────────────────────────
 
+// Extracted outside LoginScreen to avoid remount on every parent render
+function LoginLogo() {
+  return (
+    <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
+      <svg width="48" height="48" viewBox="0 0 32 32" fill="none">
+        <path d="M0 16C0 7.16344 7.16344 0 16 0C24.8366 0 32 7.16344 32 16C32 24.8366 24.8366 32 16 32H6.4C2.86538 32 0 29.1346 0 25.6V16Z" fill="url(#login_g2)"/>
+        <path d="M16 5C22.0751 5 27 9.92487 27 16C27 22.0751 22.0751 27 16 27H8.7998C6.70128 26.9999 5.00011 25.2987 5 23.2002V16C5 9.92487 9.92487 5 16 5Z" stroke="white" strokeWidth="2" style={{mixBlendMode:"overlay"}}/>
+        <path d="M16.5547 11.5C16.6656 11.5 16.7695 11.5552 16.8311 11.6475L18.2139 13.7227C18.3258 13.8906 18.3258 14.1094 18.2139 14.2773L16.8311 16.3525C16.7695 16.4448 16.6656 16.5 16.5547 16.5C16.2895 16.5 16.1312 16.2041 16.2783 15.9834L17.252 14.5234C17.4631 14.2067 17.4631 13.7933 17.252 13.4766L16.2783 12.0166C16.1312 11.7959 16.2895 11.5 16.5547 11.5Z" stroke="white" style={{mixBlendMode:"overlay"}}/>
+        <rect x="20.5" y="11.5" width="1" height="5" rx="0.5" stroke="white" style={{mixBlendMode:"overlay"}}/>
+        <defs><linearGradient id="login_g2" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse"><stop stopColor="#EEA8FF"/><stop offset="1" stopColor="#FF008C"/></linearGradient></defs>
+      </svg>
+    </div>
+  );
+}
+function LoginBtn({ onClick, children, secondary }) {
+  return (
+    <button onClick={onClick} style={{
+      width: "100%", padding: "12px", border: secondary ? "0.5px solid var(--border)" : "none",
+      borderRadius: 10, color: secondary ? "var(--text-secondary)" : "#fff",
+      background: secondary ? "var(--bg-elevated)" : "var(--accent)",
+      fontSize: "var(--t13)", fontWeight: 600, cursor: "pointer", fontFamily: "var(--font)",
+    }}>{children}</button>
+  );
+}
+
 function LoginScreen({ onSuccess, onCancel }) {
   const [step, setStep] = useState("start"); // start | waiting | success | local-create
   const [localName, setLocalName] = useState("");
@@ -6225,26 +6808,8 @@ function LoginScreen({ onSuccess, onCancel }) {
     }
   };
 
-  const Logo = () => (
-    <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
-      <svg width="48" height="48" viewBox="0 0 32 32" fill="none">
-        <path d="M0 16C0 7.16344 7.16344 0 16 0C24.8366 0 32 7.16344 32 16C32 24.8366 24.8366 32 16 32H6.4C2.86538 32 0 29.1346 0 25.6V16Z" fill="url(#login_g2)"/>
-        <path d="M16 5C22.0751 5 27 9.92487 27 16C27 22.0751 22.0751 27 16 27H8.7998C6.70128 26.9999 5.00011 25.2987 5 23.2002V16C5 9.92487 9.92487 5 16 5Z" stroke="white" strokeWidth="2" style={{mixBlendMode:"overlay"}}/>
-        <path d="M16.5547 11.5C16.6656 11.5 16.7695 11.5552 16.8311 11.6475L18.2139 13.7227C18.3258 13.8906 18.3258 14.1094 18.2139 14.2773L16.8311 16.3525C16.7695 16.4448 16.6656 16.5 16.5547 16.5C16.2895 16.5 16.1312 16.2041 16.2783 15.9834L17.252 14.5234C17.4631 14.2067 17.4631 13.7933 17.252 13.4766L16.2783 12.0166C16.1312 11.7959 16.2895 11.5 16.5547 11.5Z" stroke="white" style={{mixBlendMode:"overlay"}}/>
-        <rect x="20.5" y="11.5" width="1" height="5" rx="0.5" stroke="white" style={{mixBlendMode:"overlay"}}/>
-        <defs><linearGradient id="login_g2" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse"><stop stopColor="#EEA8FF"/><stop offset="1" stopColor="#FF008C"/></linearGradient></defs>
-      </svg>
-    </div>
-  );
-
-  const Btn = ({ onClick, children, secondary }) => (
-    <button onClick={onClick} style={{
-      width: "100%", padding: "12px", border: secondary ? "0.5px solid var(--border)" : "none",
-      borderRadius: 10, color: secondary ? "var(--text-secondary)" : "#fff",
-      background: secondary ? "var(--bg-elevated)" : "var(--accent)",
-      fontSize: "var(--t13)", fontWeight: 600, cursor: "pointer", fontFamily: "var(--font)",
-    }}>{children}</button>
-  );
+  const Logo = LoginLogo;
+  const Btn  = LoginBtn;
 
   return (
     <div style={{
@@ -6418,7 +6983,7 @@ function LanguagePickerScreen({ currentLanguage, onConfirm }) {
               onMouseEnter={e => { if (selected !== lang.code) e.currentTarget.style.background = "var(--bg-hover)"; }}
               onMouseLeave={e => { if (selected !== lang.code) e.currentTarget.style.background = "var(--bg-elevated)"; }}
             >
-              <div style={{ width: 28, height: 20, borderRadius: 3, overflow: "hidden", flexShrink: 0 }}
+              <div style={{ width: 48, height: 30, borderRadius: 4, overflow: "hidden", flexShrink: 0 }}
                 dangerouslySetInnerHTML={{ __html: lang.flag }} />
               <div style={{ fontSize: "var(--t14)", fontWeight: 500, color: selected === lang.code ? "var(--accent)" : "var(--text-primary)" }}>
                 {lang.label}
@@ -7941,7 +8506,7 @@ export default function App() {
             {view === "library" && <AnimatedView><LibraryView onPlay={handlePlay} currentTrack={currentTrack} isPlaying={isPlaying} onOpenPlaylist={openPlaylist} onOpenAlbum={openAlbum} onOpenArtist={openArtist} onContextMenu={openContextMenu} /></AnimatedView>}
             {view === "collection" && collection && <AnimatedView><CollectionView title={collection.title} thumbnail={collection.thumbnail} tracks={collection.tracks} total={collection.total} loading={collection.loading} progress={collection.progress || 0} cached={collection.cached} onPlay={handlePlay} currentTrack={currentTrack} isPlaying={isPlaying} onBack={() => setView(collection.fromView || "library")} onOpenArtist={openArtist} onOpenAlbum={(item) => openAlbum(item, "collection")} isAlbum={collection.isAlbum} albumArtists={collection.albumArtists} albumArtistBrowseId={collection.albumArtistBrowseId} year={collection.year} onRefresh={() => { if (collection.isAlbum) openAlbum({ browseId: collection.browseId, title: collection.title, thumbnail: collection.thumbnail }, collection.fromView, true); else openPlaylist({ playlistId: collection.playlistId, title: collection.title, thumbnail: collection.thumbnail, forcedTitle: collection.forcedTitle }, collection.fromView, true); }} onTrackContextMenu={(e, track) => setTrackContextMenu({ x: e.clientX, y: e.clientY, track, playlistId: collection.isAlbum ? null : collection.playlistId })} cachedSongIds={cachedSongIds} downloadingIds={downloadingIds} premiumSongIds={premiumSongIds} onDownloadSong={handleDownloadSong} onDownloadAll={(tracks) => handleDownloadAll(tracks, { title: collection.title, thumbnail: collection.thumbnail, artists: collection.albumArtists || "" })} onRemoveAll={handleRemoveAllDownloads} hideExplicit={hideExplicit} /></AnimatedView>}
             {view === "artist" && artistView && <AnimatedView><ArtistView browseId={artistView.browseId} onPlay={handlePlay} currentTrack={currentTrack} isPlaying={isPlaying} onOpenAlbum={(item) => openAlbum(item, "artist")} onOpenPlaylist={(item) => openPlaylist(item, "artist")} onBack={() => setView(artistView.fromView || "library")} onContextMenu={openContextMenu} onTogglePin={togglePin} isPinned={pinnedIds.includes(artistView.browseId)} /></AnimatedView>}
-            {view === "downloads" && <AnimatedView><DownloadsView onPlay={handlePlay} currentTrack={currentTrack} isPlaying={isPlaying} cachedSongIds={cachedSongIds} downloadingIds={downloadingIds} premiumSongIds={premiumSongIds} onDownloadSong={handleDownloadSong} onTrackContextMenu={(e, track) => setTrackContextMenu({ x: e.clientX, y: e.clientY, track })} hideExplicit={hideExplicit} /></AnimatedView>}
+            {view === "downloads" && <AnimatedView><DownloadsView onPlay={handlePlay} currentTrack={currentTrack} isPlaying={isPlaying} cachedSongIds={cachedSongIds} downloadingIds={downloadingIds} premiumSongIds={premiumSongIds} onDownloadSong={handleDownloadSong} onTrackContextMenu={(e, track) => setTrackContextMenu({ x: e.clientX, y: e.clientY, track })} hideExplicit={hideExplicit} onOpenAlbum={(item) => openAlbum(item, "downloads")} onOpenArtist={openArtist} /></AnimatedView>}
             {isOffline && view !== "downloads" && (
               <div style={{
                 position: "sticky", bottom: 0, left: 0, right: 0,
@@ -7995,6 +8560,9 @@ export default function App() {
             onOpenAlbum={openAlbum}
             onOpenArtist={openArtist}
             onExportSong={handleExportSong}
+            onDownloadSong={handleDownloadSong}
+            cachedSongIds={cachedSongIds}
+            downloadingIds={downloadingIds}
             onRefetchLyrics={() => { setForcedLyricsProvider(null); setLyricsRefetchKey(k => k + 1); }}
             lyricsProviders={lyricsProviders}
             currentLyricsSource={currentLyricsSource}
@@ -8030,13 +8598,30 @@ export default function App() {
           top: overlayOpen ? 0 : "100%",
           left: fullscreen ? 0 : (sidebarCollapsed ? SIDEBAR_COLLAPSED : SIDEBAR_EXPANDED),
           right: queueOpen ? 320 : 0, bottom: fullscreen ? 0 : 69, zIndex: fullscreen ? 102 : 100,
+          overflow: "hidden",
           transition: animations ? "top 0.4s cubic-bezier(0.34,1.56,0.64,1), right 0.3s ease" : "top 0.1s ease",
           pointerEvents: overlayOpen ? "all" : "none",
         }}>
-          {currentTrack && (showLyrics
-            ? <LyricsOverlay track={currentTrack} audioRef={audioRef} onClose={() => setOverlayOpen(false)} fontSize={lyricsFontSize} providers={lyricsProviders} refetchKey={lyricsRefetchKey} onAddToast={addToast} language={language} forcedProvider={forcedLyricsProvider} onSourceChange={setCurrentLyricsSource} onProviderFailed={(id) => setFailedLyricsProviders(s => new Set([...s, id]))} showTranslation={showLyricsTranslation} translationLang={lyricsTranslationLang} translationFontSize={lyricsTranslationFontSize} showRomaji={showRomaji} romajiFontSize={lyricsRomajiFontSize} onCustomLyricsStatusChange={setIsCustomLyrics} importLyricsRef={importLyricsRef} removeCustomLyricsRef={removeCustomLyricsRef} showAgentTags={showAgentTags} ambientVisualizer={ambientVisualizer} />
-            : <CoverView track={currentTrack} isPlaying={isPlaying} onClose={() => setOverlayOpen(false)} ambientVisualizer={ambientVisualizer} />
-          )}
+          {/* Shared static background — stays fixed during crossfade */}
+          {currentTrack && (<>
+            <div style={{ position: "absolute", inset: 0, background: "#0d0d0d", pointerEvents: "none" }} />
+            <div style={{
+              position: "absolute", inset: 0, pointerEvents: "none",
+              backgroundImage: currentTrack.thumbnail ? `url(${hiResThumb(currentTrack.thumbnail)})` : "none",
+              backgroundSize: "cover", backgroundPosition: "center",
+              filter: "blur(24px) brightness(0.5)",
+              transform: "scale(1.08)",
+            }} />
+            <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.55)", pointerEvents: "none" }} />
+          </>)}
+          {currentTrack && (<>
+            <div style={{ position: "absolute", inset: 0, opacity: showLyrics ? 1 : 0, transition: "opacity 0.35s ease", pointerEvents: showLyrics ? "all" : "none" }}>
+              <LyricsOverlay track={currentTrack} audioRef={audioRef} onClose={() => setOverlayOpen(false)} fontSize={lyricsFontSize} providers={lyricsProviders} refetchKey={lyricsRefetchKey} onAddToast={addToast} language={language} forcedProvider={forcedLyricsProvider} onSourceChange={setCurrentLyricsSource} onProviderFailed={(id) => setFailedLyricsProviders(s => new Set([...s, id]))} showTranslation={showLyricsTranslation} translationLang={lyricsTranslationLang} translationFontSize={lyricsTranslationFontSize} showRomaji={showRomaji} romajiFontSize={lyricsRomajiFontSize} onCustomLyricsStatusChange={setIsCustomLyrics} importLyricsRef={importLyricsRef} removeCustomLyricsRef={removeCustomLyricsRef} showAgentTags={showAgentTags} ambientVisualizer={ambientVisualizer} />
+            </div>
+            <div style={{ position: "absolute", inset: 0, opacity: showLyrics ? 0 : 1, transition: "opacity 0.35s ease", pointerEvents: showLyrics ? "none" : "all" }}>
+              <CoverView track={currentTrack} isPlaying={isPlaying} onClose={() => setOverlayOpen(false)} ambientVisualizer={ambientVisualizer} />
+            </div>
+          </>)}
         </div>
 
         {/* Queue panel */}
