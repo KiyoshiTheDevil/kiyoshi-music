@@ -29,7 +29,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "PASTE_PUBLIC_KEY_HERE",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEZFQTRFQzQzQjhFNEFCQTgKUldTb3ErUzRRK3lrL3RyNE1uWlpmMGtLVksyNXIzQjRpbVpTYXU5akZOYXI2NEJZaHpKY3Q4RzQK",
       "endpoints": [
         "https://github.com/KiyoshiTheDevil/kiyoshi-music/releases/latest/download/latest.json"
       ],
