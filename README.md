@@ -26,6 +26,8 @@ If you have suggestions or ideas on how the player could be improved, do not hes
 | Higher RAM usage sometimes | Fixed |
 | Disabling Animations not disabling all animations in app | In progress |
 
+Please be aware, that Linux support is no priority right now, but steadily worked on. Linux-Builds are not guarenteed to work and might need further updates.
+
 If you find more issues and bugs, please report then in the Issues-Tab! Thank you!
 
 A Google Account is not mandatory to use the app itself. It is only required to, if you wish to sync the library and playlists with your YouTube Music-Library.
