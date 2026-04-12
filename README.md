@@ -11,19 +11,6 @@
 
 ---
 
-<div align="center">
-  <img src="docs/screenshot-home.png" width="80%" alt="Home Screen">
-</div>
-
-<br>
-
-<div align="center">
-  <img src="docs/screenshot-lyrics.png" width="45%" alt="Synced Lyrics">
-  <img src="docs/screenshot-artist.png" width="45%" alt="Artist Page">
-</div>
-
----
-
 
 
 Help translate the App in your Language!
