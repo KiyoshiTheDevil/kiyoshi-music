@@ -121,7 +121,7 @@ function getInitialLang() {
 const LangContext = createContext("de");
 const useLang = () => {
   const lang = useContext(LangContext);
-  return (key) => translate(lang, key);
+  return (key, vars) => translate(lang, key, vars);
 };
 
 // Proxy YouTube thumbnails through local server to avoid CORS issues
@@ -1037,7 +1037,8 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
           </div>
           {/* Offline toggle — disabled until offline mode is fully implemented */}
           <div
-            title={isActuallyOffline ? t("offlineBanner") : t("offlineComingSoon")}
+            onMouseEnter={e => { const r = e.currentTarget.getBoundingClientRect(); setTooltip({ text: isActuallyOffline ? t("offlineBanner") : t("offlineComingSoon"), x: r.right + 10, y: r.top + r.height / 2 }); }}
+            onMouseLeave={() => setTooltip(null)}
             style={{
               display: "flex", alignItems: "center", gap: 10,
               padding: "8px 12px", margin: "0 8px 8px",
@@ -1056,7 +1057,11 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
         <div style={{ marginTop: "auto" }}>
           <div style={{ margin: "0 16px 4px", borderTop: "0.5px solid var(--border)" }} />
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, padding: "8px 0 8px" }}>
-          <div onMouseEnter={e => { const r = e.currentTarget.getBoundingClientRect(); setTooltip({ text: "Kiyoshi", x: r.right + 10, y: r.top + r.height / 2 }); }} onMouseLeave={() => setTooltip(null)} style={{ width: 28, height: 28, borderRadius: "50%", background: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "var(--t11)", fontWeight: 500 }}>K</div>
+          <div onMouseEnter={e => { const r = e.currentTarget.getBoundingClientRect(); setTooltip({ text: currentProfileData?.displayName || "Kiyoshi", x: r.right + 10, y: r.top + r.height / 2 }); }} onMouseLeave={() => setTooltip(null)} style={{ width: 28, height: 28, borderRadius: "50%", background: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "var(--t11)", fontWeight: 500, overflow: "hidden", flexShrink: 0 }}>
+            {currentProfileData?.avatar
+              ? <img src={thumb(currentProfileData.avatar)} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              : (currentProfileData?.displayName || "?")[0].toUpperCase()}
+          </div>
           {updateInfo && (
             <div onClick={onOpenUpdateTab}
               onMouseEnter={e => { const r = e.currentTarget.getBoundingClientRect(); setTooltip({ text: t("updateAvailable"), x: r.right + 10, y: r.top + r.height / 2 }); }}
@@ -3637,7 +3642,14 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
               {track?.isExplicit && <ExplicitBadge />}
             </div>
             <div style={{ fontSize: "var(--t11)", color: "var(--text-secondary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-              {track?.artists}
+              {track?.artistBrowseId && onOpenArtist
+                ? <span
+                    onClick={e => { e.stopPropagation(); onOpenArtist({ browseId: track.artistBrowseId, artist: track.artists }); }}
+                    style={{ cursor: "pointer", transition: "color 0.15s" }}
+                    onMouseEnter={e => e.currentTarget.style.color = "var(--accent)"}
+                    onMouseLeave={e => e.currentTarget.style.color = "var(--text-secondary)"}
+                  >{track.artists}</span>
+                : track?.artists}
             </div>
             <div style={{ fontSize: "var(--t10)", color: "var(--text-muted)", marginTop: 2 }}>
               {track ? `${fmt(progress)} / ${fmt(duration)}` : ""}
@@ -5507,7 +5519,7 @@ function PlaylistLayout({ title, thumbnail, tracks, total, loading, progress, ca
                 display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
                 cursor: "pointer", transition: "background 0.18s, border-color 0.18s, transform 0.15s",
                 fontSize: "var(--t15)", fontWeight: 700, color: "var(--accent)",
-                backdropFilter: "blur(6px)",
+                fontFamily: "var(--font)", backdropFilter: "blur(6px)",
               }}
               onMouseEnter={e => { e.currentTarget.style.background = `rgba(${accentColor},0.3)`; e.currentTarget.style.borderColor = `rgba(${accentColor},0.6)`; e.currentTarget.style.transform = "scale(1.03)"; }}
               onMouseLeave={e => { e.currentTarget.style.background = `rgba(${accentColor},0.18)`; e.currentTarget.style.borderColor = `rgba(${accentColor},0.38)`; e.currentTarget.style.transform = "scale(1)"; }}
@@ -5565,7 +5577,7 @@ function PlaylistLayout({ title, thumbnail, tracks, total, loading, progress, ca
                     borderRadius: 28, height: 42, display: "flex", alignItems: "center",
                     padding: "0 18px", gap: 8, fontSize: "var(--t13)", fontWeight: 600,
                     cursor: "pointer", transition: "background 0.15s, border-color 0.15s",
-                    backdropFilter: "blur(6px)", border: "0.5px solid rgba(255,255,255,0.15)",
+                    fontFamily: "var(--font)", backdropFilter: "blur(6px)", border: "0.5px solid rgba(255,255,255,0.15)",
                   };
                   return allCached ? (
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -8240,7 +8252,20 @@ export default function App() {
   const handleLanguageChange = (lang) => {
     setLanguage(lang);
     localStorage.setItem("kiyoshi-lang", lang);
+    invoke("update_tray_labels", {
+      showLabel: translate(lang, "trayShow"),
+      quitLabel: translate(lang, "trayQuit"),
+    }).catch(() => {});
   };
+
+  // Sync tray labels with current language on startup
+  useEffect(() => {
+    invoke("update_tray_labels", {
+      showLabel: translate(language, "trayShow"),
+      quitLabel: translate(language, "trayQuit"),
+    }).catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Global keyboard shortcuts ──
   useEffect(() => {

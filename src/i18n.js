@@ -29,9 +29,18 @@ export const LANGUAGES = languageList.filter((lang) => translations[lang.code]);
 /**
  * Returns the translation for a key.
  * Fallback order: selected language → English → key itself
+ *
+ * Supports variable interpolation via a vars object.
+ * Variables in the string are written as %varName (e.g. %u for a username).
+ * Example: translate("de", "greeting", { u: "Max" })
+ *   "Hallo, %u!" → "Hallo, Max!"
  */
-export function translate(lang, key) {
-  return translations[lang]?.[key] ?? translations.en?.[key] ?? key;
+export function translate(lang, key, vars = {}) {
+  let str = translations[lang]?.[key] ?? translations.en?.[key] ?? key;
+  for (const [k, v] of Object.entries(vars)) {
+    str = str.replaceAll(`%${k}`, v);
+  }
+  return str;
 }
 
 export default translations;
