@@ -86,7 +86,7 @@ const _MAX_FRONTEND_LOGS = 500;
 })();
 
 // ─── App Version ─────────────────────────────────────────────────────────────
-const APP_VERSION = "0.9.3-alpha";
+const APP_VERSION = "0.9.4-alpha";
 
 // ─── Update Checker (GitHub Releases) ───────────────────────────────────────
 const APP_TAG = "v0.9.4.0-alpha";
