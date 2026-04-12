@@ -6,6 +6,7 @@ mod window;
 mod server;
 mod obs;
 
+use std::sync::Mutex;
 use tauri::Manager;
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, TrayIconBuilder, TrayIconEvent};
@@ -15,6 +16,25 @@ use window::{WasMaximized, set_fullscreen, open_login_window, close_login_window
 use server::{ServerProcess, stop_server};
 #[cfg(windows)]
 use obs::start_audio_session_tagger;
+
+struct TrayMenuItems {
+    show: Mutex<MenuItem<tauri::Wry>>,
+    quit: Mutex<MenuItem<tauri::Wry>>,
+}
+
+#[tauri::command]
+fn update_tray_labels(
+    state: tauri::State<TrayMenuItems>,
+    show_label: String,
+    quit_label: String,
+) {
+    if let Ok(item) = state.show.lock() {
+        let _ = item.set_text(show_label);
+    }
+    if let Ok(item) = state.quit.lock() {
+        let _ = item.set_text(quit_label);
+    }
+}
 
 #[cfg(target_os = "linux")]
 use std::env;
@@ -56,10 +76,16 @@ fn main() {
             start_audio_session_tagger();
 
             // ── System Tray ────────────────────────────────────────────────────
-            let show = MenuItem::with_id(app, "show", "Kiyoshi Music anzeigen", true, None::<&str>)?;
-            let quit = MenuItem::with_id(app, "quit", "Beenden", true, None::<&str>)?;
+            let show = MenuItem::with_id(app, "show", "Show Kiyoshi Music", true, None::<&str>)?;
+            let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
             let sep  = PredefinedMenuItem::separator(app)?;
             let menu = Menu::with_items(app, &[&show, &sep, &quit])?;
+
+            // Store menu items so the frontend can update their labels via update_tray_labels
+            app.manage(TrayMenuItems {
+                show: Mutex::new(show),
+                quit: Mutex::new(quit),
+            });
 
             let _tray = TrayIconBuilder::new()
                 .icon(app.default_window_icon().unwrap().clone())
@@ -101,6 +127,7 @@ fn main() {
             audio_play, audio_pause, audio_resume,
             audio_stop, audio_seek, audio_set_volume,
             relaunch_app, quit_app,
+            update_tray_labels,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

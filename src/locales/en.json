@@ -304,5 +304,7 @@
   "debugBackendUnreachable": "Backend not reachable",
   "debugOpenFloat": "Pop out",
   "copyAll": "Copy all",
-  "copied": "Copied!"
+  "copied": "Copied!",
+  "trayShow": "Show Kiyoshi Music",
+  "trayQuit": "Quit"
 }

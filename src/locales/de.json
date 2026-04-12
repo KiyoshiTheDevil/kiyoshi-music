@@ -303,5 +303,7 @@
   "debugBackendUnreachable": "Backend nicht erreichbar",
   "debugOpenFloat": "Ausklappen",
   "copyAll": "Alles kopieren",
-  "copied": "Kopiert!"
+  "copied": "Kopiert!",
+  "trayShow": "Kiyoshi Music anzeigen",
+  "trayQuit": "Beenden"
 }
