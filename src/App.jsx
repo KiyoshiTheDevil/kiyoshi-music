@@ -7423,7 +7423,7 @@ export default function App() {
   const [downloadQueue, setDownloadQueue] = useState([]); // [{videoId, title, artists, thumbnail, status, progress}]
   const [downloadBatches, setDownloadBatches] = useState([]); // [{id, title, thumbnail, artists, videoIds[], completedCount, errorCount}]
   const [pendingDownloadQueue, setPendingDownloadQueue] = useState([]); // tracks waiting for a free slot
-  const [updateInfo, setUpdateInfo] = useState(null);
+  const [updateInfo, setUpdateInfo] = useState(null);     // { version, changelog, releasedAt, _update }
   const [updateDownloading, setUpdateDownloading] = useState(false);
   const [updateDownloadProgress, setUpdateDownloadProgress] = useState(null);
   const [updateDownloaded, setUpdateDownloaded] = useState(false);
@@ -7438,65 +7438,56 @@ export default function App() {
     setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), type === "error" ? 6000 : 3500);
   }, []);
 
-  // ─── Update Check ───────────────────────────────────────────────────────────
-  const checkForUpdates = useCallback(() => {
-    return fetch(GITHUB_RELEASES_API)
-      .then(r => r.json())
-      .then(([release] = []) => {
-        if (release?.tag_name && isNewerVersion(release.tag_name, APP_TAG)) {
-          const asset = release.assets?.find(a => a.name.endsWith(".exe"));
-          setUpdateInfo({
-            version: release.name || release.tag_name,
-            tag: release.tag_name,
-            downloadUrl: asset?.browser_download_url || release.html_url,
-            assetName: asset?.name || "",
-            assetSize: asset?.size || 0,
-            changelog: release.body || "",
-            releasedAt: release.published_at,
-          });
-        } else {
-          setUpdateInfo(null);
-        }
-      })
-      .catch(() => {});
+  // ─── Update Check (Tauri plugin-updater) ────────────────────────────────────
+  const checkForUpdates = useCallback(async () => {
+    try {
+      const { check } = await import("@tauri-apps/plugin-updater");
+      const update = await check();
+      if (update?.available) {
+        setUpdateInfo({
+          version: update.version,
+          changelog: update.body || "",
+          releasedAt: update.date || null,
+          _update: update,   // native update handle
+        });
+      } else {
+        setUpdateInfo(null);
+      }
+    } catch {}
   }, []);
 
   const downloadUpdate = useCallback(async () => {
-    if (!updateInfo?.downloadUrl) return;
-    const controller = new AbortController();
-    updateDownloadAbortRef.current = controller;
+    if (!updateInfo?._update) return;
     setUpdateDownloading(true);
     setUpdateDownloadProgress(0);
     setUpdateDownloaded(false);
     try {
-      const { fetch: tauriFetch } = await import("@tauri-apps/plugin-http");
-      const response = await tauriFetch(updateInfo.downloadUrl, { method: "GET" });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const buffer = await response.arrayBuffer();
-      const bytes = new Uint8Array(buffer);
-      setUpdateDownloadProgress(90);
-      const { writeFile, BaseDirectory } = await import("@tauri-apps/plugin-fs");
-      await writeFile(updateInfo.assetName || "KiyoshiMusicUpdate.exe", bytes, { baseDir: BaseDirectory.Download });
+      let downloaded = 0;
+      let total = 0;
+      await updateInfo._update.download(event => {
+        if (event.event === "Started")  total = event.data.contentLength ?? 0;
+        if (event.event === "Progress") {
+          downloaded += event.data.chunkLength ?? 0;
+          setUpdateDownloadProgress(total > 0 ? Math.round((downloaded / total) * 100) : null);
+        }
+        if (event.event === "Finished") setUpdateDownloadProgress(100);
+      });
       setUpdateDownloaded(true);
-      setUpdateDownloadProgress(100);
-    } catch (e) {
-      if (e?.name !== "AbortError") {
-        const lang = getInitialLang();
-        addToast(translate(lang, "downloadFailed"), "error");
-        setUpdateDownloadProgress(null);
-      }
+    } catch {
+      const lang = getInitialLang();
+      addToast(translate(lang, "downloadFailed"), "error");
+      setUpdateDownloadProgress(null);
     } finally {
       setUpdateDownloading(false);
     }
   }, [updateInfo, addToast]);
 
   const installUpdate = useCallback(async () => {
-    if (!updateInfo?.assetName) return;
+    if (!updateInfo?._update) return;
     try {
-      const { downloadDir } = await import("@tauri-apps/api/path");
-      const dir = await downloadDir();
-      const { openPath } = await import("@tauri-apps/plugin-opener");
-      await openPath(dir + "\\" + updateInfo.assetName);
+      await updateInfo._update.install();
+      const { relaunch } = await import("@tauri-apps/plugin-process");
+      await relaunch();
     } catch {
       const lang = getInitialLang();
       addToast(translate(lang, "downloadFailed"), "error");
@@ -7504,9 +7495,10 @@ export default function App() {
   }, [updateInfo, addToast]);
 
   const cancelUpdateDownload = useCallback(() => {
-    updateDownloadAbortRef.current?.abort();
+    // plugin-updater hat keinen Abort — State zurücksetzen reicht
     setUpdateDownloading(false);
     setUpdateDownloadProgress(null);
+    setUpdateDownloaded(false);
   }, []);
 
   useEffect(() => {
