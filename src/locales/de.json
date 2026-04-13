@@ -305,5 +305,7 @@
   "copyAll": "Alles kopieren",
   "copied": "Kopiert!",
   "trayShow": "Kiyoshi Music anzeigen",
-  "trayQuit": "Beenden"
+  "trayQuit": "Beenden",
+  "upToDate": "Du nutzt bereits die neueste Version.",
+  "updateCheckFailed": "Update-Prüfung fehlgeschlagen."
 }

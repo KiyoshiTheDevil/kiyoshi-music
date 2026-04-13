@@ -306,5 +306,7 @@
   "copyAll": "Copy all",
   "copied": "Copied!",
   "trayShow": "Show Kiyoshi Music",
-  "trayQuit": "Quit"
+  "trayQuit": "Quit",
+  "upToDate": "You're already on the latest version.",
+  "updateCheckFailed": "Update check failed."
 }

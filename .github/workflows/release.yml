@@ -96,7 +96,7 @@ jobs:
           releaseId: ${{ needs.create-release.outputs.release_id }}
           args: --target x86_64-pc-windows-msvc --bundles nsis
 
-      - name: Generate latest.json and upload to release
+      - name: Generate latest.json and commit to repo
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -129,8 +129,23 @@ jobs:
             }
           } | ConvertTo-Json -Depth 5
 
+          # Write to repo folder so the updater can fetch it via raw.githubusercontent.com
+          New-Item -ItemType Directory -Force updates | Out-Null
+          $json | Out-File -FilePath updates/latest.json -Encoding utf8NoBOM
+
+          # Also upload to the release as archive copy
           $json | Out-File -FilePath latest.json -Encoding utf8NoBOM
           gh release upload $tag latest.json --clobber
+
+          # Commit updates/latest.json to master so the updater endpoint always works
+          # (GitHub /releases/latest only returns stable releases, not pre-releases)
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git fetch origin master
+          git checkout master
+          git add updates/latest.json
+          git diff --cached --quiet && echo "No changes" || git commit -m "chore: update latest.json for $tag [skip ci]"
+          git push origin master
 
   # ─── Step 2b: Linux AppImage + .deb ──────────────────────────────────────────
   build-linux:

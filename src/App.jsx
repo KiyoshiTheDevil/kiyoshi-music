@@ -2809,7 +2809,7 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                 )}
 
                 <button
-                  onClick={() => { setCheckingUpdate(true); onCheckUpdate().finally(() => setCheckingUpdate(false)); }}
+                  onClick={() => { setCheckingUpdate(true); onCheckUpdate(true).finally(() => setCheckingUpdate(false)); }}
                   disabled={checkingUpdate}
                   style={{
                     display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
@@ -7451,7 +7451,9 @@ export default function App() {
   }, []);
 
   // ─── Update Check (Tauri plugin-updater) ────────────────────────────────────
-  const checkForUpdates = useCallback(async () => {
+  // showFeedback=true: show toasts on "up to date" and on error (manual check)
+  // showFeedback=false (default): silent — only sets updateInfo if update is found (startup)
+  const checkForUpdates = useCallback(async (showFeedback = false) => {
     try {
       const { check } = await import("@tauri-apps/plugin-updater");
       const update = await check();
@@ -7460,13 +7462,17 @@ export default function App() {
           version: update.version,
           changelog: update.body || "",
           releasedAt: update.date || null,
-          _update: update,   // native update handle
+          _update: update,
         });
       } else {
         setUpdateInfo(null);
+        if (showFeedback) addToast(translate(language, "upToDate"), "info");
       }
-    } catch {}
-  }, []);
+    } catch (e) {
+      console.error("[Updater] check failed:", e);
+      if (showFeedback) addToast(translate(language, "updateCheckFailed"), "error");
+    }
+  }, [addToast, language]);
 
   const downloadUpdate = useCallback(async () => {
     if (!updateInfo?._update) return;
