@@ -1,0 +1,11 @@
+{
+  "version": "v0.9.4-alpha.2",
+  "pub_date": "2026-04-13T02:23:54Z",
+  "notes": "",
+  "platforms": {
+    "windows-x86_64": {
+      "url": "",
+      "signature": ""
+    }
+  }
+}
