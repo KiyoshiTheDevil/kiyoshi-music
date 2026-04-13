@@ -19,6 +19,8 @@ use obs::start_audio_session_tagger;
 #[cfg(target_os = "linux")]
 use std::env;
 
+struct AppTray(tauri::tray::TrayIcon<tauri::Wry>);
+
 #[tauri::command]
 fn relaunch_app(app: tauri::AppHandle) {
     app.restart();
@@ -33,12 +35,12 @@ fn quit_app(app: tauri::AppHandle) {
 /// Called from the frontend whenever the language changes.
 #[tauri::command]
 fn update_tray_labels(app: tauri::AppHandle, show_label: String, quit_label: String) {
-    let Some(tray) = app.tray_by_id("main") else { return };
+    let Some(tray) = app.try_state::<AppTray>() else { return };
     let Ok(show) = MenuItem::with_id(&app, "show", show_label, true, None::<&str>) else { return };
     let Ok(quit) = MenuItem::with_id(&app, "quit", quit_label, true, None::<&str>) else { return };
     let Ok(sep)  = PredefinedMenuItem::separator(&app) else { return };
     if let Ok(menu) = Menu::with_items(&app, &[&show, &sep, &quit]) {
-        let _ = tray.set_menu(Some(menu));
+        let _ = tray.0.set_menu(Some(menu));
     }
 }
 
@@ -74,8 +76,7 @@ fn main() {
             let sep  = PredefinedMenuItem::separator(app)?;
             let menu = Menu::with_items(app, &[&show, &sep, &quit])?;
 
-            let _tray = TrayIconBuilder::new()
-                .id("main")   // named so update_tray_labels can find it
+            let tray = TrayIconBuilder::with_id("main")
                 .icon(app.default_window_icon().unwrap().clone())
                 .menu(&menu)
                 .tooltip("Kiyoshi Music")
@@ -100,6 +101,9 @@ fn main() {
                     }
                 })
                 .build(app)?;
+
+            // Store tray handle so update_tray_labels can call set_menu() on it
+            app.manage(AppTray(tray));
 
             #[cfg(not(debug_assertions))]
             {
