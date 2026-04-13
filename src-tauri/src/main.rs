@@ -6,7 +6,6 @@ mod window;
 mod server;
 mod obs;
 
-use std::sync::Mutex;
 use tauri::Manager;
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, TrayIconBuilder, TrayIconEvent};
@@ -16,25 +15,6 @@ use window::{WasMaximized, set_fullscreen, open_login_window, close_login_window
 use server::{ServerProcess, stop_server};
 #[cfg(windows)]
 use obs::start_audio_session_tagger;
-
-struct TrayMenuItems {
-    show: Mutex<MenuItem<tauri::Wry>>,
-    quit: Mutex<MenuItem<tauri::Wry>>,
-}
-
-#[tauri::command]
-fn update_tray_labels(
-    state: tauri::State<TrayMenuItems>,
-    show_label: String,
-    quit_label: String,
-) {
-    if let Ok(item) = state.show.lock() {
-        let _ = item.set_text(show_label);
-    }
-    if let Ok(item) = state.quit.lock() {
-        let _ = item.set_text(quit_label);
-    }
-}
 
 #[cfg(target_os = "linux")]
 use std::env;
@@ -47,6 +27,19 @@ fn relaunch_app(app: tauri::AppHandle) {
 #[tauri::command]
 fn quit_app(app: tauri::AppHandle) {
     app.exit(0);
+}
+
+/// Rebuilds the tray menu with localised labels.
+/// Called from the frontend whenever the language changes.
+#[tauri::command]
+fn update_tray_labels(app: tauri::AppHandle, show_label: String, quit_label: String) {
+    let Some(tray) = app.tray_by_id("main") else { return };
+    let Ok(show) = MenuItem::with_id(&app, "show", show_label, true, None::<&str>) else { return };
+    let Ok(quit) = MenuItem::with_id(&app, "quit", quit_label, true, None::<&str>) else { return };
+    let Ok(sep)  = PredefinedMenuItem::separator(&app) else { return };
+    if let Ok(menu) = Menu::with_items(&app, &[&show, &sep, &quit]) {
+        let _ = tray.set_menu(Some(menu));
+    }
 }
 
 fn main() {
@@ -81,13 +74,8 @@ fn main() {
             let sep  = PredefinedMenuItem::separator(app)?;
             let menu = Menu::with_items(app, &[&show, &sep, &quit])?;
 
-            // Store menu items so the frontend can update their labels via update_tray_labels
-            app.manage(TrayMenuItems {
-                show: Mutex::new(show),
-                quit: Mutex::new(quit),
-            });
-
             let _tray = TrayIconBuilder::new()
+                .id("main")   // named so update_tray_labels can find it
                 .icon(app.default_window_icon().unwrap().clone())
                 .menu(&menu)
                 .tooltip("Kiyoshi Music")
