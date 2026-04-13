@@ -11,9 +11,9 @@ import React from "react";
 // Dummy context so existing <IconContext.Provider> calls don't crash
 export const IconContext = React.createContext({});
 
-function fa(name) {
+function fa(name, alwaysSolid = false) {
   return function FaIcon({ size, weight, className = "", style, ...rest }) {
-    const solid = weight === "fill" || weight === "bold" || weight === "duotone";
+    const solid = alwaysSolid || weight === "fill" || weight === "bold" || weight === "duotone";
     const cls = `${solid ? "fa-solid" : "fa-regular"} fa-${name}${className ? " " + className : ""}`;
     return (
       <i
@@ -101,11 +101,11 @@ export const DotsSixVertical    = fa("grip-vertical");
 export const DotsThreeVertical  = fa("ellipsis-vertical");
 
 // ── Time & weather (greeting) ────────────────────────────────────────────────
-export const SunHorizon         = fa("sun-horizon");
-export const Sun                = fa("sun");
-export const CloudSun           = fa("cloud-sun");
-export const Moon               = fa("moon");
-export const MoonStars          = fa("moon-stars");
+export const SunHorizon         = fa("mug-hot", true);
+export const Sun                = fa("sun", true);
+export const CloudSun           = fa("cloud-sun", true);
+export const Moon               = fa("moon", true);
+export const MoonStars          = fa("moon-stars", true);
 
 // ── Status ───────────────────────────────────────────────────────────────────
 export const WifiHigh           = fa("wifi");

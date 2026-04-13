@@ -7454,6 +7454,7 @@ export default function App() {
   // showFeedback=true: show toasts on "up to date" and on error (manual check)
   // showFeedback=false (default): silent — only sets updateInfo if update is found (startup)
   const checkForUpdates = useCallback(async (showFeedback = false) => {
+    const lang = localStorage.getItem("kiyoshi-lang") || "de";
     try {
       const { check } = await import("@tauri-apps/plugin-updater");
       const update = await check();
@@ -7466,13 +7467,13 @@ export default function App() {
         });
       } else {
         setUpdateInfo(null);
-        if (showFeedback) addToast(translate(language, "upToDate"), "info");
+        if (showFeedback) addToast(translate(lang, "upToDate"), "info");
       }
     } catch (e) {
       console.error("[Updater] check failed:", e);
-      if (showFeedback) addToast(translate(language, "updateCheckFailed"), "error");
+      if (showFeedback) addToast(translate(lang, "updateCheckFailed"), "error");
     }
-  }, [addToast, language]);
+  }, [addToast]);
 
   const downloadUpdate = useCallback(async () => {
     if (!updateInfo?._update) return;
@@ -8258,19 +8259,23 @@ export default function App() {
   const handleLanguageChange = (lang) => {
     setLanguage(lang);
     localStorage.setItem("kiyoshi-lang", lang);
-    invoke("update_tray_labels", {
-      showLabel: translate(lang, "trayShow"),
-      quitLabel: translate(lang, "trayQuit"),
-    }).catch(() => {});
+    import("@tauri-apps/api/core").then(({ invoke }) => {
+      invoke("update_tray_labels", {
+        showLabel: translate(lang, "trayShow"),
+        quitLabel: translate(lang, "trayQuit"),
+      }).catch(() => {});
+    });
   };
 
   // Sync tray labels with current language on startup
   useEffect(() => {
-    invoke("update_tray_labels", {
-      showLabel: translate(language, "trayShow"),
-      quitLabel: translate(language, "trayQuit"),
-    }).catch(() => {});
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    const lang = localStorage.getItem("kiyoshi-lang") || "de";
+    import("@tauri-apps/api/core").then(({ invoke }) => {
+      invoke("update_tray_labels", {
+        showLabel: translate(lang, "trayShow"),
+        quitLabel: translate(lang, "trayQuit"),
+      }).catch(() => {});
+    });
   }, []);
 
   // ── Global keyboard shortcuts ──
