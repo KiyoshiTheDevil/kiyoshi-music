@@ -101,16 +101,28 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          $nsisDir = "src-tauri\target\x86_64-pc-windows-msvc\release\bundle\nsis"
-          $zip = Get-Item "$nsisDir\*x64-setup.nsis.zip" -ErrorAction SilentlyContinue
-          $sig = Get-Item "$nsisDir\*x64-setup.nsis.zip.sig" -ErrorAction SilentlyContinue
+          # Search recursively from workspace root — robust against unexpected cwd
+          Write-Host "GITHUB_WORKSPACE: $env:GITHUB_WORKSPACE"
+          $allNsis = Get-ChildItem -Path $env:GITHUB_WORKSPACE -Recurse -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -like "*x64-setup.nsis.zip*" }
+          Write-Host "All matching files:"
+          $allNsis | ForEach-Object { Write-Host "  $($_.FullName)" }
+
+          $zip = $allNsis | Where-Object { $_.Name -notlike "*.sig" } | Select-Object -First 1
+          $sig = $allNsis | Where-Object { $_.Name -like "*.sig" } | Select-Object -First 1
+
+          if (-not $zip) {
+            Write-Host "##[error]No .nsis.zip file found — updater artifact missing!"
+            exit 1
+          }
+
           $releaseId = "${{ needs.create-release.outputs.release_id }}"
           $repo = "${{ github.repository }}"
 
           foreach ($file in @($zip, $sig) | Where-Object { $_ }) {
             $name = $file.Name
             $ct = if ($name.EndsWith(".sig")) { "text/plain" } else { "application/zip" }
-            Write-Host "Uploading $name..."
+            Write-Host "Uploading $name ($([math]::Round($file.Length/1MB,1)) MB)..."
             Invoke-RestMethod `
               -Uri "https://uploads.github.com/repos/$repo/releases/$releaseId/assets?name=$([Uri]::EscapeDataString($name))" `
               -Method Post `
