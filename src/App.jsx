@@ -4563,10 +4563,11 @@ function LyricsOverlay({ track, audioRef, onClose, fontSize = 32, providers = DE
   const containerRef = useRef(null);
   const rafRef = useRef(null);
   const lyricsDataRef = useRef(null); // rAF loop reads lyrics without closure
-  const lastIdxRef = useRef(-1);      // tracks active line to detect changes
-  const inGapRef = useRef(false);     // tracks inter-line gap state without closure
-  const wordElsRef = useRef([]);      // DOM refs to active line's word spans
+  const lastIdxRef = useRef(-1);       // tracks active line to detect changes
+  const inGapRef = useRef(false);      // tracks inter-line gap state without closure
+  const wordElsRef = useRef([]);       // DOM refs to active line's word spans
   const activeWordIdxRef = useRef(-1); // tracks active word within line
+  const bgContainerRef = useRef(null); // DOM ref to bg-vocals container (RAF-controlled opacity)
   // High-resolution playback time: interpolate between timeupdate events
   const audioSnapRef = useRef({ ct: 0, pt: 0, playing: false });
 
@@ -4725,13 +4726,22 @@ function LyricsOverlay({ track, audioRef, onClose, fontSize = 32, providers = DE
         }
       }
 
+      // BG vocals: fade in container independently based on bg-vocals' own start time
+      if (bgContainerRef.current && lyrLine?.bgWords?.length) {
+        const bgStart = lyrLine.bgWords.find(w => !w.isSpace)?.time;
+        if (bgStart != null) {
+          const bgActive = t >= bgStart;
+          bgContainerRef.current.style.opacity = bgActive ? "1" : "0.35";
+        }
+      }
+
       rafRef.current = requestAnimationFrame(loop);
     };
     rafRef.current = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(rafRef.current);
   }, [audioRef]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // After React renders, cache word span elements for the active line
+  // After React renders, cache word span elements and bg-vocals container for the active line
   useLayoutEffect(() => {
     const idx = lastIdxRef.current;
     if (idx >= 0) {
@@ -4739,8 +4749,12 @@ function LyricsOverlay({ track, audioRef, onClose, fontSize = 32, providers = DE
       wordElsRef.current = lineEl
         ? Array.from(lineEl.querySelectorAll("[data-word-bright]"))
         : [];
+      bgContainerRef.current = lineEl
+        ? lineEl.querySelector("[data-bg-container]")
+        : null;
     } else {
       wordElsRef.current = [];
+      bgContainerRef.current = null;
     }
   }, [tick]);
 
@@ -5117,9 +5131,18 @@ function LyricsOverlay({ track, audioRef, onClose, fontSize = 32, providers = DE
               ) : (
                 <span style={{ color: "#fff" }}>{lineText}</span>
               )}
-              {/* Background vocals — rendered in smaller text below the main line */}
+              {/* Background vocals — rendered in smaller text below the main line.
+                  Initial opacity when isActive: 0.35 (dim). RAF loop sets it to 1
+                  only when t >= bgWords[0].time so it activates independently. */}
               {line.bgWords?.length > 0 && (
-                <div style={{ fontSize: "0.68em", fontWeight: 600, marginTop: 3, lineHeight: 1.4, opacity: 0.9 }}>
+                <div
+                  data-bg-container="true"
+                  style={{
+                    fontSize: "0.68em", fontWeight: 600, marginTop: 3, lineHeight: 1.4,
+                    opacity: isActive ? 0.35 : 0.9,
+                    transition: "opacity 0.3s ease",
+                  }}
+                >
                   {isActive ? (
                     <span style={{ whiteSpace: "pre-wrap" }}>
                       {line.bgWords.map((word, wi) =>
@@ -5147,7 +5170,7 @@ function LyricsOverlay({ track, audioRef, onClose, fontSize = 32, providers = DE
                 </div>
               )}
               {line.bgText && (
-                <div style={{ fontSize: "0.68em", fontWeight: 600, marginTop: 3, lineHeight: 1.4, opacity: 0.9, color: "#fff" }}>
+                <div style={{ fontSize: "0.68em", fontWeight: 600, marginTop: 3, lineHeight: 1.4, opacity: isActive ? 0.35 : 0.9, color: "#fff" }}>
                   {line.bgText}
                 </div>
               )}
