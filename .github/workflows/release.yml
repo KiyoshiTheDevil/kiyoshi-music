@@ -96,41 +96,6 @@ jobs:
           releaseId: ${{ needs.create-release.outputs.release_id }}
           args: --target x86_64-pc-windows-msvc --bundles nsis
 
-      - name: Upload NSIS updater artifacts (.nsis.zip + .sig)
-        shell: pwsh
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          # Search recursively from workspace root — robust against unexpected cwd
-          Write-Host "GITHUB_WORKSPACE: $env:GITHUB_WORKSPACE"
-          $allNsis = Get-ChildItem -Path $env:GITHUB_WORKSPACE -Recurse -ErrorAction SilentlyContinue |
-            Where-Object { $_.Name -like "*x64-setup.nsis.zip*" }
-          Write-Host "All matching files:"
-          $allNsis | ForEach-Object { Write-Host "  $($_.FullName)" }
-
-          $zip = $allNsis | Where-Object { $_.Name -notlike "*.sig" } | Select-Object -First 1
-          $sig = $allNsis | Where-Object { $_.Name -like "*.sig" } | Select-Object -First 1
-
-          if (-not $zip) {
-            Write-Host "##[error]No .nsis.zip file found — updater artifact missing!"
-            exit 1
-          }
-
-          $releaseId = "${{ needs.create-release.outputs.release_id }}"
-          $repo = "${{ github.repository }}"
-
-          foreach ($file in @($zip, $sig) | Where-Object { $_ }) {
-            $name = $file.Name
-            $ct = if ($name.EndsWith(".sig")) { "text/plain" } else { "application/zip" }
-            Write-Host "Uploading $name ($([math]::Round($file.Length/1MB,1)) MB)..."
-            Invoke-RestMethod `
-              -Uri "https://uploads.github.com/repos/$repo/releases/$releaseId/assets?name=$([Uri]::EscapeDataString($name))" `
-              -Method Post `
-              -Headers @{ Authorization = "token $env:GITHUB_TOKEN"; "Content-Type" = $ct } `
-              -InFile $file.FullName
-            Write-Host "Done: $name"
-          }
-
   # ─── Step 2b: Linux AppImage + .deb ──────────────────────────────────────────
   build-linux:
     needs: create-release
@@ -224,16 +189,16 @@ jobs:
             --method PATCH \
             --field draft=false
 
-          # Poll for assets — GitHub CDN can take up to ~60s after publishing
-          NSIS_URL=""
+          # Poll for assets — tauri-action@v0 uploads .exe + .exe.sig (Tauri 2.x format)
+          EXE_URL=""
           SIG_URL=""
           for attempt in 1 2 3 4 5 6; do
             echo "Fetching assets (attempt $attempt/6)..."
             ASSETS=$(gh api "repos/${{ github.repository }}/releases/$RELEASE_ID/assets")
-            NSIS_URL=$(echo "$ASSETS" | jq -r '.[] | select(.name | endswith(".nsis.zip")) | .browser_download_url' | head -1)
-            SIG_URL=$(echo  "$ASSETS" | jq -r '.[] | select(.name | endswith(".nsis.zip.sig")) | .browser_download_url' | head -1)
+            EXE_URL=$(echo "$ASSETS" | jq -r '.[] | select(.name | endswith("x64-setup.exe")) | .browser_download_url' | head -1)
+            SIG_URL=$(echo "$ASSETS" | jq -r '.[] | select(.name | endswith("x64-setup.exe.sig")) | .browser_download_url' | head -1)
 
-            if [ -n "$NSIS_URL" ] && [ "$NSIS_URL" != "null" ]; then
+            if [ -n "$EXE_URL" ] && [ "$EXE_URL" != "null" ]; then
               echo "Assets ready on attempt $attempt."
               break
             fi
@@ -242,11 +207,11 @@ jobs:
             sleep 15
           done
 
-          echo "NSIS URL: $NSIS_URL"
-          echo "SIG URL:  $SIG_URL"
+          echo "EXE URL: $EXE_URL"
+          echo "SIG URL: $SIG_URL"
 
-          if [ -z "$NSIS_URL" ] || [ "$NSIS_URL" = "null" ]; then
-            echo "ERROR: .nsis.zip asset not found after all retries. Updater will not work." >&2
+          if [ -z "$EXE_URL" ] || [ "$EXE_URL" = "null" ]; then
+            echo "ERROR: .exe asset not found after all retries. Updater will not work." >&2
             exit 1
           fi
 
@@ -259,7 +224,7 @@ jobs:
           jq -n \
             --arg version "v${VERSION}" \
             --arg pub_date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-            --arg url "${NSIS_URL}" \
+            --arg url "${EXE_URL}" \
             --arg sig "${SIG_CONTENT}" \
             '{version: $version, pub_date: $pub_date, notes: "", platforms: {"windows-x86_64": {url: $url, signature: $sig}}}' \
             > updates/latest.json
