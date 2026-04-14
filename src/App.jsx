@@ -5035,18 +5035,22 @@ function LyricsOverlay({ track, audioRef, onClose, fontSize = 32, providers = DE
         </div>
       )}
 
-      {/* Gap overlay: blur + bouncing note during inter-line pauses */}
+      {/* Gap overlay: blur + bouncing note during inter-line pauses.
+          Fade-in slow (0.6s) so it doesn't feel jarring; fade-out fast (0.18s)
+          so it clears the moment a new lyric line starts. */}
       <div style={{
         position: "absolute", inset: 0, zIndex: 55, pointerEvents: "none",
         backdropFilter: inGap ? "blur(10px)" : "blur(0px)",
         WebkitBackdropFilter: inGap ? "blur(10px)" : "blur(0px)",
-        transition: "backdrop-filter 0.7s ease, -webkit-backdrop-filter 0.7s ease",
+        transition: inGap
+          ? "backdrop-filter 0.6s ease, -webkit-backdrop-filter 0.6s ease"
+          : "backdrop-filter 0.18s ease, -webkit-backdrop-filter 0.18s ease",
       }} />
       <div style={{
         position: "absolute", inset: 0, zIndex: 56, pointerEvents: "none",
         display: "flex", alignItems: "center", justifyContent: "center",
         opacity: inGap ? 1 : 0,
-        transition: "opacity 0.7s ease",
+        transition: inGap ? "opacity 0.6s ease" : "opacity 0.18s ease",
       }}>
         <MusicNote size={52} weight="fill" style={{
           color: "rgba(255,255,255,0.75)",
