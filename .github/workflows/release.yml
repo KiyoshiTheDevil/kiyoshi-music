@@ -96,6 +96,29 @@ jobs:
           releaseId: ${{ needs.create-release.outputs.release_id }}
           args: --target x86_64-pc-windows-msvc --bundles nsis
 
+      - name: Upload NSIS updater artifacts (.nsis.zip + .sig)
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $nsisDir = "src-tauri\target\x86_64-pc-windows-msvc\release\bundle\nsis"
+          $zip = Get-Item "$nsisDir\*x64-setup.nsis.zip" -ErrorAction SilentlyContinue
+          $sig = Get-Item "$nsisDir\*x64-setup.nsis.zip.sig" -ErrorAction SilentlyContinue
+          $releaseId = "${{ needs.create-release.outputs.release_id }}"
+          $repo = "${{ github.repository }}"
+
+          foreach ($file in @($zip, $sig) | Where-Object { $_ }) {
+            $name = $file.Name
+            $ct = if ($name.EndsWith(".sig")) { "text/plain" } else { "application/zip" }
+            Write-Host "Uploading $name..."
+            Invoke-RestMethod `
+              -Uri "https://uploads.github.com/repos/$repo/releases/$releaseId/assets?name=$([Uri]::EscapeDataString($name))" `
+              -Method Post `
+              -Headers @{ Authorization = "token $env:GITHUB_TOKEN"; "Content-Type" = $ct } `
+              -InFile $file.FullName
+            Write-Host "Done: $name"
+          }
+
   # ─── Step 2b: Linux AppImage + .deb ──────────────────────────────────────────
   build-linux:
     needs: create-release
