@@ -4335,32 +4335,56 @@ function parseTtml(ttml) {
     }
 
     if (isLineSync) {
-      // Line-sync: treat entire <p> text as one unit, wipe smoothly over [time, endTime]
-      const text = p.textContent?.trim();
-      if (text) lines.push({ time, endTime, text, wordSync: false, lineSync: true, agent, agentRole });
+      // Line-sync: separate main text from background vocals (<span ttm:role="x-bg">)
+      let mainText = "";
+      let bgText = "";
+      for (const child of p.childNodes) {
+        if (child.nodeType === Node.TEXT_NODE) {
+          mainText += child.textContent;
+        } else if (child.nodeType === Node.ELEMENT_NODE) {
+          if (child.getAttribute("ttm:role") === "x-bg") bgText += child.textContent;
+          else mainText += child.textContent;
+        }
+      }
+      mainText = mainText.trim();
+      bgText = bgText.trim();
+      if (mainText || bgText) {
+        const lineObj = { time, endTime, text: mainText || "\u00A0", wordSync: false, lineSync: true, agent, agentRole };
+        if (bgText) lineObj.bgText = bgText;
+        lines.push(lineObj);
+      }
       continue;
     }
 
-    // Word-sync: extract per-span timestamps
+    // Word-sync: extract per-span timestamps; separate background vocals (ttm:role="x-bg")
     const words = [];
-    const processNode = (node, inheritBegin, inheritEnd) => {
+    const bgWords = [];
+    const processNode = (node, inheritBegin, inheritEnd, isBg = false) => {
       if (node.nodeType === Node.TEXT_NODE) {
         const text = node.textContent;
-        if (text) words.push({
-          text,
-          time: ttmlTimeToSeconds(inheritBegin || begin),
-          end: ttmlTimeToSeconds(inheritEnd || end || begin),
-          isSpace: text.trim() === "",
-        });
+        if (text) {
+          const w = {
+            text,
+            time: ttmlTimeToSeconds(inheritBegin || begin),
+            end: ttmlTimeToSeconds(inheritEnd || end || begin),
+            isSpace: text.trim() === "",
+          };
+          if (isBg) bgWords.push(w); else words.push(w);
+        }
       } else if (node.nodeType === Node.ELEMENT_NODE) {
+        const nextIsBg = isBg || node.getAttribute("ttm:role") === "x-bg";
         const b = node.getAttribute("begin") || inheritBegin || begin;
         const e = node.getAttribute("end") || inheritEnd || end || begin;
-        for (const child of node.childNodes) processNode(child, b, e);
+        for (const child of node.childNodes) processNode(child, b, e, nextIsBg);
       }
     };
 
-    for (const child of p.childNodes) processNode(child, begin, end);
-    if (words.length) lines.push({ time, endTime, words, wordSync: true, agent, agentRole });
+    for (const child of p.childNodes) processNode(child, begin, end, false);
+    if (words.length || bgWords.length) {
+      const lineObj = { time, endTime, words, wordSync: true, agent, agentRole };
+      if (bgWords.length) lineObj.bgWords = bgWords;
+      lines.push(lineObj);
+    }
   }
   return lines;
 }
@@ -4555,9 +4579,11 @@ function LyricsOverlay({ track, audioRef, onClose, fontSize = 32, providers = DE
       if (!showTranslation) setTranslations(null);
       return;
     }
-    const lines = lyrics.map(line =>
-      line.wordSync ? line.words.map(w => w.text).join("") : (line.text || "")
-    );
+    const lines = lyrics.map(line => {
+      const main = line.wordSync ? (line.words || []).map(w => w.text).join("") : (line.text || "");
+      const bg = (line.bgWords || []).map(w => w.text).join("") || (line.bgText || "");
+      return bg ? `${main} ${bg}` : main;
+    });
     setTranslating(true);
     setTranslations(null);
     fetch("http://localhost:9847/translate-lyrics", {
@@ -4577,9 +4603,11 @@ function LyricsOverlay({ track, audioRef, onClose, fontSize = 32, providers = DE
       if (!showRomaji) setRomajiLines(null);
       return;
     }
-    const lines = lyrics.map(line =>
-      line.wordSync ? line.words.map(w => w.text).join("") : (line.text || "")
-    );
+    const lines = lyrics.map(line => {
+      const main = line.wordSync ? (line.words || []).map(w => w.text).join("") : (line.text || "");
+      const bg = (line.bgWords || []).map(w => w.text).join("") || (line.bgText || "");
+      return bg ? `${main} ${bg}` : main;
+    });
     fetch("http://localhost:9847/romanize-lyrics", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -4647,7 +4675,11 @@ function LyricsOverlay({ track, audioRef, onClose, fontSize = 32, providers = DE
       // Word highlighting — direct DOM, bypasses React entirely (uses newIdx, not displayIdx)
       const lyrLine = lyr?.[newIdx];
       if (lyrLine?.wordSync && wordElsRef.current.length > 0) {
-        const words = lyrLine.words.filter(w => !w.isSpace);
+        // Merge main words + bg words in time order; DOM order matches (bg words rendered after main)
+        const words = [
+          ...(lyrLine.words || []).filter(w => !w.isSpace),
+          ...(lyrLine.bgWords || []).filter(w => !w.isSpace),
+        ];
         let curWordIdx = -1;
         for (let wi = 0; wi < words.length; wi++) {
           if (t >= words[wi].time) curWordIdx = wi;
@@ -5063,7 +5095,7 @@ function LyricsOverlay({ track, audioRef, onClose, fontSize = 32, providers = DE
             >
               {isActive && line.wordSync ? (
                 <span style={{ whiteSpace: "pre-wrap" }}>
-                  {line.words.map((word, wi) =>
+                  {(line.words || []).map((word, wi) =>
                     word.isSpace
                       ? <span key={wi}>{word.text}</span>
                       : <span key={wi} style={{ position: "relative", display: "inline-block" }}>
@@ -5084,6 +5116,40 @@ function LyricsOverlay({ track, audioRef, onClose, fontSize = 32, providers = DE
                 </span>
               ) : (
                 <span style={{ color: "#fff" }}>{lineText}</span>
+              )}
+              {/* Background vocals — rendered in smaller text below the main line */}
+              {line.bgWords?.length > 0 && (
+                <div style={{ fontSize: "0.68em", fontWeight: 600, marginTop: 3, lineHeight: 1.4, opacity: 0.9 }}>
+                  {isActive ? (
+                    <span style={{ whiteSpace: "pre-wrap" }}>
+                      {line.bgWords.map((word, wi) =>
+                        word.isSpace
+                          ? <span key={wi}>{word.text}</span>
+                          : <span key={wi} style={{ position: "relative", display: "inline-block" }}>
+                              <span style={{ color: "rgba(255,255,255,0.25)" }}>{word.text}</span>
+                              <span
+                                data-word-bright="true"
+                                style={{
+                                  position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
+                                  color: "white",
+                                  opacity: 0,
+                                  WebkitMaskImage: "linear-gradient(to right, black -6px, transparent 6px)",
+                                  maskImage: "linear-gradient(to right, black -6px, transparent 6px)",
+                                  pointerEvents: "none",
+                                }}
+                              >{word.text}</span>
+                            </span>
+                      )}
+                    </span>
+                  ) : (
+                    <span style={{ color: "#fff" }}>{line.bgWords.map(w => w.text).join("")}</span>
+                  )}
+                </div>
+              )}
+              {line.bgText && (
+                <div style={{ fontSize: "0.68em", fontWeight: 600, marginTop: 3, lineHeight: 1.4, opacity: 0.9, color: "#fff" }}>
+                  {line.bgText}
+                </div>
               )}
               {showRomaji && romajiLines?.[i] && (
                 <div style={{
@@ -9018,7 +9084,11 @@ export default function App() {
                   // Fetch lyrics for this track then copy
                   fetch(`${API}/lyrics/${track.videoId}`).then(r => r.json()).then(d => {
                     if (!d.lyrics) return;
-                    const text = d.lyrics.map(l => l.wordSync ? l.words.map(w => w.text).join("") : (l.text || "")).join("\n");
+                    const text = d.lyrics.map(l => {
+                      const main = l.wordSync ? (l.words||[]).map(w=>w.text).join("") : (l.text||"");
+                      const bg = (l.bgWords||[]).map(w=>w.text).join("") || (l.bgText||"");
+                      return bg ? `${main} ${bg}` : main;
+                    }).join("\n");
                     navigator.clipboard.writeText(text).catch(() => {});
                   }).catch(() => {});
                 }}
@@ -9038,16 +9108,21 @@ export default function App() {
                     if (!d.lyrics) return;
                     const lyrics = d.lyrics;
                     const isSync = lyrics.some(l => l.time >= 0);
+                    const lrcLineText = (l) => {
+                      const main = l.wordSync ? (l.words||[]).map(w=>w.text).join("") : (l.text||"");
+                      const bg = (l.bgWords||[]).map(w=>w.text).join("") || (l.bgText||"");
+                      return bg ? `${main} ${bg}` : main;
+                    };
                     const lrcText = isSync
                       ? lyrics.map(l => {
-                          const lineText = l.wordSync ? l.words.map(w => w.text).join("") : (l.text || "");
+                          const lineText = lrcLineText(l);
                           if (l.time < 0) return lineText;
                           const mm = String(Math.floor(l.time / 60)).padStart(2, "0");
                           const ss = String(Math.floor(l.time % 60)).padStart(2, "0");
                           const cs = String(Math.floor((l.time % 1) * 100)).padStart(2, "0");
                           return `[${mm}:${ss}.${cs}] ${lineText}`;
                         }).join("\n")
-                      : lyrics.map(l => l.wordSync ? l.words.map(w => w.text).join("") : (l.text || "")).join("\n");
+                      : lyrics.map(lrcLineText).join("\n");
                     const { save } = await import("@tauri-apps/plugin-dialog");
                     const { writeTextFile } = await import("@tauri-apps/plugin-fs");
                     const safeTitle = (track?.title || "lyrics").replace(/[<>:"/\\|?*]/g, "_");
