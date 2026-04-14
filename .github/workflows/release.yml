@@ -96,57 +96,6 @@ jobs:
           releaseId: ${{ needs.create-release.outputs.release_id }}
           args: --target x86_64-pc-windows-msvc --bundles nsis
 
-      - name: Generate latest.json and commit to repo
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          $tag = "${{ github.ref_name }}"
-          $version = $tag.TrimStart('v')
-          $releaseId = "${{ needs.create-release.outputs.release_id }}"
-
-          # Fetch release assets
-          $assets = gh api repos/${{ github.repository }}/releases/$releaseId/assets | ConvertFrom-Json
-
-          $nsisAsset = $assets | Where-Object { $_.name -like "*.nsis.zip" } | Select-Object -First 1
-          $sigAsset  = $assets | Where-Object { $_.name -like "*.nsis.zip.sig" } | Select-Object -First 1
-
-          $nsisUrl = if ($nsisAsset) { $nsisAsset.browser_download_url } else { "" }
-          $sigContent = ""
-          if ($sigAsset) {
-            $sigContent = (Invoke-WebRequest -Uri $sigAsset.browser_download_url `
-              -Headers @{ Authorization = "Bearer $env:GITHUB_TOKEN" }).Content.Trim()
-          }
-
-          $json = [ordered]@{
-            version  = "v$version"
-            pub_date = (Get-Date -Format "yyyy-MM-ddTHH:mm:ssZ")
-            notes    = ""
-            platforms = [ordered]@{
-              "windows-x86_64" = [ordered]@{
-                url       = $nsisUrl
-                signature = $sigContent
-              }
-            }
-          } | ConvertTo-Json -Depth 5
-
-          # Write to repo folder so the updater can fetch it via raw.githubusercontent.com
-          New-Item -ItemType Directory -Force updates | Out-Null
-          $json | Out-File -FilePath updates/latest.json -Encoding utf8NoBOM
-
-          # Also upload to the release as archive copy
-          $json | Out-File -FilePath latest.json -Encoding utf8NoBOM
-          gh release upload $tag latest.json --clobber
-
-          # Commit updates/latest.json to master so the updater endpoint always works
-          # (GitHub /releases/latest only returns stable releases, not pre-releases)
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git config user.name "github-actions[bot]"
-          git fetch origin master
-          git checkout master
-          git add updates/latest.json
-          git diff --cached --quiet && echo "No changes" || git commit -m "chore: update latest.json for $tag [skip ci]"
-          git push origin master
-
   # ─── Step 2b: Linux AppImage + .deb ──────────────────────────────────────────
   build-linux:
     needs: create-release
@@ -215,3 +164,66 @@ jobs:
         with:
           releaseId: ${{ needs.create-release.outputs.release_id }}
           args: --target x86_64-unknown-linux-gnu --bundles appimage --bundles deb
+
+  # ─── Step 3: Publish release + generate latest.json ─────────────────────────
+  # Runs AFTER both builds so all assets are uploaded.
+  # Publishing the draft first makes browser_download_url available in the API.
+  finalize:
+    needs: [create-release, build-windows, build-linux]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: master
+
+      - name: Publish release and generate latest.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ github.ref_name }}"
+          VERSION="${TAG#v}"
+          RELEASE_ID="${{ needs.create-release.outputs.release_id }}"
+
+          # Publish the draft — this makes browser_download_url non-empty for all assets
+          gh api "repos/${{ github.repository }}/releases/$RELEASE_ID" \
+            --method PATCH \
+            --field draft=false
+
+          # Give GitHub a moment to propagate the URLs
+          sleep 5
+
+          # Fetch release assets
+          ASSETS=$(gh api "repos/${{ github.repository }}/releases/$RELEASE_ID/assets")
+
+          NSIS_URL=$(echo "$ASSETS" | jq -r '.[] | select(.name | endswith(".nsis.zip")) | .browser_download_url' | head -1)
+          SIG_URL=$(echo  "$ASSETS" | jq -r '.[] | select(.name | endswith(".nsis.zip.sig")) | .browser_download_url' | head -1)
+
+          SIG_CONTENT=""
+          if [ -n "$SIG_URL" ] && [ "$SIG_URL" != "null" ]; then
+            SIG_CONTENT=$(curl -fsSL "$SIG_URL")
+          fi
+
+          echo "NSIS URL: $NSIS_URL"
+          echo "SIG URL:  $SIG_URL"
+
+          if [ -z "$NSIS_URL" ] || [ "$NSIS_URL" = "null" ]; then
+            echo "ERROR: .nsis.zip asset not found in release. Updater will not work." >&2
+            exit 1
+          fi
+
+          # Use jq to build JSON safely (handles newlines in sig content)
+          jq -n \
+            --arg version "v${VERSION}" \
+            --arg pub_date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg url "${NSIS_URL}" \
+            --arg sig "${SIG_CONTENT}" \
+            '{version: $version, pub_date: $pub_date, notes: "", platforms: {"windows-x86_64": {url: $url, signature: $sig}}}' \
+            > updates/latest.json
+
+          # Commit to repo so the raw.githubusercontent.com endpoint always works
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git add updates/latest.json
+          git diff --cached --quiet && echo "No changes" || \
+            git commit -m "chore: update latest.json for $TAG [skip ci]"
+          git push origin master
