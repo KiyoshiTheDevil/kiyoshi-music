@@ -4608,12 +4608,14 @@ function LyricsOverlay({ track, audioRef, onClose, fontSize = 32, providers = DE
   const [isCustomLyrics, setIsCustomLyrics] = useState(false);
   const [customLyricsKey, setCustomLyricsKey] = useState(0);
   const [inGap, setInGap] = useState(false);
+  const [trailingIdx, setTrailingIdx] = useState(-1); // previous line still visible after new line starts
   const t = useLang();
   const containerRef = useRef(null);
   const rafRef = useRef(null);
   const lyricsDataRef = useRef(null); // rAF loop reads lyrics without closure
   const lastIdxRef = useRef(-1);       // tracks active line to detect changes
   const inGapRef = useRef(false);      // tracks inter-line gap state without closure
+  const trailingIdxRef = useRef(-1);   // mirror of trailingIdx for RAF access without stale closure
   const wordElsRef = useRef([]);       // DOM refs to active line's word spans
   const activeWordIdxRef = useRef(-1); // tracks active word within line
   const bgContainerRef = useRef(null); // DOM ref to bg-vocals container (RAF-controlled opacity)
@@ -4709,11 +4711,30 @@ function LyricsOverlay({ track, audioRef, onClose, fontSize = 32, providers = DE
       }
 
       if (displayIdx !== lastIdxRef.current) {
+        const prevIdx = lastIdxRef.current;
+        // If the previous line's endTime hasn't been reached yet, keep it visible as
+        // a "trailing" line so it finishes naturally while the new line is already active.
+        const newTrailing =
+          prevIdx >= 0 && lyr?.[prevIdx]?.endTime != null && t < lyr[prevIdx].endTime
+            ? prevIdx : -1;
+        if (newTrailing !== trailingIdxRef.current) {
+          trailingIdxRef.current = newTrailing;
+          setTrailingIdx(newTrailing);
+        }
         lastIdxRef.current = displayIdx;
         activeWordIdxRef.current = -1;
         wordElsRef.current = [];    // cleared until useLayoutEffect repopulates after render
         bgContainerRef.current = null; // clear so RAF doesn't update the old line's element
         setTick(n => n + 1);
+      }
+
+      // Expire trailing line once its endTime is reached
+      if (trailingIdxRef.current >= 0) {
+        const trailEnd = lyr?.[trailingIdxRef.current]?.endTime;
+        if (trailEnd != null && t >= trailEnd) {
+          trailingIdxRef.current = -1;
+          setTrailingIdx(-1);
+        }
       }
 
       // Gap indicator: true only when a line has played but we're between lines (gap > 3s)
@@ -5122,19 +5143,22 @@ function LyricsOverlay({ track, audioRef, onClose, fontSize = 32, providers = DE
           </div>
         )}
         {lyrics && lyrics.map((line, i) => {
-          const isActive = i === activeIdx;
-          const isPast = i < activeIdx;
-          const isFuture = !isActive && !isPast;
+          const isActive   = i === activeIdx;
+          const isTrailing = i === trailingIdx; // previous line still playing while new one is active
+          const isPast     = i < activeIdx && !isTrailing;
+          const isFuture   = !isActive && !isTrailing && !isPast;
 
           const lineText = line.wordSync
-            ? line.words.map(w => w.text).join("")
+            ? (line.words || []).map(w => w.text).join("")
             : (line.text || "\u00A0");
 
-
+          // Trailing line looks identical to the active line — full opacity, no blur.
+          // The existing CSS transition (0.4s) will carry it smoothly into the past
+          // style once trailingIdx clears when endTime is reached.
           let blur, opacity;
-          if (isActive)     { blur = 0;   opacity = 1; }
-          else if (isPast)  { blur = 3;   opacity = 0.4; }
-          else              { blur = 0;   opacity = 0.35; }
+          if (isActive || isTrailing) { blur = 0;   opacity = 1; }
+          else if (isPast)            { blur = 3;   opacity = 0.4; }
+          else                        { blur = 0;   opacity = 0.35; }
 
           const seekable = line.time >= 0;
           const agentRole = line.agentRole; // "lead", "featured", "group", or null
