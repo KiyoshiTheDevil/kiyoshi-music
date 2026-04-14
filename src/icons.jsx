@@ -65,6 +65,7 @@ export const ArrowsOut          = fa("expand");
 // ── Settings & tools ─────────────────────────────────────────────────────────
 export const Gear               = fa("gear");
 export const Palette            = fa("palette");
+export const Key                = fa("key");
 export const Keyboard           = fa("keyboard");
 export const PaintBrushBroad    = fa("paintbrush-fine");
 export const HardDrives         = fa("hard-drive");
@@ -116,6 +117,7 @@ export const PersonArmsSpread   = fa("universal-access");
 // ── Settings icons ────────────────────────────────────────────────────────────
 export const TextSize           = fa("text-size");
 export const Sliders            = fa("sliders");
+export const Eye                = fa("eye");
 export const EyeSlash           = fa("eye-slash");
 export const Tag                = fa("tag");
 export const CircleHalf         = fa("circle-half-stroke");

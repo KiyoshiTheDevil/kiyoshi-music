@@ -322,5 +322,18 @@
   "pinChange": "Change PIN",
   "pinChangeDesc": "Replace the current PIN with a new one.",
   "pinEmergency": "Emergency Reset",
-  "pinEmergencyDesc": "If the PIN is forgotten, it can be reset by running these commands in the browser console:"
+  "pinEmergencyDesc": "If the PIN or password is forgotten: tap the lock icon 7 times quickly on the lock screen to trigger the emergency reset.",
+  "pinForgot": "Forgot PIN / password?",
+  "pinEmergencyReset": "Reset Protection",
+  "pinEmergencyConfirmText": "Are you sure? Protection will be disabled and cannot be recovered.",
+  "pinEmergencyConfirm": "Yes, reset",
+
+  "pinTypeLabel": "Protection Type",
+  "pinTypeDesc": "Choose between a numeric PIN (keypad) or a text password",
+  "pinTypePin": "PIN",
+  "pinTypePassword": "Password",
+  "pinLengthLabel": "PIN Length",
+  "pinLengthDesc": "Number of digits required to unlock",
+  "pinDigits": "digits",
+  "pinSubmit": "Confirm"
 }

@@ -1,0 +1,10 @@
+[1776127894.123] process started
+[1776127894.124] python=3.13.3 (tags/v3.13.3:6280bb5, Apr  8 2025, 14:47:33) [MSC v.1943 64 bit (AMD64)]
+[1776127894.124] frozen=False
+[1776127894.125] base_dir=C:\Users\bexga\Downloads\kiyoshi-music\kiyoshi-music\python-backend
+[1776127894.125] checking port 9847 ...
+[1776127894.426] port 9847 is free
+[1776127894.427] calling app.run ...
+[1776127897.453] self-test http://127.0.0.1:9847/status → HTTP 200 OK
+[1776127899.497] self-test http://localhost:9847/status → HTTP 200 OK
+[1776127901.527] self-test http://::1:9847/status → FAILED: URLError: <urlopen error [WinError 10061] No connection could be made because the target machine actively refused it>

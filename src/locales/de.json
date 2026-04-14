@@ -321,5 +321,18 @@
   "pinChange": "PIN ändern",
   "pinChangeDesc": "Aktuellen PIN durch einen neuen ersetzen.",
   "pinEmergency": "Notfall-Zurücksetzen",
-  "pinEmergencyDesc": "Falls der PIN vergessen wurde, kann er durch Ausführen folgender Befehle in der Browser-Konsole zurückgesetzt werden:"
+  "pinEmergencyDesc": "Falls der PIN oder das Passwort vergessen wurde: auf dem Sperrbildschirm 7× schnell auf das Schloss-Symbol tippen, um den Notfall-Reset auszulösen.",
+  "pinForgot": "PIN / Passwort vergessen?",
+  "pinEmergencyReset": "Schutz zurücksetzen",
+  "pinEmergencyConfirmText": "Bist du sicher? Der Schutz wird deaktiviert und kann nicht wiederhergestellt werden.",
+  "pinEmergencyConfirm": "Ja, zurücksetzen",
+
+  "pinTypeLabel": "Schutzart",
+  "pinTypeDesc": "Wähle zwischen einem numerischen PIN (Numpad) oder einem Textpasswort",
+  "pinTypePin": "PIN",
+  "pinTypePassword": "Passwort",
+  "pinLengthLabel": "PIN-Länge",
+  "pinLengthDesc": "Anzahl der Ziffern zum Entsperren",
+  "pinDigits": "Stellen",
+  "pinSubmit": "Bestätigen"
 }

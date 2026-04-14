@@ -189,26 +189,35 @@ jobs:
             --method PATCH \
             --field draft=false
 
-          # Give GitHub a moment to propagate the URLs
-          sleep 5
+          # Poll for assets — GitHub CDN can take up to ~60s after publishing
+          NSIS_URL=""
+          SIG_URL=""
+          for attempt in 1 2 3 4 5 6; do
+            echo "Fetching assets (attempt $attempt/6)..."
+            ASSETS=$(gh api "repos/${{ github.repository }}/releases/$RELEASE_ID/assets")
+            NSIS_URL=$(echo "$ASSETS" | jq -r '.[] | select(.name | endswith(".nsis.zip")) | .browser_download_url' | head -1)
+            SIG_URL=$(echo  "$ASSETS" | jq -r '.[] | select(.name | endswith(".nsis.zip.sig")) | .browser_download_url' | head -1)
 
-          # Fetch release assets
-          ASSETS=$(gh api "repos/${{ github.repository }}/releases/$RELEASE_ID/assets")
+            if [ -n "$NSIS_URL" ] && [ "$NSIS_URL" != "null" ]; then
+              echo "Assets ready on attempt $attempt."
+              break
+            fi
 
-          NSIS_URL=$(echo "$ASSETS" | jq -r '.[] | select(.name | endswith(".nsis.zip")) | .browser_download_url' | head -1)
-          SIG_URL=$(echo  "$ASSETS" | jq -r '.[] | select(.name | endswith(".nsis.zip.sig")) | .browser_download_url' | head -1)
-
-          SIG_CONTENT=""
-          if [ -n "$SIG_URL" ] && [ "$SIG_URL" != "null" ]; then
-            SIG_CONTENT=$(curl -fsSL "$SIG_URL")
-          fi
+            echo "Assets not ready yet — waiting 15s..."
+            sleep 15
+          done
 
           echo "NSIS URL: $NSIS_URL"
           echo "SIG URL:  $SIG_URL"
 
           if [ -z "$NSIS_URL" ] || [ "$NSIS_URL" = "null" ]; then
-            echo "ERROR: .nsis.zip asset not found in release. Updater will not work." >&2
+            echo "ERROR: .nsis.zip asset not found after all retries. Updater will not work." >&2
             exit 1
+          fi
+
+          SIG_CONTENT=""
+          if [ -n "$SIG_URL" ] && [ "$SIG_URL" != "null" ]; then
+            SIG_CONTENT=$(curl -fsSL "$SIG_URL")
           fi
 
           # Use jq to build JSON safely (handles newlines in sig content)

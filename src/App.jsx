@@ -51,6 +51,7 @@ import {
   Bug,
   TextSize,
   Sliders,
+  Eye,
   EyeSlash,
   Tag,
   CircleHalf,
@@ -60,6 +61,7 @@ import {
   Globe,
   Lock,
   LockOpen,
+  Key,
 } from "./icons.jsx";
 
 const API = "http://localhost:9847";
@@ -2351,20 +2353,33 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
   const [pinSetup, setPinSetup] = useState(null); // null | { mode:"enable"|"change"|"disable", step:"current"|"new"|"confirm", first:string|null }
   const [pinSetupDigits, setPinSetupDigits] = useState([]);
   const [pinSetupError, setPinSetupError] = useState("");
+  // PIN type: "pin" (keypad) or "password" (text input)
+  const [pinType, setPinType] = useState(() => localStorage.getItem("kiyoshi-pin-type") || "pin");
+  // PIN length: 4 or 6 digits (only relevant when pinType === "pin")
+  const [pinLength, setPinLength] = useState(() => parseInt(localStorage.getItem("kiyoshi-pin-length") || "4", 10));
+  const [pinPasswordInput, setPinPasswordInput] = useState("");
+  const [pinSetupPasswordInput, setPinSetupPasswordInput] = useState("");
+  const [showPinPassword, setShowPinPassword] = useState(false);
+  const [showSetupPassword, setShowSetupPassword] = useState(false);
+  const [pinEmergencyConfirm, setPinEmergencyConfirm] = useState(false);
+  const [pinLockTaps, setPinLockTaps] = useState(0);
+  const pinLockTapTimer = useRef(null);
+  const PIN_EMERGENCY_TAPS = 7;
 
-  const PIN_LEN = 4;
+  const PIN_LEN = pinLength;
 
-  const submitPinEntry = async (digits) => {
-    const entered = digits.join("");
-    const stored  = localStorage.getItem("kiyoshi-pin-hash");
-    const hash    = await hashPin(entered);
+  const submitPinEntry = async (input) => {
+    const stored = localStorage.getItem("kiyoshi-pin-hash");
+    const hash   = await hashPin(input);
     if (hash === stored) {
       setPinVerified(true);
       setPinDigits([]);
+      setPinPasswordInput("");
     } else {
       setPinShake(true);
       setPinError(true);
       setPinDigits([]);
+      setPinPasswordInput("");
       setTimeout(() => { setPinShake(false); setPinError(false); }, 700);
     }
   };
@@ -2375,7 +2390,7 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
     setPinDigits(prev => {
       if (prev.length >= PIN_LEN) return prev;
       const next = [...prev, key];
-      if (next.length === PIN_LEN) setTimeout(() => submitPinEntry(next), 80);
+      if (next.length === PIN_LEN) setTimeout(() => submitPinEntry(next.join("")), 80);
       return next;
     });
   };
@@ -2386,55 +2401,59 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
       if (prev.length >= PIN_LEN) return prev;
       const next = [...prev, key];
       if (next.length === PIN_LEN) {
-        setTimeout(() => advanceSetup(next), 80);
+        setTimeout(() => advanceSetup(next.join("")), 80);
       }
       return next;
     });
   };
 
-  const advanceSetup = async (digits) => {
-    const entered = digits.join("");
+  const advanceSetup = async (input) => {
     const { mode, step, first } = pinSetup;
+    const resetSetupInputs = () => { setPinSetupDigits([]); setPinSetupPasswordInput(""); };
     if (step === "current") {
-      const hash = await hashPin(entered);
+      const hash = await hashPin(input);
       if (hash !== localStorage.getItem("kiyoshi-pin-hash")) {
         setPinSetupError(t("pinWrong"));
-        setPinSetupDigits([]);
+        resetSetupInputs();
         return;
       }
       setPinSetup(s => ({ ...s, step: mode === "disable" ? "done" : "new" }));
       if (mode === "disable") {
         localStorage.removeItem("kiyoshi-pin-hash");
         localStorage.removeItem("kiyoshi-pin-enabled");
+        localStorage.removeItem("kiyoshi-pin-type");
+        localStorage.removeItem("kiyoshi-pin-length");
         setPinEnabled(false);
         setPinSetup(null);
-        setPinSetupDigits([]);
+        resetSetupInputs();
         return;
       }
-      setPinSetupDigits([]);
+      resetSetupInputs();
       setPinSetupError("");
       return;
     }
     if (step === "new") {
-      setPinSetup(s => ({ ...s, step: "confirm", first: entered }));
-      setPinSetupDigits([]);
+      setPinSetup(s => ({ ...s, step: "confirm", first: input }));
+      resetSetupInputs();
       setPinSetupError("");
       return;
     }
     if (step === "confirm") {
-      if (entered !== first) {
+      if (input !== first) {
         setPinSetupError(t("pinMismatch"));
-        setPinSetupDigits([]);
+        resetSetupInputs();
         setPinSetup(s => ({ ...s, step: "new", first: null }));
         return;
       }
-      const hash = await hashPin(entered);
+      const hash = await hashPin(input);
       localStorage.setItem("kiyoshi-pin-hash", hash);
       localStorage.setItem("kiyoshi-pin-enabled", "true");
+      localStorage.setItem("kiyoshi-pin-type", pinType);
+      if (pinType === "pin") localStorage.setItem("kiyoshi-pin-length", String(pinLength));
       setPinEnabled(true);
       setPinVerified(true);
       setPinSetup(null);
-      setPinSetupDigits([]);
+      resetSetupInputs();
       setPinSetupError("");
     }
   };
@@ -2474,6 +2493,78 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
           </button>
         );
       })}
+    </div>
+  );
+
+  // ── Keyboard support for PIN entry / setup ───────────────────────────────
+  useEffect(() => {
+    if (pinType !== "pin") return; // password mode uses native <input>
+    const isEntryActive = pinEnabled && !pinVerified && !pinSetup;
+    const isSetupActive = !!pinSetup;
+    if (!isEntryActive && !isSetupActive) return;
+
+    const onKey = (e) => {
+      if (e.repeat) return;
+      const digit = parseInt(e.key, 10);
+      if (!isNaN(digit) && e.key.length === 1) {
+        if (isEntryActive) handlePinKey(digit);
+        else handleSetupKey(digit);
+      } else if (e.key === "Backspace") {
+        if (isEntryActive) handlePinKey("del");
+        else handleSetupKey("del");
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [pinType, pinEnabled, pinVerified, pinSetup, pinError]);
+
+  const PasswordEntryInput = ({ value, onChange, onSubmit, show, onToggleShow, error, autoFocus }) => (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14 }}>
+      <div style={{ position: "relative", width: 260 }}>
+        <input
+          type={show ? "text" : "password"}
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          onKeyDown={e => { if (e.key === "Enter" && value.length > 0) onSubmit(value); }}
+          autoFocus={autoFocus}
+          placeholder="••••••••"
+          style={{
+            width: "100%", boxSizing: "border-box",
+            background: "rgba(255,255,255,0.08)",
+            border: `1px solid ${error ? "#f44336" : "rgba(255,255,255,0.15)"}`,
+            borderRadius: 10, padding: "12px 44px 12px 16px",
+            color: "#fff", fontSize: "var(--t15)", fontFamily: "var(--font)",
+            outline: "none", transition: "border-color 0.15s",
+          }}
+        />
+        <button
+          onClick={onToggleShow}
+          style={{
+            position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)",
+            background: "none", border: "none", cursor: "pointer",
+            color: "rgba(255,255,255,0.5)", display: "flex", alignItems: "center", padding: 4,
+          }}
+          onMouseEnter={e => e.currentTarget.style.color = "rgba(255,255,255,0.9)"}
+          onMouseLeave={e => e.currentTarget.style.color = "rgba(255,255,255,0.5)"}
+          tabIndex={-1}
+        >
+          {show ? <EyeSlash size={18} /> : <Eye size={18} />}
+        </button>
+      </div>
+      {error && <div style={{ fontSize: "var(--t12)", color: "#f44336", fontWeight: 500 }}>{error}</div>}
+      <button
+        onClick={() => value.length > 0 && onSubmit(value)}
+        style={{
+          padding: "10px 32px", borderRadius: 10, border: "none",
+          cursor: value.length > 0 ? "pointer" : "default",
+          background: value.length > 0 ? "var(--accent)" : "rgba(255,255,255,0.1)",
+          color: "#fff", fontSize: "var(--t14)", fontWeight: 600, fontFamily: "var(--font)",
+          transition: "background 0.15s, opacity 0.15s",
+          opacity: value.length > 0 ? 1 : 0.45,
+        }}
+      >
+        {t("pinSubmit")}
+      </button>
     </div>
   );
 
@@ -2522,24 +2613,109 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
             animation: anim ? "fadeIn 0.18s ease" : undefined,
           }}>
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
-              <Lock size={36} style={{ color: "var(--accent)" }} />
+              <div
+                onClick={() => {
+                  const next = pinLockTaps + 1;
+                  setPinLockTaps(next);
+                  clearTimeout(pinLockTapTimer.current);
+                  if (next >= PIN_EMERGENCY_TAPS) {
+                    setPinLockTaps(0);
+                    setPinEmergencyConfirm(true);
+                  } else {
+                    pinLockTapTimer.current = setTimeout(() => setPinLockTaps(0), 2000);
+                  }
+                }}
+                style={{ cursor: "default", userSelect: "none" }}
+              >
+                <Lock size={36} style={{ color: "var(--accent)" }} />
+              </div>
               <div style={{ fontSize: "var(--t18)", fontWeight: 700, color: "var(--text-primary)" }}>Kiyoshi Music</div>
               <div style={{ fontSize: "var(--t13)", color: "var(--text-muted)" }}>{t("pinEnterPrompt")}</div>
+
             </div>
 
             <div style={{
               animation: pinShake ? "pinShake 0.5s ease" : undefined,
               display: "flex", flexDirection: "column", alignItems: "center", gap: 20,
             }}>
-              <PinDots count={PIN_LEN} filled={pinDigits.length} />
-              {pinError && (
-                <div style={{ fontSize: "var(--t12)", color: "#f44336", fontWeight: 500 }}>
-                  {t("pinWrong")}
-                </div>
+              {pinType === "pin" ? (
+                <>
+                  <PinDots count={PIN_LEN} filled={pinDigits.length} />
+                  {pinError && (
+                    <div style={{ fontSize: "var(--t12)", color: "#f44336", fontWeight: 500 }}>
+                      {t("pinWrong")}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <PasswordEntryInput
+                  value={pinPasswordInput}
+                  onChange={v => { if (!pinError) setPinPasswordInput(v); }}
+                  onSubmit={async (val) => { setPinPasswordInput(""); await submitPinEntry(val); }}
+                  show={showPinPassword}
+                  onToggleShow={() => setShowPinPassword(v => !v)}
+                  error={pinError ? t("pinWrong") : ""}
+                  autoFocus
+                />
               )}
             </div>
 
-            <PinKeypad onKey={handlePinKey} />
+            {pinType === "pin" && <PinKeypad onKey={handlePinKey} />}
+
+            {/* ── Emergency reset — only visible after 7 secret taps on the lock icon ── */}
+            {pinEmergencyConfirm && (
+              <div style={{
+                display: "flex", flexDirection: "column", alignItems: "center", gap: 12,
+                background: "rgba(244,67,54,0.08)", border: "0.5px solid rgba(244,67,54,0.3)",
+                borderRadius: 12, padding: "16px 24px", marginTop: 8,
+              }}>
+                <div style={{ fontSize: "var(--t12)", color: "#f44336", fontWeight: 600, textAlign: "center", maxWidth: 280 }}>
+                  {t("pinEmergencyConfirmText")}
+                </div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button
+                    onClick={() => {
+                      localStorage.removeItem("kiyoshi-pin-hash");
+                      localStorage.removeItem("kiyoshi-pin-enabled");
+                      localStorage.removeItem("kiyoshi-pin-type");
+                      localStorage.removeItem("kiyoshi-pin-length");
+                      setPinEnabled(false);
+                      setPinVerified(true);
+                      setPinDigits([]);
+                      setPinPasswordInput("");
+                      setPinSetup(null);
+                      setPinSetupDigits([]);
+                      setPinSetupPasswordInput("");
+                      setPinSetupError("");
+                      setPinEmergencyConfirm(false);
+                    }}
+                    style={{
+                      background: "#f44336", border: "none", borderRadius: 8,
+                      cursor: "pointer", padding: "7px 16px",
+                      color: "#fff", fontSize: "var(--t12)", fontWeight: 600,
+                      fontFamily: "var(--font)", transition: "background 0.15s",
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.background = "#d32f2f"}
+                    onMouseLeave={e => e.currentTarget.style.background = "#f44336"}
+                  >
+                    {t("pinEmergencyConfirm")}
+                  </button>
+                  <button
+                    onClick={() => setPinEmergencyConfirm(false)}
+                    style={{
+                      background: "rgba(255,255,255,0.08)", border: "none", borderRadius: 8,
+                      cursor: "pointer", padding: "7px 16px",
+                      color: "rgba(255,255,255,0.7)", fontSize: "var(--t12)", fontWeight: 500,
+                      fontFamily: "var(--font)", transition: "background 0.15s",
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.14)"}
+                    onMouseLeave={e => e.currentTarget.style.background = "rgba(255,255,255,0.08)"}
+                  >
+                    {t("cancel")}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -2557,13 +2733,28 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                   : pinSetup.step === "new"  ? t("pinEnterNew")
                   : t("pinConfirmNew")}
               </div>
-              {pinSetupError && (
-                <div style={{ fontSize: "var(--t12)", color: "#f44336", fontWeight: 500 }}>{pinSetupError}</div>
-              )}
             </div>
 
-            <PinDots count={PIN_LEN} filled={pinSetupDigits.length} />
-            <PinKeypad onKey={handleSetupKey} />
+            {/* current step: use stored pinType; new/confirm: use selected pinType */}
+            {(pinSetup.step === "current" ? pinType : pinType) === "pin" ? (
+              <>
+                <PinDots count={PIN_LEN} filled={pinSetupDigits.length} />
+                {pinSetupError && (
+                  <div style={{ fontSize: "var(--t12)", color: "#f44336", fontWeight: 500 }}>{pinSetupError}</div>
+                )}
+                <PinKeypad onKey={handleSetupKey} />
+              </>
+            ) : (
+              <PasswordEntryInput
+                value={pinSetupPasswordInput}
+                onChange={v => { setPinSetupPasswordInput(v); setPinSetupError(""); }}
+                onSubmit={async (val) => { setPinSetupPasswordInput(""); await advanceSetup(val); }}
+                show={showSetupPassword}
+                onToggleShow={() => setShowSetupPassword(v => !v)}
+                error={pinSetupError}
+                autoFocus
+              />
+            )}
 
             <button onClick={() => { setPinSetup(null); setPinSetupDigits([]); setPinSetupError(""); }}
               style={{
@@ -2894,19 +3085,66 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
             {tab === "sicherheit" && (
               <>
                 <SectionLabel>{t("pinProtection")}</SectionLabel>
+
+                {/* Type selector — only when PIN is not yet enabled */}
+                {!pinEnabled && (
+                  <SettingRow label={t("pinTypeLabel")} description={t("pinTypeDesc")} icon={<Key />}>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      {["pin", "password"].map(type => (
+                        <button key={type}
+                          onClick={() => { setPinType(type); localStorage.setItem("kiyoshi-pin-type", type); }}
+                          style={{
+                            padding: "6px 14px", borderRadius: 8, border: "none", cursor: "pointer",
+                            background: pinType === type ? "var(--accent)" : "var(--bg-hover)",
+                            color: pinType === type ? "#fff" : "var(--text-secondary)",
+                            fontSize: "var(--t12)", fontWeight: 600, fontFamily: "var(--font)",
+                            transition: "background 0.15s, color 0.15s",
+                          }}
+                        >
+                          {t(type === "pin" ? "pinTypePin" : "pinTypePassword")}
+                        </button>
+                      ))}
+                    </div>
+                  </SettingRow>
+                )}
+
+                {/* PIN length selector — only when type is "pin" and not yet enabled */}
+                {!pinEnabled && pinType === "pin" && (
+                  <SettingRow label={t("pinLengthLabel")} description={t("pinLengthDesc")} icon={<Key />}>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      {[4, 6].map(len => (
+                        <button key={len}
+                          onClick={() => { setPinLength(len); localStorage.setItem("kiyoshi-pin-length", String(len)); }}
+                          style={{
+                            padding: "6px 14px", borderRadius: 8, border: "none", cursor: "pointer",
+                            background: pinLength === len ? "var(--accent)" : "var(--bg-hover)",
+                            color: pinLength === len ? "#fff" : "var(--text-secondary)",
+                            fontSize: "var(--t12)", fontWeight: 600, fontFamily: "var(--font)",
+                            transition: "background 0.15s, color 0.15s",
+                          }}
+                        >
+                          {len}-{t("pinDigits")}
+                        </button>
+                      ))}
+                    </div>
+                  </SettingRow>
+                )}
+
                 <SettingRow
                   label={t("pinProtectionLabel")}
-                  description={t("pinProtectionDesc")}
+                  description={pinEnabled
+                    ? `${t("pinProtectionDesc")} · ${t(pinType === "pin" ? "pinTypePin" : "pinTypePassword")}${pinType === "pin" ? ` (${pinLength}-${t("pinDigits")})` : ""}`
+                    : t("pinProtectionDesc")}
                   icon={pinEnabled ? <Lock /> : <LockOpen />}
                 >
                   <div
                     onClick={() => {
                       if (!pinEnabled) {
                         setPinSetup({ mode: "enable", step: "new", first: null });
-                        setPinSetupDigits([]); setPinSetupError("");
+                        setPinSetupDigits([]); setPinSetupPasswordInput(""); setPinSetupError("");
                       } else {
                         setPinSetup({ mode: "disable", step: "current", first: null });
-                        setPinSetupDigits([]); setPinSetupError("");
+                        setPinSetupDigits([]); setPinSetupPasswordInput(""); setPinSetupError("");
                       }
                     }}
                     style={{
@@ -2926,7 +3164,7 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                 {pinEnabled && (
                   <SettingRow label={t("pinChange")} description={t("pinChangeDesc")} icon={<Lock />}>
                     <button
-                      onClick={() => { setPinSetup({ mode: "change", step: "current", first: null }); setPinSetupDigits([]); setPinSetupError(""); }}
+                      onClick={() => { setPinSetup({ mode: "change", step: "current", first: null }); setPinSetupDigits([]); setPinSetupPasswordInput(""); setPinSetupError(""); }}
                       style={{
                         background: "var(--bg-hover)", border: "none", borderRadius: 8, cursor: "pointer",
                         color: "var(--text-primary)", fontSize: "var(--t13)", fontFamily: "var(--font)",
@@ -2942,17 +3180,74 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
 
                 <SectionLabel style={{ marginTop: 24 }}>{t("pinEmergency")}</SectionLabel>
                 <div style={{
-                  background: "var(--bg-elevated)", borderRadius: 10, padding: "14px 16px",
+                  background: "rgba(244,67,54,0.06)", border: "0.5px solid rgba(244,67,54,0.25)",
+                  borderRadius: 10, padding: "14px 16px",
                   fontSize: "var(--t12)", color: "var(--text-muted)", lineHeight: 1.7,
                 }}>
-                  <div style={{ marginBottom: 6, color: "var(--text-secondary)", fontWeight: 500 }}>{t("pinEmergencyDesc")}</div>
-                  <code style={{
-                    display: "block", background: "rgba(0,0,0,0.25)", borderRadius: 6,
-                    padding: "8px 12px", fontFamily: "monospace", fontSize: "var(--t11)",
-                    color: "var(--text-primary)", userSelect: "all",
-                  }}>
-                    localStorage.removeItem('kiyoshi-pin-hash'){"\n"}localStorage.removeItem('kiyoshi-pin-enabled')
-                  </code>
+                  <div style={{ marginBottom: 12, color: "var(--text-secondary)", fontWeight: 500 }}>{t("pinEmergencyDesc")}</div>
+                  {!pinEmergencyConfirm ? (
+                    <button
+                      onClick={() => setPinEmergencyConfirm(true)}
+                      style={{
+                        background: "rgba(244,67,54,0.12)", border: "0.5px solid rgba(244,67,54,0.4)",
+                        borderRadius: 8, cursor: "pointer", padding: "8px 16px",
+                        color: "#f44336", fontSize: "var(--t12)", fontWeight: 600,
+                        fontFamily: "var(--font)", transition: "background 0.15s",
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.background = "rgba(244,67,54,0.22)"}
+                      onMouseLeave={e => e.currentTarget.style.background = "rgba(244,67,54,0.12)"}
+                    >
+                      {t("pinEmergencyReset")}
+                    </button>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                      <div style={{ color: "#f44336", fontWeight: 600, fontSize: "var(--t12)" }}>
+                        {t("pinEmergencyConfirmText")}
+                      </div>
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <button
+                          onClick={() => {
+                            localStorage.removeItem("kiyoshi-pin-hash");
+                            localStorage.removeItem("kiyoshi-pin-enabled");
+                            localStorage.removeItem("kiyoshi-pin-type");
+                            localStorage.removeItem("kiyoshi-pin-length");
+                            setPinEnabled(false);
+                            setPinVerified(true);
+                            setPinDigits([]);
+                            setPinPasswordInput("");
+                            setPinSetup(null);
+                            setPinSetupDigits([]);
+                            setPinSetupPasswordInput("");
+                            setPinSetupError("");
+                            setPinEmergencyConfirm(false);
+                          }}
+                          style={{
+                            background: "#f44336", border: "none", borderRadius: 8,
+                            cursor: "pointer", padding: "8px 16px",
+                            color: "#fff", fontSize: "var(--t12)", fontWeight: 600,
+                            fontFamily: "var(--font)", transition: "background 0.15s",
+                          }}
+                          onMouseEnter={e => e.currentTarget.style.background = "#d32f2f"}
+                          onMouseLeave={e => e.currentTarget.style.background = "#f44336"}
+                        >
+                          {t("pinEmergencyConfirm")}
+                        </button>
+                        <button
+                          onClick={() => setPinEmergencyConfirm(false)}
+                          style={{
+                            background: "var(--bg-hover)", border: "none", borderRadius: 8,
+                            cursor: "pointer", padding: "8px 16px",
+                            color: "var(--text-secondary)", fontSize: "var(--t12)", fontWeight: 500,
+                            fontFamily: "var(--font)", transition: "background 0.15s",
+                          }}
+                          onMouseEnter={e => e.currentTarget.style.background = "var(--border)"}
+                          onMouseLeave={e => e.currentTarget.style.background = "var(--bg-hover)"}
+                        >
+                          {t("cancel")}
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </>
             )}
@@ -6351,7 +6646,7 @@ function CollectionView({ title, thumbnail, tracks, total, loading, progress, ca
   );
 }
 
-function SearchView({ query, onPlay, currentTrack, isPlaying, onOpenArtist, onOpenAlbum, onOpenPlaylist, onContextMenu, onTrackContextMenu }) {
+function SearchView({ query, onPlay, currentTrack, isPlaying, onOpenArtist, onOpenAlbum, onOpenPlaylist, onContextMenu, onTrackContextMenu, hideExplicit }) {
   const [filter, setFilter] = useState("songs");
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -6413,12 +6708,12 @@ function SearchView({ query, onPlay, currentTrack, isPlaying, onOpenArtist, onOp
       )}
 
       {/* Songs */}
-      {filter === "songs" && results.map(song => (
+      {filter === "songs" && results.filter(s => !hideExplicit || !s.isExplicit).map(song => (
         <TrackRow
           key={song.videoId}
           track={song}
           isPlaying={isPlaying && currentTrack?.videoId === song.videoId}
-          onPlay={() => onPlay(song, results)}
+          onPlay={() => onPlay(song, results.filter(s => !hideExplicit || !s.isExplicit))}
           onOpenArtist={onOpenArtist}
           onContextMenu={onTrackContextMenu}
         />
@@ -6471,7 +6766,7 @@ function SearchView({ query, onPlay, currentTrack, isPlaying, onOpenArtist, onOp
   );
 }
 
-function HomeView({ displayName, onPlay, onOpenPlaylist, onOpenAlbum, onOpenArtist, onContextMenu, onTrackContextMenu }) {
+function HomeView({ displayName, onPlay, onOpenPlaylist, onOpenAlbum, onOpenArtist, onContextMenu, onTrackContextMenu, hideExplicit }) {
   const [sections, setSections] = useState([]);
   const [loading, setLoading] = useState(true);
   const [chips, setChips] = useState([]);
@@ -6632,7 +6927,7 @@ function HomeView({ displayName, onPlay, onOpenPlaylist, onOpenAlbum, onOpenArti
         });
         let quickPicksUsed = false;
         return sorted.map((section, si) => {
-        const items = section.items || [];
+        const items = (section.items || []).filter(x => !hideExplicit || !x.isExplicit);
         const isAllSongs = items.length > 0 && items.every(x => x.type === "song");
         if (isAllSongs && quickPicksUsed) return null;
         const allSongs = isAllSongs && !quickPicksUsed && (quickPicksUsed = true);
@@ -6641,14 +6936,14 @@ function HomeView({ displayName, onPlay, onOpenPlaylist, onOpenAlbum, onOpenArti
         if (allSongs) {
           const ROWS = 4;
           const columns = [];
-          for (let i = 0; i < section.items.length; i += ROWS)
-            columns.push(section.items.slice(i, i + ROWS));
+          for (let i = 0; i < items.length; i += ROWS)
+            columns.push(items.slice(i, i + ROWS));
 
           return (
             <div key={si} style={{ marginBottom: 40 }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingLeft: 28, paddingRight: 28, marginBottom: 14 }}>
                 <span style={{ fontSize: "var(--t16)", fontWeight: 700 }}>{section.title}</span>
-                <button onClick={() => onPlay(section.items[0], section.items)} style={{
+                <button onClick={() => onPlay(items[0], items)} style={{
                   fontSize: "var(--t12)", fontWeight: 600, color: "var(--accent)",
                   background: "rgba(var(--accent-rgb,180,100,255),0.12)", border: "none",
                   borderRadius: 20, padding: "5px 14px", cursor: "pointer", fontFamily: "var(--font)",
@@ -6658,7 +6953,7 @@ function HomeView({ displayName, onPlay, onOpenPlaylist, onOpenAlbum, onOpenArti
                 {columns.map((col, ci) => (
                   <div key={ci} style={{ flexShrink: 0, width: 380, paddingRight: 16, marginRight: 16 }}>
                     {col.map((item, ri) => (
-                      <div key={ri} onClick={() => onPlay(item, section.items)}
+                      <div key={ri} onClick={() => onPlay(item, items)}
                         onContextMenu={e => { e.preventDefault(); onTrackContextMenu?.(e, item); }}
                         style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 0", cursor: "pointer", borderBottom: "none" }}
                         onMouseEnter={e => e.currentTarget.style.opacity = "0.75"}
@@ -6826,7 +7121,7 @@ function timeAgo(ts, t) {
   return new Date(ts).toLocaleDateString();
 }
 
-function HistoryView({ onPlay, currentTrack, isPlaying, onOpenArtist, onOpenAlbum, onTrackContextMenu, cachedSongIds, downloadingIds, onDownloadSong }) {
+function HistoryView({ onPlay, currentTrack, isPlaying, onOpenArtist, onOpenAlbum, onTrackContextMenu, cachedSongIds, downloadingIds, onDownloadSong, hideExplicit }) {
   const t = useLang();
   const profileKey = () => `kiyoshi-history-${window.__activeProfile || "default"}`;
   const load = () => { try { return JSON.parse(localStorage.getItem(profileKey()) || "[]"); } catch { return []; } };
@@ -6874,7 +7169,7 @@ function HistoryView({ onPlay, currentTrack, isPlaying, onOpenArtist, onOpenAlbu
         </div>
       ) : (
         <div className="scrollable" style={{ flex: 1, overflowY: "auto" }}>
-          {tracks.map((track, i) => {
+          {tracks.filter(tr => !hideExplicit || !tr.isExplicit).map((track, i) => {
             const isActive = currentTrack?.videoId === track.videoId;
             return (
               <div key={`${track.videoId}-${i}`} onClick={() => onPlay(track, tracks)}
@@ -6986,7 +7281,7 @@ function ArtistDescription({ text }) {
   );
 }
 
-function ArtistView({ browseId, onPlay, currentTrack, isPlaying, onOpenAlbum, onOpenPlaylist, onBack, onContextMenu, onTogglePin, isPinned }) {
+function ArtistView({ browseId, onPlay, currentTrack, isPlaying, onOpenAlbum, onOpenPlaylist, onBack, onContextMenu, onTogglePin, isPinned, hideExplicit }) {
   const [artist, setArtist] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -7041,7 +7336,7 @@ function ArtistView({ browseId, onPlay, currentTrack, isPlaying, onOpenAlbum, on
           background: "linear-gradient(to bottom, transparent 20%, var(--bg-base) 100%)",
         }} />
         <button onClick={onBack} style={{
-          position: "absolute", top: 44, left: 16, zIndex: 10000,
+          position: "absolute", top: 44, left: 16, zIndex: 5,
           background: "rgba(0,0,0,0.4)", border: "none", borderRadius: "50%",
           width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center",
           cursor: "pointer", color: "#fff", backdropFilter: "blur(8px)",
@@ -7083,7 +7378,10 @@ function ArtistView({ browseId, onPlay, currentTrack, isPlaying, onOpenAlbum, on
       <div style={{ padding: "0 24px" }}>
 
         {/* Top Songs */}
-        {artist.tracks?.length > 0 && (
+        {artist.tracks?.length > 0 && (() => {
+          const visibleTracks = artist.tracks.filter(tr => !hideExplicit || !tr.isExplicit);
+          if (!visibleTracks.length) return null;
+          return (
           <div style={{ marginBottom: 32 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, marginTop: 8 }}>
               <div style={{ fontSize: "var(--t16)", fontWeight: 600 }}>{t("topSongs")}</div>
@@ -7102,7 +7400,7 @@ function ArtistView({ browseId, onPlay, currentTrack, isPlaying, onOpenAlbum, on
                   >{t("showAll")}</button>
                 )}
                 <button
-                  onClick={() => onPlay(artist.tracks[0], artist.tracks)}
+                  onClick={() => onPlay(visibleTracks[0], visibleTracks)}
                   style={{
                     background: "none", border: "none", cursor: "pointer",
                     fontSize: "var(--t12)", color: "var(--accent)", padding: "4px 8px",
@@ -7115,15 +7413,16 @@ function ArtistView({ browseId, onPlay, currentTrack, isPlaying, onOpenAlbum, on
               </div>
             </div>
             <div style={{ margin: "0 -16px" }}>
-              {artist.tracks.map((t, i) => (
+              {visibleTracks.map((t, i) => (
                 <TrackRow key={t.videoId || i} track={t}
                   isPlaying={isPlaying && currentTrack?.videoId === t.videoId}
-                  onPlay={() => onPlay(t, artist.tracks)}
+                  onPlay={() => onPlay(t, visibleTracks)}
                 />
               ))}
             </div>
           </div>
-        )}
+          );
+        })()}
 
         {/* Albums */}
         {artist.albums?.length > 0 && (
@@ -7865,6 +8164,7 @@ export default function App() {
 
   const [view, setView] = useState("home");
   const [appKey, setAppKey] = useState(0); // increment to force full re-render
+  const [viewRefreshKey, setViewRefreshKey] = useState(0); // increment to refresh current view
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [globalContextMenu, setGlobalContextMenu] = useState(null); // { x, y, playlist }
   const [globalCtxData, setGlobalCtxData] = useState(null);
@@ -8976,16 +9276,35 @@ export default function App() {
             onToggleOffline={handleToggleOffline}
           />
         </div>
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", position: "relative" }}>
+          {/* ── Refresh button ── */}
+          {!overlayOpen && (
+            <Tooltip text={translate("refresh", language)}>
+              <button
+                onClick={() => setViewRefreshKey(k => k + 1)}
+                className="icon-btn"
+                style={{
+                  position: "absolute", top: 10, right: 14, zIndex: 50,
+                  color: "var(--text-muted)", background: "var(--bg-base)",
+                  border: "0.5px solid var(--border)", borderRadius: "50%",
+                  width: 30, height: 30,
+                }}
+                onMouseEnter={e => { e.currentTarget.style.color = "var(--text-primary)"; e.currentTarget.style.background = "var(--bg-hover)"; }}
+                onMouseLeave={e => { e.currentTarget.style.color = "var(--text-muted)"; e.currentTarget.style.background = "var(--bg-base)"; }}
+              >
+                <ArrowClockwise size={14} />
+              </button>
+            </Tooltip>
+          )}
           <div key={appKey} className="scrollable" style={{ flex: 1, overflowY: "auto" }}>
-            {view === "home" && <AnimatedView><HomeView displayName={profiles.find(p => p.active)?.displayName} onPlay={handlePlay} onOpenPlaylist={(item) => openPlaylist(item, "home")} onOpenAlbum={(item) => openAlbum(item, "home")} onOpenArtist={(item) => openArtist(item, "home")} onContextMenu={openContextMenu} onTrackContextMenu={(e, track) => setTrackContextMenu({ x: e.clientX, y: e.clientY, track })} /></AnimatedView>}
-            {view === "search" && <AnimatedView><SearchView query={searchQuery} onPlay={handlePlay} currentTrack={currentTrack} isPlaying={isPlaying} onOpenArtist={openArtist} onOpenAlbum={(item) => openAlbum(item, "search")} onOpenPlaylist={(item) => openPlaylist(item, "search")} onContextMenu={openContextMenu} onTrackContextMenu={(e, track) => setTrackContextMenu({ x: e.clientX, y: e.clientY, track })} /></AnimatedView>}
-            {view === "liked" && <AnimatedView><LikedView onPlay={handlePlay} currentTrack={currentTrack} isPlaying={isPlaying} onOpenArtist={openArtist} onOpenAlbum={(item) => openAlbum(item, "liked")} onTrackContextMenu={(e, track) => setTrackContextMenu({ x: e.clientX, y: e.clientY, track })} cachedSongIds={cachedSongIds} downloadingIds={downloadingIds} onDownloadSong={handleDownloadSong} hideExplicit={hideExplicit} /></AnimatedView>}
-            {view === "history" && <AnimatedView><HistoryView onPlay={handlePlay} currentTrack={currentTrack} isPlaying={isPlaying} onOpenArtist={openArtist} onOpenAlbum={(item) => openAlbum(item, "history")} onTrackContextMenu={(e, track, extra) => setTrackContextMenu({ x: e.clientX, y: e.clientY, track, ...extra })} cachedSongIds={cachedSongIds} downloadingIds={downloadingIds} onDownloadSong={handleDownloadSong} /></AnimatedView>}
-            {view === "library" && <AnimatedView><LibraryView onPlay={handlePlay} currentTrack={currentTrack} isPlaying={isPlaying} onOpenPlaylist={openPlaylist} onOpenAlbum={openAlbum} onOpenArtist={openArtist} onContextMenu={openContextMenu} /></AnimatedView>}
-            {view === "collection" && collection && <AnimatedView><CollectionView title={collection.title} thumbnail={collection.thumbnail} tracks={collection.tracks} total={collection.total} loading={collection.loading} progress={collection.progress || 0} cached={collection.cached} onPlay={handlePlay} currentTrack={currentTrack} isPlaying={isPlaying} onBack={() => setView(collection.fromView || "library")} onOpenArtist={openArtist} onOpenAlbum={(item) => openAlbum(item, "collection")} isAlbum={collection.isAlbum} albumArtists={collection.albumArtists} albumArtistBrowseId={collection.albumArtistBrowseId} year={collection.year} onRefresh={() => { if (collection.isAlbum) openAlbum({ browseId: collection.browseId, title: collection.title, thumbnail: collection.thumbnail }, collection.fromView, true); else openPlaylist({ playlistId: collection.playlistId, title: collection.title, thumbnail: collection.thumbnail, forcedTitle: collection.forcedTitle }, collection.fromView, true); }} onTrackContextMenu={(e, track) => setTrackContextMenu({ x: e.clientX, y: e.clientY, track, playlistId: collection.isAlbum ? null : collection.playlistId })} cachedSongIds={cachedSongIds} downloadingIds={downloadingIds} premiumSongIds={premiumSongIds} onDownloadSong={handleDownloadSong} onDownloadAll={(tracks) => handleDownloadAll(tracks, { title: collection.title, thumbnail: collection.thumbnail, artists: collection.albumArtists || "" })} onRemoveAll={handleRemoveAllDownloads} hideExplicit={hideExplicit} /></AnimatedView>}
-            {view === "artist" && artistView && <AnimatedView><ArtistView browseId={artistView.browseId} onPlay={handlePlay} currentTrack={currentTrack} isPlaying={isPlaying} onOpenAlbum={(item) => openAlbum(item, "artist")} onOpenPlaylist={(item) => openPlaylist(item, "artist")} onBack={() => setView(artistView.fromView || "library")} onContextMenu={openContextMenu} onTogglePin={togglePin} isPinned={pinnedIds.includes(artistView.browseId)} /></AnimatedView>}
-            {view === "downloads" && <AnimatedView><DownloadsView onPlay={handlePlay} currentTrack={currentTrack} isPlaying={isPlaying} cachedSongIds={cachedSongIds} downloadingIds={downloadingIds} premiumSongIds={premiumSongIds} onDownloadSong={handleDownloadSong} onTrackContextMenu={(e, track) => setTrackContextMenu({ x: e.clientX, y: e.clientY, track })} hideExplicit={hideExplicit} onOpenAlbum={(item) => openAlbum(item, "downloads")} onOpenArtist={openArtist} /></AnimatedView>}
+            {view === "home" && <AnimatedView key={`home-${viewRefreshKey}`}><HomeView displayName={profiles.find(p => p.active)?.displayName} onPlay={handlePlay} onOpenPlaylist={(item) => openPlaylist(item, "home")} onOpenAlbum={(item) => openAlbum(item, "home")} onOpenArtist={(item) => openArtist(item, "home")} onContextMenu={openContextMenu} onTrackContextMenu={(e, track) => setTrackContextMenu({ x: e.clientX, y: e.clientY, track })} hideExplicit={hideExplicit} /></AnimatedView>}
+            {view === "search" && <AnimatedView key={`search-${viewRefreshKey}`}><SearchView query={searchQuery} onPlay={handlePlay} currentTrack={currentTrack} isPlaying={isPlaying} onOpenArtist={openArtist} onOpenAlbum={(item) => openAlbum(item, "search")} onOpenPlaylist={(item) => openPlaylist(item, "search")} onContextMenu={openContextMenu} onTrackContextMenu={(e, track) => setTrackContextMenu({ x: e.clientX, y: e.clientY, track })} hideExplicit={hideExplicit} /></AnimatedView>}
+            {view === "liked" && <AnimatedView key={`liked-${viewRefreshKey}`}><LikedView onPlay={handlePlay} currentTrack={currentTrack} isPlaying={isPlaying} onOpenArtist={openArtist} onOpenAlbum={(item) => openAlbum(item, "liked")} onTrackContextMenu={(e, track) => setTrackContextMenu({ x: e.clientX, y: e.clientY, track })} cachedSongIds={cachedSongIds} downloadingIds={downloadingIds} onDownloadSong={handleDownloadSong} hideExplicit={hideExplicit} /></AnimatedView>}
+            {view === "history" && <AnimatedView key={`history-${viewRefreshKey}`}><HistoryView onPlay={handlePlay} currentTrack={currentTrack} isPlaying={isPlaying} onOpenArtist={openArtist} onOpenAlbum={(item) => openAlbum(item, "history")} onTrackContextMenu={(e, track, extra) => setTrackContextMenu({ x: e.clientX, y: e.clientY, track, ...extra })} cachedSongIds={cachedSongIds} downloadingIds={downloadingIds} onDownloadSong={handleDownloadSong} hideExplicit={hideExplicit} /></AnimatedView>}
+            {view === "library" && <AnimatedView key={`library-${viewRefreshKey}`}><LibraryView onPlay={handlePlay} currentTrack={currentTrack} isPlaying={isPlaying} onOpenPlaylist={openPlaylist} onOpenAlbum={openAlbum} onOpenArtist={openArtist} onContextMenu={openContextMenu} /></AnimatedView>}
+            {view === "collection" && collection && <AnimatedView key={`collection-${viewRefreshKey}`}><CollectionView title={collection.title} thumbnail={collection.thumbnail} tracks={collection.tracks} total={collection.total} loading={collection.loading} progress={collection.progress || 0} cached={collection.cached} onPlay={handlePlay} currentTrack={currentTrack} isPlaying={isPlaying} onBack={() => setView(collection.fromView || "library")} onOpenArtist={openArtist} onOpenAlbum={(item) => openAlbum(item, "collection")} isAlbum={collection.isAlbum} albumArtists={collection.albumArtists} albumArtistBrowseId={collection.albumArtistBrowseId} year={collection.year} onRefresh={() => { if (collection.isAlbum) openAlbum({ browseId: collection.browseId, title: collection.title, thumbnail: collection.thumbnail }, collection.fromView, true); else openPlaylist({ playlistId: collection.playlistId, title: collection.title, thumbnail: collection.thumbnail, forcedTitle: collection.forcedTitle }, collection.fromView, true); }} onTrackContextMenu={(e, track) => setTrackContextMenu({ x: e.clientX, y: e.clientY, track, playlistId: collection.isAlbum ? null : collection.playlistId })} cachedSongIds={cachedSongIds} downloadingIds={downloadingIds} premiumSongIds={premiumSongIds} onDownloadSong={handleDownloadSong} onDownloadAll={(tracks) => handleDownloadAll(tracks, { title: collection.title, thumbnail: collection.thumbnail, artists: collection.albumArtists || "" })} onRemoveAll={handleRemoveAllDownloads} hideExplicit={hideExplicit} /></AnimatedView>}
+            {view === "artist" && artistView && <AnimatedView key={`artist-${viewRefreshKey}`}><ArtistView browseId={artistView.browseId} onPlay={handlePlay} currentTrack={currentTrack} isPlaying={isPlaying} onOpenAlbum={(item) => openAlbum(item, "artist")} onOpenPlaylist={(item) => openPlaylist(item, "artist")} onBack={() => setView(artistView.fromView || "library")} onContextMenu={openContextMenu} onTogglePin={togglePin} isPinned={pinnedIds.includes(artistView.browseId)} hideExplicit={hideExplicit} /></AnimatedView>}
+            {view === "downloads" && <AnimatedView key={`downloads-${viewRefreshKey}`}><DownloadsView onPlay={handlePlay} currentTrack={currentTrack} isPlaying={isPlaying} cachedSongIds={cachedSongIds} downloadingIds={downloadingIds} premiumSongIds={premiumSongIds} onDownloadSong={handleDownloadSong} onTrackContextMenu={(e, track) => setTrackContextMenu({ x: e.clientX, y: e.clientY, track })} hideExplicit={hideExplicit} onOpenAlbum={(item) => openAlbum(item, "downloads")} onOpenArtist={openArtist} /></AnimatedView>}
             {isOffline && view !== "downloads" && (
               <div style={{
                 position: "sticky", bottom: 0, left: 0, right: 0,
