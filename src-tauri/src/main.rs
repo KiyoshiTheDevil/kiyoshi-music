@@ -31,6 +31,11 @@ fn quit_app(app: tauri::AppHandle) {
     app.exit(0);
 }
 
+#[tauri::command]
+fn stop_server_cmd(app: tauri::AppHandle) {
+    server::stop_server(&app);
+}
+
 /// Rebuilds the tray menu with localised labels.
 /// Called from the frontend whenever the language changes.
 #[tauri::command]
@@ -118,7 +123,7 @@ fn main() {
             update_discord_rpc, clear_discord_rpc,
             audio_play, audio_pause, audio_resume,
             audio_stop, audio_seek, audio_set_volume,
-            relaunch_app, quit_app,
+            relaunch_app, quit_app, stop_server_cmd,
             update_tray_labels,
         ])
         .build(tauri::generate_context!())

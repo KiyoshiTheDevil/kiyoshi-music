@@ -701,7 +701,7 @@ function TrackRow({ track, isPlaying, onPlay, onOpenArtist, onContextMenu }) {
 const SIDEBAR_EXPANDED = 240;
 const SIDEBAR_COLLAPSED = 56;
 
-function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenSettings, onOpenUpdateTab, onCloseOverlay, onOpenPlaylist, onOpenAlbum, onOpenArtist, onAddRecent, onContextMenu, currentProfileData, onOpenProfileSwitcher, profiles, onSwitchProfile, onAddProfile, onDeleteProfile, onCreatePlaylist, updateInfo, offlineMode, isActuallyOffline, onToggleOffline }) {
+function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenSettings, onOpenUpdateTab, onCloseOverlay, onOpenPlaylist, onOpenAlbum, onOpenArtist, onAddRecent, onContextMenu, currentProfileData, onOpenProfileSwitcher, profiles, onSwitchProfile, onAddProfile, onDeleteProfile, onCreatePlaylist, updateInfo, offlineMode, isActuallyOffline, onToggleOffline, onRefreshView }) {
   const [query, setQuery] = useState("");
   const [tooltip, setTooltip] = useState(null);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
@@ -843,6 +843,20 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
 
             </div>
             <span style={{ fontSize: "var(--t15)", fontWeight: 500, whiteSpace: "nowrap" }}>Music</span>
+            <div
+              onClick={onRefreshView}
+              onMouseEnter={e => { e.currentTarget.style.color = "var(--text-primary)"; e.currentTarget.style.background = "var(--bg-hover)"; }}
+              onMouseLeave={e => { e.currentTarget.style.color = "var(--text-muted)"; e.currentTarget.style.background = "transparent"; }}
+              style={{
+                marginLeft: "auto", width: 26, height: 26, borderRadius: "var(--radius)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                cursor: "pointer", color: "var(--text-muted)", background: "transparent",
+                transition: "all 0.15s", flexShrink: 0,
+              }}
+              title={t("refresh")}
+            >
+              <ArrowClockwise size={14} />
+            </div>
           </>
         )}
       </div>
@@ -8255,6 +8269,10 @@ export default function App() {
   const installUpdate = useCallback(async () => {
     if (!updateInfo?._update) return;
     try {
+      // Stop the Python backend before the NSIS installer runs,
+      // otherwise it holds file locks and the installation fails.
+      const { invoke } = await import("@tauri-apps/api/core");
+      await invoke("stop_server_cmd").catch(() => {});
       await updateInfo._update.install();
       const { relaunch } = await import("@tauri-apps/plugin-process");
       await relaunch();
@@ -9274,28 +9292,10 @@ export default function App() {
             offlineMode={offlineMode}
             isActuallyOffline={isActuallyOffline}
             onToggleOffline={handleToggleOffline}
+            onRefreshView={() => setViewRefreshKey(k => k + 1)}
           />
         </div>
         <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", position: "relative" }}>
-          {/* ── Refresh button ── */}
-          {!overlayOpen && (
-            <Tooltip text={translate("refresh", language)}>
-              <button
-                onClick={() => setViewRefreshKey(k => k + 1)}
-                className="icon-btn"
-                style={{
-                  position: "absolute", top: 10, right: 14, zIndex: 50,
-                  color: "var(--text-muted)", background: "var(--bg-base)",
-                  border: "0.5px solid var(--border)", borderRadius: "50%",
-                  width: 30, height: 30,
-                }}
-                onMouseEnter={e => { e.currentTarget.style.color = "var(--text-primary)"; e.currentTarget.style.background = "var(--bg-hover)"; }}
-                onMouseLeave={e => { e.currentTarget.style.color = "var(--text-muted)"; e.currentTarget.style.background = "var(--bg-base)"; }}
-              >
-                <ArrowClockwise size={14} />
-              </button>
-            </Tooltip>
-          )}
           <div key={appKey} className="scrollable" style={{ flex: 1, overflowY: "auto" }}>
             {view === "home" && <AnimatedView key={`home-${viewRefreshKey}`}><HomeView displayName={profiles.find(p => p.active)?.displayName} onPlay={handlePlay} onOpenPlaylist={(item) => openPlaylist(item, "home")} onOpenAlbum={(item) => openAlbum(item, "home")} onOpenArtist={(item) => openArtist(item, "home")} onContextMenu={openContextMenu} onTrackContextMenu={(e, track) => setTrackContextMenu({ x: e.clientX, y: e.clientY, track })} hideExplicit={hideExplicit} /></AnimatedView>}
             {view === "search" && <AnimatedView key={`search-${viewRefreshKey}`}><SearchView query={searchQuery} onPlay={handlePlay} currentTrack={currentTrack} isPlaying={isPlaying} onOpenArtist={openArtist} onOpenAlbum={(item) => openAlbum(item, "search")} onOpenPlaylist={(item) => openPlaylist(item, "search")} onContextMenu={openContextMenu} onTrackContextMenu={(e, track) => setTrackContextMenu({ x: e.clientX, y: e.clientY, track })} hideExplicit={hideExplicit} /></AnimatedView>}
