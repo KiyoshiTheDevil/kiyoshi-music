@@ -4335,22 +4335,57 @@ function parseTtml(ttml) {
     }
 
     if (isLineSync) {
-      // Line-sync: separate main text from background vocals (<span ttm:role="x-bg">)
+      // Line-sync main text + BG vocals that may have their own per-word timestamps.
+      // Even in line-sync mode the x-bg span can contain timed inner spans — extract
+      // those as bgWords so the RAF can animate them word-by-word.
       let mainText = "";
-      let bgText = "";
+      const bgWords = [];
+
+      const extractBgWords = (node, iBegin, iEnd) => {
+        if (node.nodeType === Node.TEXT_NODE) {
+          const t = node.textContent;
+          if (t) bgWords.push({
+            text: t,
+            time: ttmlTimeToSeconds(iBegin || begin),
+            end: ttmlTimeToSeconds(iEnd || end || begin),
+            isSpace: t.trim() === "",
+          });
+        } else if (node.nodeType === Node.ELEMENT_NODE) {
+          const b = node.getAttribute("begin") || iBegin || begin;
+          const e = node.getAttribute("end")   || iEnd   || end || begin;
+          for (const c of node.childNodes) extractBgWords(c, b, e);
+        }
+      };
+
       for (const child of p.childNodes) {
         if (child.nodeType === Node.TEXT_NODE) {
           mainText += child.textContent;
         } else if (child.nodeType === Node.ELEMENT_NODE) {
-          if (child.getAttribute("ttm:role") === "x-bg") bgText += child.textContent;
-          else mainText += child.textContent;
+          if (child.getAttribute("ttm:role") === "x-bg")
+            for (const c of child.childNodes) extractBgWords(c, begin, end);
+          else
+            mainText += child.textContent;
         }
       }
       mainText = mainText.trim();
-      bgText = bgText.trim();
-      if (mainText || bgText) {
-        const lineObj = { time, endTime, text: mainText || "\u00A0", wordSync: false, lineSync: true, agent, agentRole };
-        if (bgText) lineObj.bgText = bgText;
+
+      // Stretch line time-range to fully cover bg vocals (before or after main line)
+      let effectiveTime = time;
+      let effectiveEnd  = endTime;
+      if (bgWords.length) {
+        const bgNS = bgWords.filter(w => !w.isSpace);
+        if (bgNS.length) {
+          const bgFirst = Math.min(...bgNS.map(w => w.time));
+          const bgLast  = Math.max(...bgNS.map(w => w.end));
+          if (isFinite(bgFirst) && bgFirst < effectiveTime) effectiveTime = bgFirst;
+          if (isFinite(bgLast)  && bgLast  > (effectiveEnd ?? 0)) effectiveEnd = bgLast;
+        }
+      }
+
+      if (mainText || bgWords.length) {
+        const lineObj = { time: effectiveTime, endTime: effectiveEnd,
+          text: mainText || "\u00A0", wordSync: false, lineSync: true, agent, agentRole };
+        if (bgWords.length) lineObj.bgWords = bgWords;
         lines.push(lineObj);
       }
       continue;
@@ -4381,7 +4416,21 @@ function parseTtml(ttml) {
 
     for (const child of p.childNodes) processNode(child, begin, end, false);
     if (words.length || bgWords.length) {
-      const lineObj = { time, endTime, words, wordSync: true, agent, agentRole };
+      // Stretch the line's time range to fully cover bg vocals in both directions.
+      // BG vocals can start before the main line (extend time backward) or end
+      // after it (extend endTime forward) — the line must stay active throughout.
+      let effectiveTime = time;
+      let effectiveEnd = endTime;
+      if (bgWords.length) {
+        const bgNonSpace = bgWords.filter(w => !w.isSpace);
+        if (bgNonSpace.length) {
+          const bgFirst = Math.min(...bgNonSpace.map(w => w.time));
+          const bgLast  = Math.max(...bgNonSpace.map(w => w.end));
+          if (isFinite(bgFirst) && bgFirst < effectiveTime) effectiveTime = bgFirst;
+          if (isFinite(bgLast)  && bgLast  > (effectiveEnd ?? 0)) effectiveEnd = bgLast;
+        }
+      }
+      const lineObj = { time: effectiveTime, endTime: effectiveEnd, words, wordSync: true, agent, agentRole };
       if (bgWords.length) lineObj.bgWords = bgWords;
       lines.push(lineObj);
     }
@@ -4662,7 +4711,8 @@ function LyricsOverlay({ track, audioRef, onClose, fontSize = 32, providers = DE
       if (displayIdx !== lastIdxRef.current) {
         lastIdxRef.current = displayIdx;
         activeWordIdxRef.current = -1;
-        wordElsRef.current = []; // cleared until useLayoutEffect repopulates after render
+        wordElsRef.current = [];    // cleared until useLayoutEffect repopulates after render
+        bgContainerRef.current = null; // clear so RAF doesn't update the old line's element
         setTick(n => n + 1);
       }
 
@@ -4674,11 +4724,13 @@ function LyricsOverlay({ track, audioRef, onClose, fontSize = 32, providers = DE
       }
 
       // Word highlighting — direct DOM, bypasses React entirely (uses newIdx, not displayIdx)
+      // Runs when the line has word-synced main words OR word-synced bg vocals (mixed mode).
       const lyrLine = lyr?.[newIdx];
-      if (lyrLine?.wordSync && wordElsRef.current.length > 0) {
-        // Merge main words + bg words in time order; DOM order matches (bg words rendered after main)
+      const hasAnimatableWords = lyrLine?.wordSync || lyrLine?.bgWords?.length > 0;
+      if (hasAnimatableWords && wordElsRef.current.length > 0) {
+        // Main words (empty array for line-sync lines) + bg words merged in DOM/time order
         const words = [
-          ...(lyrLine.words || []).filter(w => !w.isSpace),
+          ...(lyrLine.words  || []).filter(w => !w.isSpace),
           ...(lyrLine.bgWords || []).filter(w => !w.isSpace),
         ];
         let curWordIdx = -1;
@@ -5165,7 +5217,7 @@ function LyricsOverlay({ track, audioRef, onClose, fontSize = 32, providers = DE
                       )}
                     </span>
                   ) : (
-                    <span style={{ color: "#fff" }}>{line.bgWords.map(w => w.text).join("")}</span>
+                    <span style={{ color: "rgba(255,255,255,0.55)" }}>{line.bgWords.map(w => w.text).join("")}</span>
                   )}
                 </div>
               )}
