@@ -308,5 +308,19 @@
   "trayShow": "Show Kiyoshi Music",
   "trayQuit": "Quit",
   "upToDate": "You're already on the latest version.",
-  "updateCheckFailed": "Update check failed."
+  "updateCheckFailed": "Update check failed.",
+  "security": "Security",
+  "pinProtection": "Access Protection",
+  "pinProtectionLabel": "Enable parental controls",
+  "pinProtectionDesc": "Protects the settings with a 4-digit PIN. Required each time settings are opened.",
+  "pinEnterPrompt": "Enter PIN to continue",
+  "pinEnterCurrent": "Enter current PIN",
+  "pinEnterNew": "Set new PIN",
+  "pinConfirmNew": "Confirm new PIN",
+  "pinWrong": "Wrong PIN. Please try again.",
+  "pinMismatch": "PINs do not match. Please try again.",
+  "pinChange": "Change PIN",
+  "pinChangeDesc": "Replace the current PIN with a new one.",
+  "pinEmergency": "Emergency Reset",
+  "pinEmergencyDesc": "If the PIN is forgotten, it can be reset by running these commands in the browser console:"
 }

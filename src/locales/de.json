@@ -307,5 +307,19 @@
   "trayShow": "Kiyoshi Music anzeigen",
   "trayQuit": "Beenden",
   "upToDate": "Du nutzt bereits die neueste Version.",
-  "updateCheckFailed": "Update-Prüfung fehlgeschlagen."
+  "updateCheckFailed": "Update-Prüfung fehlgeschlagen.",
+  "security": "Sicherheit",
+  "pinProtection": "Zugriffsschutz",
+  "pinProtectionLabel": "Kindersicherung aktivieren",
+  "pinProtectionDesc": "Schützt die Einstellungen mit einem 4-stelligen PIN. Wird jedes Mal beim Öffnen abgefragt.",
+  "pinEnterPrompt": "PIN eingeben, um fortzufahren",
+  "pinEnterCurrent": "Aktuellen PIN eingeben",
+  "pinEnterNew": "Neuen PIN festlegen",
+  "pinConfirmNew": "Neuen PIN bestätigen",
+  "pinWrong": "Falscher PIN. Bitte erneut versuchen.",
+  "pinMismatch": "PINs stimmen nicht überein. Bitte erneut eingeben.",
+  "pinChange": "PIN ändern",
+  "pinChangeDesc": "Aktuellen PIN durch einen neuen ersetzen.",
+  "pinEmergency": "Notfall-Zurücksetzen",
+  "pinEmergencyDesc": "Falls der PIN vergessen wurde, kann er durch Ausführen folgender Befehle in der Browser-Konsole zurückgesetzt werden:"
 }

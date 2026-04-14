@@ -64,6 +64,12 @@ import {
 
 const API = "http://localhost:9847";
 
+// SHA-256 hash of a PIN string (hex). Used for PIN protection storage — never stores plain text.
+async function hashPin(pin) {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(pin));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
 // ─── Debug Console Interceptor ───────────────────────────────────────────────
 // Captures all console.log/warn/error/info calls into a ring buffer so the
 // Debug tab in Settings can display them even if DevTools is not open.
@@ -189,6 +195,13 @@ const GLOBAL_KEYFRAMES = `
   @keyframes fadeIn {
     from { opacity: 0; }
     to   { opacity: 1; }
+  }
+  @keyframes pinShake {
+    0%,100% { transform: translateX(0); }
+    20%     { transform: translateX(-10px); }
+    40%     { transform: translateX(10px); }
+    60%     { transform: translateX(-8px); }
+    80%     { transform: translateX(8px); }
   }
   @keyframes coverPop {
     0%   { transform: scale(0.96); }
@@ -2328,6 +2341,142 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
   useEffect(() => { if (initialTab) { setTab(initialTab); onTabOpened?.(); } }, [initialTab]);
   const chromiumVersion = window.navigator.userAgent.match(/Chrome\/([\d.]+)/)?.[1] ?? "—";
 
+  // ── PIN protection state ──────────────────────────────────────────────────
+  const [pinEnabled, setPinEnabled] = useState(() => localStorage.getItem("kiyoshi-pin-enabled") === "true");
+  const [pinVerified, setPinVerified] = useState(() => localStorage.getItem("kiyoshi-pin-enabled") !== "true");
+  const [pinDigits, setPinDigits] = useState([]);
+  const [pinError, setPinError] = useState(false);
+  const [pinShake, setPinShake] = useState(false);
+  // Setup / change dialog
+  const [pinSetup, setPinSetup] = useState(null); // null | { mode:"enable"|"change"|"disable", step:"current"|"new"|"confirm", first:string|null }
+  const [pinSetupDigits, setPinSetupDigits] = useState([]);
+  const [pinSetupError, setPinSetupError] = useState("");
+
+  const PIN_LEN = 4;
+
+  const submitPinEntry = async (digits) => {
+    const entered = digits.join("");
+    const stored  = localStorage.getItem("kiyoshi-pin-hash");
+    const hash    = await hashPin(entered);
+    if (hash === stored) {
+      setPinVerified(true);
+      setPinDigits([]);
+    } else {
+      setPinShake(true);
+      setPinError(true);
+      setPinDigits([]);
+      setTimeout(() => { setPinShake(false); setPinError(false); }, 700);
+    }
+  };
+
+  const handlePinKey = (key) => {
+    if (pinError) return;
+    if (key === "del") { setPinDigits(d => d.slice(0, -1)); return; }
+    setPinDigits(prev => {
+      if (prev.length >= PIN_LEN) return prev;
+      const next = [...prev, key];
+      if (next.length === PIN_LEN) setTimeout(() => submitPinEntry(next), 80);
+      return next;
+    });
+  };
+
+  const handleSetupKey = async (key) => {
+    if (key === "del") { setPinSetupDigits(d => d.slice(0, -1)); setPinSetupError(""); return; }
+    setPinSetupDigits(prev => {
+      if (prev.length >= PIN_LEN) return prev;
+      const next = [...prev, key];
+      if (next.length === PIN_LEN) {
+        setTimeout(() => advanceSetup(next), 80);
+      }
+      return next;
+    });
+  };
+
+  const advanceSetup = async (digits) => {
+    const entered = digits.join("");
+    const { mode, step, first } = pinSetup;
+    if (step === "current") {
+      const hash = await hashPin(entered);
+      if (hash !== localStorage.getItem("kiyoshi-pin-hash")) {
+        setPinSetupError(t("pinWrong"));
+        setPinSetupDigits([]);
+        return;
+      }
+      setPinSetup(s => ({ ...s, step: mode === "disable" ? "done" : "new" }));
+      if (mode === "disable") {
+        localStorage.removeItem("kiyoshi-pin-hash");
+        localStorage.removeItem("kiyoshi-pin-enabled");
+        setPinEnabled(false);
+        setPinSetup(null);
+        setPinSetupDigits([]);
+        return;
+      }
+      setPinSetupDigits([]);
+      setPinSetupError("");
+      return;
+    }
+    if (step === "new") {
+      setPinSetup(s => ({ ...s, step: "confirm", first: entered }));
+      setPinSetupDigits([]);
+      setPinSetupError("");
+      return;
+    }
+    if (step === "confirm") {
+      if (entered !== first) {
+        setPinSetupError(t("pinMismatch"));
+        setPinSetupDigits([]);
+        setPinSetup(s => ({ ...s, step: "new", first: null }));
+        return;
+      }
+      const hash = await hashPin(entered);
+      localStorage.setItem("kiyoshi-pin-hash", hash);
+      localStorage.setItem("kiyoshi-pin-enabled", "true");
+      setPinEnabled(true);
+      setPinVerified(true);
+      setPinSetup(null);
+      setPinSetupDigits([]);
+      setPinSetupError("");
+    }
+  };
+
+  const PinDots = ({ count, filled }) => (
+    <div style={{ display: "flex", gap: 14, justifyContent: "center" }}>
+      {Array.from({ length: count }).map((_, i) => (
+        <div key={i} style={{
+          width: 14, height: 14, borderRadius: "50%",
+          background: i < filled ? "#fff" : "transparent",
+          border: "2px solid rgba(255,255,255,0.5)",
+          transition: "background 0.12s",
+        }} />
+      ))}
+    </div>
+  );
+
+  const PinKeypad = ({ onKey }) => (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 68px)", gap: 10 }}>
+      {[1,2,3,4,5,6,7,8,9,"del",0,null].map((k, i) => {
+        if (k === null) return <div key={i} />;
+        return (
+          <button key={i} onClick={() => onKey(k === "del" ? "del" : k)}
+            style={{
+              height: 58, borderRadius: 12, border: "none", cursor: "pointer",
+              background: k === "del" ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.1)",
+              color: "#fff", fontSize: k === "del" ? 18 : 22, fontWeight: 600,
+              fontFamily: "var(--font)", display: "flex", alignItems: "center", justifyContent: "center",
+              transition: "background 0.12s, transform 0.08s",
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = k === "del" ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.18)"; }}
+            onMouseLeave={e => { e.currentTarget.style.background = k === "del" ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.1)"; }}
+            onMouseDown={e => { e.currentTarget.style.transform = "scale(0.93)"; }}
+            onMouseUp={e => { e.currentTarget.style.transform = "scale(1)"; }}
+          >
+            {k === "del" ? "⌫" : k}
+          </button>
+        );
+      })}
+    </div>
+  );
+
   const navItems = [
     { id: "darstellung",    label: t("appearance"),    iconEl: <PaintBrushBroad size={18} /> },
     { id: "wiedergabe",     label: t("playback"),      iconEl: <Play size={18} /> },
@@ -2336,6 +2485,7 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
     { id: "shortcuts",   label: t("shortcuts"),   iconEl: <Keyboard size={18} /> },
     { id: "language",    label: t("language"),    iconEl: <Translate size={18} /> },
     { id: "storage",    label: t("storage"),     iconEl: <HardDrives size={18} /> },
+    { id: "sicherheit", label: t("security"),   iconEl: <Lock size={18} /> },
     { id: "update",     label: t("update"),      iconEl: <ArrowsClockwise size={18} /> },
     { id: "debug",      label: t("debug"),       iconEl: <Bug size={18} /> },
   ];
@@ -2362,6 +2512,72 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
     <div style={{ position: "fixed", inset: 0, zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", animation: anim ? "fadeIn 0.18s ease" : undefined }}>
       <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.7)" }} />
       <div style={{ position: "relative", borderRadius: 12, overflow: "hidden", width: 1140, height: 740, maxWidth: "calc(100% - 40px)", maxHeight: "calc(100% - 40px)", display: "flex", boxShadow: "0 32px 80px rgba(0,0,0,0.7)", animation: anim ? "fadeSlideIn 0.28s cubic-bezier(0.34,1.56,0.64,1)" : undefined, border: "0.5px solid var(--border)" }}>
+        {/* ── PIN entry overlay ─────────────────────────────────────────────── */}
+        {pinEnabled && !pinVerified && (
+          <div style={{
+            position: "absolute", inset: 0, zIndex: 20, borderRadius: 12,
+            background: "var(--bg-base)",
+            display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+            gap: 24,
+            animation: anim ? "fadeIn 0.18s ease" : undefined,
+          }}>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+              <Lock size={36} style={{ color: "var(--accent)" }} />
+              <div style={{ fontSize: "var(--t18)", fontWeight: 700, color: "var(--text-primary)" }}>Kiyoshi Music</div>
+              <div style={{ fontSize: "var(--t13)", color: "var(--text-muted)" }}>{t("pinEnterPrompt")}</div>
+            </div>
+
+            <div style={{
+              animation: pinShake ? "pinShake 0.5s ease" : undefined,
+              display: "flex", flexDirection: "column", alignItems: "center", gap: 20,
+            }}>
+              <PinDots count={PIN_LEN} filled={pinDigits.length} />
+              {pinError && (
+                <div style={{ fontSize: "var(--t12)", color: "#f44336", fontWeight: 500 }}>
+                  {t("pinWrong")}
+                </div>
+              )}
+            </div>
+
+            <PinKeypad onKey={handlePinKey} />
+          </div>
+        )}
+
+        {/* ── PIN setup / change dialog ─────────────────────────────────────── */}
+        {pinSetup && (
+          <div style={{
+            position: "absolute", inset: 0, zIndex: 30, borderRadius: 12,
+            background: "rgba(0,0,0,0.75)", backdropFilter: "blur(8px)",
+            display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+            gap: 24, animation: anim ? "fadeIn 0.18s ease" : undefined,
+          }}>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+              <div style={{ fontSize: "var(--t16)", fontWeight: 700, color: "#fff" }}>
+                {pinSetup.step === "current" ? t("pinEnterCurrent")
+                  : pinSetup.step === "new"  ? t("pinEnterNew")
+                  : t("pinConfirmNew")}
+              </div>
+              {pinSetupError && (
+                <div style={{ fontSize: "var(--t12)", color: "#f44336", fontWeight: 500 }}>{pinSetupError}</div>
+              )}
+            </div>
+
+            <PinDots count={PIN_LEN} filled={pinSetupDigits.length} />
+            <PinKeypad onKey={handleSetupKey} />
+
+            <button onClick={() => { setPinSetup(null); setPinSetupDigits([]); setPinSetupError(""); }}
+              style={{
+                background: "transparent", border: "none", cursor: "pointer",
+                color: "rgba(255,255,255,0.45)", fontSize: "var(--t13)", fontFamily: "var(--font)",
+              }}
+              onMouseEnter={e => e.currentTarget.style.color = "rgba(255,255,255,0.8)"}
+              onMouseLeave={e => e.currentTarget.style.color = "rgba(255,255,255,0.45)"}
+            >
+              {t("cancel")}
+            </button>
+          </div>
+        )}
+
         {/* Close button — top right */}
         <button onClick={onClose} className="icon-btn" style={{
           position: "absolute", top: 12, right: 12, zIndex: 10,
@@ -2674,6 +2890,72 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
             )}
 
             {tab === "storage" && <StorageTab t={t} />}
+
+            {tab === "sicherheit" && (
+              <>
+                <SectionLabel>{t("pinProtection")}</SectionLabel>
+                <SettingRow
+                  label={t("pinProtectionLabel")}
+                  description={t("pinProtectionDesc")}
+                  icon={pinEnabled ? <Lock /> : <LockOpen />}
+                >
+                  <div
+                    onClick={() => {
+                      if (!pinEnabled) {
+                        setPinSetup({ mode: "enable", step: "new", first: null });
+                        setPinSetupDigits([]); setPinSetupError("");
+                      } else {
+                        setPinSetup({ mode: "disable", step: "current", first: null });
+                        setPinSetupDigits([]); setPinSetupError("");
+                      }
+                    }}
+                    style={{
+                      width: 44, height: 24, borderRadius: 12, cursor: "pointer", flexShrink: 0,
+                      background: pinEnabled ? "var(--accent)" : "var(--bg-hover)",
+                      position: "relative", transition: "background 0.2s",
+                    }}
+                  >
+                    <div style={{
+                      position: "absolute", top: 3, left: pinEnabled ? 23 : 3,
+                      width: 18, height: 18, borderRadius: "50%", background: "#fff",
+                      transition: "left 0.2s",
+                    }} />
+                  </div>
+                </SettingRow>
+
+                {pinEnabled && (
+                  <SettingRow label={t("pinChange")} description={t("pinChangeDesc")} icon={<Lock />}>
+                    <button
+                      onClick={() => { setPinSetup({ mode: "change", step: "current", first: null }); setPinSetupDigits([]); setPinSetupError(""); }}
+                      style={{
+                        background: "var(--bg-hover)", border: "none", borderRadius: 8, cursor: "pointer",
+                        color: "var(--text-primary)", fontSize: "var(--t13)", fontFamily: "var(--font)",
+                        padding: "7px 14px", transition: "background 0.15s",
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.background = "var(--border)"}
+                      onMouseLeave={e => e.currentTarget.style.background = "var(--bg-hover)"}
+                    >
+                      {t("pinChange")}
+                    </button>
+                  </SettingRow>
+                )}
+
+                <SectionLabel style={{ marginTop: 24 }}>{t("pinEmergency")}</SectionLabel>
+                <div style={{
+                  background: "var(--bg-elevated)", borderRadius: 10, padding: "14px 16px",
+                  fontSize: "var(--t12)", color: "var(--text-muted)", lineHeight: 1.7,
+                }}>
+                  <div style={{ marginBottom: 6, color: "var(--text-secondary)", fontWeight: 500 }}>{t("pinEmergencyDesc")}</div>
+                  <code style={{
+                    display: "block", background: "rgba(0,0,0,0.25)", borderRadius: 6,
+                    padding: "8px 12px", fontFamily: "monospace", fontSize: "var(--t11)",
+                    color: "var(--text-primary)", userSelect: "all",
+                  }}>
+                    localStorage.removeItem('kiyoshi-pin-hash'){"\n"}localStorage.removeItem('kiyoshi-pin-enabled')
+                  </code>
+                </div>
+              </>
+            )}
 
             {tab === "language" && (
               <>
