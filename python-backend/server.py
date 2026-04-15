@@ -2935,8 +2935,15 @@ _ov_config = {
     "borderRadius": 14,
     "showProgress": True, "showAlbumArt": True,
     "showArtist": True, "showAlbum": False,
-    "border": False, "borderColor": "#EEA8FF",
-    "fontFamily": "system-ui, sans-serif", "fontSize": 14,
+    "border": False, "borderColor": "#EEA8FF", "borderWidth": 1.5,
+    "fontFamily": "system-ui, sans-serif",
+    "titleFontSize": 14, "artistFontSize": 12,
+    "dynamicWidth": False, "widgetWidth": 400, "widgetHeight": 0, "artSize": 56, "artRadius": 8,
+    "paddingV": 12, "paddingH": 16, "gap": 12,
+    "progressHeight": 3,
+    "showShadow": False, "shadowStrength": 0.35,
+    "bgBlur": 0,
+    "autoHide": False,
 }
 _ov_clients: list = []
 _ov_lock  = threading.Lock()
@@ -2949,24 +2956,27 @@ CORS(_ov_app)
 # ── Widget HTML ───────────────────────────────────────────────────────────────
 _OVERLAY_HTML = r"""<!DOCTYPE html>
 <html><head><meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700&family=Inter:wght@400;700&family=Roboto:wght@400;700&family=Nunito:wght@400;700&family=Exo+2:wght@400;700&family=Poppins:wght@400;700&family=Raleway:wght@400;700&family=Montserrat:wght@400;700&family=DM+Sans:opsz,wght@9..40,400;9..40,700&family=Ubuntu:wght@400;700&family=Lexend:wght@400;700&family=Space+Grotesk:wght@400;700&family=Sora:wght@400;700&family=Barlow:wght@400;700&family=Figtree:wght@400;700&family=Plus+Jakarta+Sans:wght@400;700&family=Kanit:wght@400;700&family=Oxanium:wght@400;700&family=Chakra+Petch:wght@400;700&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{background:transparent;overflow:hidden;font-family:var(--wfont)}
 #w{
-  display:inline-flex;align-items:center;gap:12px;
-  padding:10px 16px 10px 10px;
+  display:flex;align-items:center;gap:var(--wgap);
+  padding:var(--wpadv) var(--wpadh);
   border-radius:var(--wr);
   background:var(--wbg);
-  border:var(--wborder);
-  min-width:220px;max-width:420px;
+  width:var(--wwidth);
+  min-height:var(--wheight);
   position:relative;overflow:hidden;
-  transition:background .3s,border .3s;
+  transition:background .3s,border .3s,box-shadow .3s,opacity .4s;
 }
-#art{width:52px;height:52px;border-radius:calc(var(--wr) - 4px);object-fit:cover;flex-shrink:0;transition:opacity .3s}
-#art-ph{width:52px;height:52px;border-radius:calc(var(--wr) - 4px);background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+#art{width:var(--wart);height:var(--wart);border-radius:var(--wart-r);object-fit:cover;flex-shrink:0;transition:opacity .3s}
+#art-ph{width:var(--wart);height:var(--wart);border-radius:var(--wart-r);background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .info{flex:1;min-width:0}
-.title{font-size:var(--wfs);font-weight:700;color:var(--wtxt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:color .3s}
-.sub{font-size:calc(var(--wfs) - 2px);color:var(--wtxts);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.title{font-size:var(--wtfs);font-weight:700;color:var(--wtxt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:color .3s}
+.sub{font-size:var(--wasfs);color:var(--wtxts);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #pbar{position:absolute;bottom:0;left:0;right:0;height:3px;background:rgba(255,255,255,.12)}
 #pfill{height:100%;background:var(--wacc);border-radius:0 2px 2px 0;transition:width .8s linear}
 @keyframes scroll{0%{transform:translateX(0)}40%{transform:translateX(var(--scroll-dist))}60%{transform:translateX(var(--scroll-dist))}100%{transform:translateX(0)}}
@@ -2974,7 +2984,7 @@ body{background:transparent;overflow:hidden;font-family:var(--wfont)}
 </style></head>
 <body><div id="w">
   <div id="art-ph"><svg width="22" height="22" viewBox="0 0 24 24" fill="rgba(255,255,255,.4)"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg></div>
-  <img id="art" style="display:none" crossorigin="anonymous">
+  <img id="art" style="display:none">
   <div class="info">
     <div class="title"><span id="title-span">No Music</span></div>
     <div class="sub" id="sub">Waiting...</div>
@@ -2990,20 +3000,35 @@ function rgba(hex,a){const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,
 function applyConfig(c){
   cfg=c;
   const R=document.documentElement;
+  const W=document.getElementById('w');
   R.style.setProperty('--wr',(c.borderRadius??14)+'px');
   R.style.setProperty('--wbg',rgba(c.bgColor||'#1a1a1a',(c.bgOpacity??90)/100));
   R.style.setProperty('--wacc',c.accentColor||'#EEA8FF');
   R.style.setProperty('--wtxt',c.textColor||'#fff');
   R.style.setProperty('--wtxts',rgba(c.textColor||'#fff',.65));
-  R.style.setProperty('--wfs',(c.fontSize||14)+'px');
+  R.style.setProperty('--wtfs',(c.titleFontSize||14)+'px');
+  R.style.setProperty('--wasfs',(c.artistFontSize||12)+'px');
   R.style.setProperty('--wfont',c.fontFamily||'system-ui,sans-serif');
-  document.getElementById('w').style.border=c.border?`1.5px solid ${c.borderColor||'#EEA8FF'}`:'none';
+  R.style.setProperty('--wwidth',c.dynamicWidth?'max-content':(c.widgetWidth||400)+'px');
+  R.style.setProperty('--wheight',(c.widgetHeight||0)>0?(c.widgetHeight+'px'):'0px');
+  R.style.setProperty('--wart',(c.artSize||56)+'px');
+  R.style.setProperty('--wart-r',(c.artRadius??8)+'px');
+  R.style.setProperty('--wpadv',(c.paddingV||12)+'px');
+  R.style.setProperty('--wpadh',(c.paddingH||16)+'px');
+  R.style.setProperty('--wgap',(c.gap||12)+'px');
+  W.style.border=c.border?`${c.borderWidth||1.5}px solid ${c.borderColor||'#EEA8FF'}`:'none';
+  W.style.boxShadow=c.showShadow?`0 8px 32px rgba(0,0,0,${c.shadowStrength||0.35})`:'none';
+  W.style.backdropFilter=c.bgBlur>0?`blur(${c.bgBlur}px)`:'none';
   document.getElementById('pbar').style.display=c.showProgress===false?'none':'';
+  document.getElementById('pbar').style.height=(c.progressHeight||3)+'px';
   const hasArt=c.showAlbumArt!==false;
-  document.getElementById('art').style.display=hasArt&&state.cover?'':'none';
-  document.getElementById('art-ph').style.display=hasArt&&!state.cover?'':'none';
   if(!hasArt){document.getElementById('art').style.display='none';document.getElementById('art-ph').style.display='none';}
+  else{
+    document.getElementById('art').style.display=state.cover?'':'none';
+    document.getElementById('art-ph').style.display=!state.cover?'':'none';
+  }
   renderSub();
+  applyAutoHide();
 }
 
 function renderSub(){
@@ -3013,10 +3038,20 @@ function renderSub(){
   document.getElementById('sub').textContent=parts.join(' · ')||'Waiting...';
 }
 
+function applyAutoHide(){
+  const W=document.getElementById('w');
+  if(cfg.autoHide){
+    W.style.opacity=(state.isPlaying&&state.title)?'1':'0';
+  }else{
+    W.style.opacity='1';
+  }
+}
+
 function checkScroll(){
   const sp=document.getElementById('title-span');
   const w=document.getElementById('w');
-  const overflow=sp.scrollWidth-(w.clientWidth-100);
+  const infoW=w.clientWidth-(cfg.artSize||56)-(cfg.paddingH||16)*2-(cfg.gap||12)-40;
+  const overflow=sp.scrollWidth-Math.max(infoW,60);
   if(overflow>20){
     sp.style.setProperty('--scroll-dist',`-${overflow}px`);
     sp.classList.add('scroll');
@@ -3039,6 +3074,7 @@ function updateState(s){
   }
   const pct=s.duration>0?(s.progress/s.duration*100):0;
   document.getElementById('pfill').style.width=pct+'%';
+  applyAutoHide();
   setTimeout(checkScroll,100);
 }
 

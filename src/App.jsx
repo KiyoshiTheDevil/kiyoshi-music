@@ -96,10 +96,10 @@ const _MAX_FRONTEND_LOGS = 500;
 })();
 
 // ─── App Version ─────────────────────────────────────────────────────────────
-const APP_VERSION = "0.9.5-alpha.1";
+const APP_VERSION = "0.9.6-beta";
 
 // ─── Update Checker (GitHub Releases) ───────────────────────────────────────
-const APP_TAG = "v0.9.5-alpha.1";
+const APP_TAG = "v0.9.6-beta";
 const GITHUB_RELEASES_API = "https://api.github.com/repos/KiyoshiTheDevil/kiyoshi-music/releases?per_page=1";
 
 function isNewerVersion(latest, current) {
@@ -703,7 +703,7 @@ function TrackRow({ track, isPlaying, onPlay, onOpenArtist, onContextMenu }) {
 const SIDEBAR_EXPANDED = 240;
 const SIDEBAR_COLLAPSED = 56;
 
-function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenSettings, onOpenUpdateTab, onCloseOverlay, onOpenPlaylist, onOpenAlbum, onOpenArtist, onAddRecent, onContextMenu, currentProfileData, onOpenProfileSwitcher, profiles, onSwitchProfile, onAddProfile, onDeleteProfile, onCreatePlaylist, updateInfo, offlineMode, isActuallyOffline, onToggleOffline, onRefreshView }) {
+function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenSettings, onOpenUpdateTab, onOpenOverlaySettings, onCloseOverlay, onOpenPlaylist, onOpenAlbum, onOpenArtist, onAddRecent, onContextMenu, currentProfileData, onOpenProfileSwitcher, profiles, onSwitchProfile, onAddProfile, onDeleteProfile, onCreatePlaylist, updateInfo, offlineMode, isActuallyOffline, onToggleOffline, onRefreshView, obsEnabled }) {
   const [query, setQuery] = useState("");
   const [tooltip, setTooltip] = useState(null);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
@@ -1051,36 +1051,43 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
               {t("updateAvailable")}
             </div>
           )}
-          <div
-            onClick={onOpenSettings}
-            style={{
-              display: "flex", alignItems: "center", gap: 10,
-              padding: "8px 12px", margin: "0 8px 2px",
-              borderRadius: "var(--radius)", cursor: "pointer",
-              color: "var(--text-secondary)", background: "transparent",
-              transition: "all 0.15s", fontSize: "var(--t13)",
-            }}
-            onMouseEnter={e => { e.currentTarget.style.background = "var(--bg-hover)"; e.currentTarget.style.color = "var(--text-primary)"; }}
-            onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--text-secondary)"; }}
-          >
-            <Gear size={16} style={{ flexShrink: 0 }} />
-            {t("settings")}
-          </div>
-          {/* Offline toggle — disabled until offline mode is fully implemented */}
-          <div
-            onMouseEnter={e => { const r = e.currentTarget.getBoundingClientRect(); setTooltip({ text: isActuallyOffline ? t("offlineBanner") : t("offlineComingSoon"), x: r.right + 10, y: r.top + r.height / 2 }); }}
-            onMouseLeave={() => setTooltip(null)}
-            style={{
-              display: "flex", alignItems: "center", gap: 10,
-              padding: "8px 12px", margin: "0 8px 8px",
-              borderRadius: "var(--radius)", cursor: "default",
-              color: isActuallyOffline ? "#f0b429" : "var(--text-muted)",
-              opacity: isActuallyOffline ? 1 : 0.45,
-              transition: "all 0.15s", fontSize: "var(--t13)",
-            }}
-          >
-            {isActuallyOffline ? <WifiX size={16} style={{ flexShrink: 0 }} /> : <WifiHigh size={16} style={{ flexShrink: 0 }} />}
-            {isActuallyOffline ? t("offlineBanner") : t("goOffline")}
+          <div style={{ display: "flex", alignItems: "center", gap: 4, margin: "0 8px 10px" }}>
+            <div
+              onClick={onOpenSettings}
+              style={{
+                flex: 1, display: "flex", alignItems: "center", gap: 10,
+                padding: "8px 12px",
+                borderRadius: "var(--radius)", cursor: "pointer",
+                color: "var(--text-secondary)", background: "transparent",
+                transition: "all 0.15s", fontSize: "var(--t13)",
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = "var(--bg-hover)"; e.currentTarget.style.color = "var(--text-primary)"; }}
+              onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--text-secondary)"; }}
+            >
+              <Gear size={16} style={{ flexShrink: 0 }} />
+              {t("settings")}
+            </div>
+            {obsEnabled && (
+              <div
+                onClick={onOpenOverlaySettings}
+                onMouseEnter={e => { e.currentTarget.style.background = "var(--bg-hover)"; e.currentTarget.style.color = "var(--text-primary)"; setTooltip({ text: t("overlay"), x: e.currentTarget.getBoundingClientRect().right + 10, y: e.currentTarget.getBoundingClientRect().top + e.currentTarget.getBoundingClientRect().height / 2 }); }}
+                onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--text-muted)"; setTooltip(null); }}
+                style={{
+                  flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center",
+                  width: 32, height: 32, borderRadius: "var(--radius)", cursor: "pointer",
+                  color: "var(--text-muted)", background: "transparent", transition: "all 0.15s",
+                  position: "relative",
+                }}
+              >
+                <ScreencastSimple size={16} />
+                <span style={{
+                  position: "absolute", top: 4, right: 4,
+                  width: 6, height: 6, borderRadius: "50%",
+                  background: "#22c55e",
+                  boxShadow: "0 0 4px #22c55e",
+                }} />
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -2349,115 +2356,549 @@ function SettingsSectionLabel({ children }) {
   );
 }
 
+// ─── Color Picker (HSV gradient + hue slider + hex input) ────────────────────
+function _hexToHsv(hex) {
+  if (!hex || !/^#[0-9a-fA-F]{6}$/.test(hex)) return { h: 0, s: 0, v: 0 };
+  let r = parseInt(hex.slice(1, 3), 16) / 255;
+  let g = parseInt(hex.slice(3, 5), 16) / 255;
+  let b = parseInt(hex.slice(5, 7), 16) / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+  const v = max;
+  const s = max === 0 ? 0 : d / max;
+  let h = 0;
+  if (d !== 0) {
+    switch (max) {
+      case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
+      case g: h = ((b - r) / d + 2) / 6; break;
+      case b: h = ((r - g) / d + 4) / 6; break;
+    }
+  }
+  return { h: h * 360, s, v };
+}
+
+function _hsvToHex(h, s, v) {
+  h = h / 360;
+  let r, g, b;
+  const i = Math.floor(h * 6), f = h * 6 - i;
+  const p = v * (1 - s), q = v * (1 - f * s), t = v * (1 - (1 - f) * s);
+  switch (i % 6) {
+    case 0: r = v; g = t; b = p; break;
+    case 1: r = q; g = v; b = p; break;
+    case 2: r = p; g = v; b = t; break;
+    case 3: r = p; g = q; b = v; break;
+    case 4: r = t; g = p; b = v; break;
+    case 5: r = v; g = p; b = q; break;
+    default: r = g = b = 0;
+  }
+  return "#" + [r, g, b].map(x => Math.round(x * 255).toString(16).padStart(2, "0")).join("");
+}
+
+function ColorPicker({ value, onChange }) {
+  const safe = /^#[0-9a-fA-F]{6}$/.test(value) ? value : "#000000";
+  const [open, setOpen] = useState(false);
+  const [hsv, setHsv] = useState(() => _hexToHsv(safe));
+  const [hexInput, setHexInput] = useState(safe);
+  const triggerRef = useRef(null);
+  const popoverRef = useRef(null);
+  const gradientRef = useRef(null);
+  const hueRef = useRef(null);
+  const [popPos, setPopPos] = useState({ top: 0, left: 0 });
+
+  // Sync if parent changes value externally
+  useEffect(() => {
+    if (/^#[0-9a-fA-F]{6}$/.test(value)) {
+      setHsv(_hexToHsv(value));
+      setHexInput(value);
+    }
+  }, [value]);
+
+  const openPicker = () => {
+    const r = triggerRef.current.getBoundingClientRect();
+    setPopPos({ top: r.bottom + 8, left: Math.max(8, r.right - 244) });
+    setOpen(true);
+  };
+
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e) => {
+      if (popoverRef.current && !popoverRef.current.contains(e.target) &&
+          triggerRef.current && !triggerRef.current.contains(e.target))
+        setOpen(false);
+    };
+    document.addEventListener("pointerdown", handler);
+    return () => document.removeEventListener("pointerdown", handler);
+  }, [open]);
+
+  const applyHsv = (newHsv) => {
+    setHsv(newHsv);
+    const hex = _hsvToHex(newHsv.h, newHsv.s, newHsv.v);
+    setHexInput(hex);
+    onChange(hex);
+  };
+
+  const makeDragger = (ref, onDrag) => (e) => {
+    e.preventDefault();
+    const move = (ev) => {
+      const rect = ref.current.getBoundingClientRect();
+      onDrag(ev.clientX, ev.clientY, rect);
+    };
+    move(e);
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", () => {
+      window.removeEventListener("pointermove", move);
+    }, { once: true });
+  };
+
+  const onGradientDrag = makeDragger(gradientRef, (cx, cy, rect) => {
+    const s = Math.max(0, Math.min(1, (cx - rect.left) / rect.width));
+    const v = Math.max(0, Math.min(1, 1 - (cy - rect.top) / rect.height));
+    applyHsv({ ...hsv, s, v });
+  });
+
+  const onHueDrag = makeDragger(hueRef, (cx, _cy, rect) => {
+    const h = Math.max(0, Math.min(360, ((cx - rect.left) / rect.width) * 360));
+    applyHsv({ ...hsv, h });
+  });
+
+  const hueColor = `hsl(${hsv.h},100%,50%)`;
+  const currentHex = _hsvToHex(hsv.h, hsv.s, hsv.v);
+
+  return (
+    <>
+      <div ref={triggerRef} onClick={openPicker} style={{
+        width: 32, height: 32, borderRadius: 8,
+        background: safe, border: "0.5px solid var(--border)",
+        cursor: "pointer", flexShrink: 0,
+      }} />
+
+      {open && createPortal(
+        <div ref={popoverRef} style={{
+          position: "fixed", top: popPos.top, left: popPos.left, zIndex: 9999,
+          width: 244, padding: 12, borderRadius: 14,
+          background: "#1c1c1c", border: "0.5px solid rgba(255,255,255,0.12)",
+          boxShadow: "0 12px 40px rgba(0,0,0,0.6)",
+          userSelect: "none",
+        }}>
+          {/* Gradient square */}
+          <div ref={gradientRef} onPointerDown={onGradientDrag}
+            style={{
+              width: "100%", height: 160, borderRadius: 10,
+              background: `linear-gradient(to right, #fff, ${hueColor})`,
+              position: "relative", cursor: "crosshair", marginBottom: 10, overflow: "hidden",
+            }}>
+            <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, transparent, #000)", borderRadius: 10 }} />
+            {/* Cursor */}
+            <div style={{
+              position: "absolute",
+              left: `${hsv.s * 100}%`, top: `${(1 - hsv.v) * 100}%`,
+              transform: "translate(-50%, -50%)",
+              width: 14, height: 14, borderRadius: "50%",
+              border: "2px solid #fff",
+              boxShadow: "0 1px 6px rgba(0,0,0,0.5)",
+              background: currentHex,
+              pointerEvents: "none",
+            }} />
+          </div>
+
+          {/* Hue slider */}
+          <div ref={hueRef} onPointerDown={onHueDrag}
+            style={{
+              width: "100%", height: 14, borderRadius: 7,
+              background: "linear-gradient(to right,#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00)",
+              position: "relative", cursor: "pointer", marginBottom: 12,
+            }}>
+            <div style={{
+              position: "absolute",
+              left: `${(hsv.h / 360) * 100}%`, top: "50%",
+              transform: "translate(-50%, -50%)",
+              width: 18, height: 18, borderRadius: "50%",
+              border: "2.5px solid #fff",
+              boxShadow: "0 1px 6px rgba(0,0,0,0.5)",
+              background: hueColor,
+              pointerEvents: "none",
+            }} />
+          </div>
+
+          {/* Swatch + hex input */}
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <div style={{ width: 36, height: 36, borderRadius: 8, background: currentHex, border: "0.5px solid rgba(255,255,255,0.15)", flexShrink: 0 }} />
+            <input
+              value={hexInput}
+              onChange={e => {
+                setHexInput(e.target.value);
+                if (/^#[0-9a-fA-F]{6}$/.test(e.target.value)) {
+                  setHsv(_hexToHsv(e.target.value));
+                  onChange(e.target.value);
+                }
+              }}
+              onKeyDown={e => { if (e.key === "Enter" || e.key === "Escape") setOpen(false); }}
+              style={{
+                flex: 1, padding: "7px 10px", borderRadius: 8,
+                background: "var(--bg-elevated)", border: "0.5px solid rgba(255,255,255,0.12)",
+                color: "var(--text-primary)", fontSize: "var(--t13)", fontFamily: "monospace",
+                outline: "none", letterSpacing: "0.04em",
+              }}
+            />
+          </div>
+        </div>,
+        document.body
+      )}
+    </>
+  );
+}
+
 // ─── OBS Overlay Settings Tab ─────────────────────────────────────────────────
+const OVERLAY_FONTS = [
+  // ── App ─────────────────────────────────────────────────────────────────────
+  { label: "MiSans Latin",     value: "'MiSans Latin', system-ui, sans-serif", group: "App Default" },
+  { label: "System UI",        value: "system-ui, sans-serif",                 group: "App Default" },
+  // ── Clean / Modern ──────────────────────────────────────────────────────────
+  { label: "Inter",            value: "Inter, sans-serif",                     group: "Clean" },
+  { label: "DM Sans",          value: "'DM Sans', sans-serif",                 group: "Clean" },
+  { label: "Figtree",          value: "Figtree, sans-serif",                   group: "Clean" },
+  { label: "Plus Jakarta Sans",value: "'Plus Jakarta Sans', sans-serif",        group: "Clean" },
+  { label: "Lexend",           value: "Lexend, sans-serif",                    group: "Clean" },
+  // ── Geometric / Round ────────────────────────────────────────────────────────
+  { label: "Outfit",           value: "Outfit, sans-serif",                    group: "Round" },
+  { label: "Poppins",          value: "Poppins, sans-serif",                   group: "Round" },
+  { label: "Nunito",           value: "Nunito, sans-serif",                    group: "Round" },
+  { label: "Sora",             value: "Sora, sans-serif",                      group: "Round" },
+  // ── Classic ─────────────────────────────────────────────────────────────────
+  { label: "Roboto",           value: "Roboto, sans-serif",                    group: "Classic" },
+  { label: "Montserrat",       value: "Montserrat, sans-serif",                group: "Classic" },
+  { label: "Raleway",          value: "Raleway, sans-serif",                   group: "Classic" },
+  { label: "Ubuntu",           value: "Ubuntu, sans-serif",                    group: "Classic" },
+  { label: "Barlow",           value: "Barlow, sans-serif",                    group: "Classic" },
+  // ── Techy / Futuristic ───────────────────────────────────────────────────────
+  { label: "Exo 2",            value: "'Exo 2', sans-serif",                   group: "Techy" },
+  { label: "Space Grotesk",    value: "'Space Grotesk', sans-serif",            group: "Techy" },
+  { label: "Kanit",            value: "Kanit, sans-serif",                     group: "Techy" },
+  { label: "Oxanium",          value: "Oxanium, sans-serif",                   group: "Techy" },
+  { label: "Chakra Petch",     value: "'Chakra Petch', sans-serif",             group: "Techy" },
+];
+
+// Top-level so React never recreates them between renders (hooks stay stable)
+function OvlRow({ label, desc, icon, children }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, padding: "14px 0", borderBottom: "0.5px solid var(--border)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0, flex: 1 }}>
+        {icon && (
+          <div style={{ width: 32, height: 32, borderRadius: 8, flexShrink: 0, background: "var(--bg-elevated)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--accent)" }}>
+            {icon}
+          </div>
+        )}
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: "var(--t13)", fontWeight: 500, color: "var(--text-primary)" }}>{label}</div>
+          {desc && <div style={{ fontSize: "var(--t11)", color: "var(--text-muted)", marginTop: 2 }}>{desc}</div>}
+        </div>
+      </div>
+      <div style={{ flexShrink: 0 }}>{children}</div>
+    </div>
+  );
+}
+
+function OvlSLabel({ children }) {
+  return (
+    <div style={{ fontSize: "var(--t11)", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", margin: "20px 0 4px" }}>
+      {children}
+    </div>
+  );
+}
+
+function OvlSliderRow({ label, icon, value, min, max, step = 1, unit = "", onChange }) {
+  const safeVal = value ?? min;
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+
+  const openEdit = () => { setDraft(String(safeVal)); setEditing(true); };
+  const commit = (raw) => {
+    const n = parseFloat(raw);
+    if (!isNaN(n)) onChange(Math.max(min, Math.min(max, Math.round(n / step) * step)));
+    setEditing(false);
+  };
+
+  return (
+    <OvlRow label={label} icon={icon}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <Slider min={min} max={max} step={step} value={safeVal} onChange={onChange} width={120} />
+        {editing ? (
+          <input
+            type="number" min={min} max={max} step={step}
+            value={draft} autoFocus
+            onChange={e => setDraft(e.target.value)}
+            onBlur={e => commit(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter") commit(draft); if (e.key === "Escape") setEditing(false); }}
+            style={{
+              width: 54, padding: "3px 6px", borderRadius: "var(--radius)",
+              background: "var(--bg-elevated)", border: "0.5px solid var(--accent)",
+              color: "var(--text-primary)", fontSize: "var(--t12)",
+              fontFamily: "monospace", textAlign: "center",
+              outline: "none",
+            }}
+          />
+        ) : (
+          <span
+            onClick={openEdit}
+            title="Click to type a value"
+            style={{
+              fontSize: "var(--t12)", color: "var(--text-muted)", width: 46,
+              textAlign: "right", fontVariantNumeric: "tabular-nums",
+              cursor: "text", borderRadius: 4, padding: "2px 4px",
+              border: "0.5px solid transparent",
+              transition: "border-color 0.15s, color 0.15s",
+            }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--text-primary)"; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = "transparent"; e.currentTarget.style.color = "var(--text-muted)"; }}
+          >
+            {safeVal}{unit}
+          </span>
+        )}
+      </div>
+    </OvlRow>
+  );
+}
+
+function OvlToggleRow({ label, desc, icon, value, onChange }) {
+  return (
+    <OvlRow label={label} desc={desc} icon={icon}>
+      <Toggle value={value} onChange={onChange} />
+    </OvlRow>
+  );
+}
+
+function OvlColorRow({ label, icon, value, onChange }) {
+  return (
+    <OvlRow label={label} icon={icon}>
+      <ColorPicker value={value} onChange={onChange} />
+    </OvlRow>
+  );
+}
+
+function FontRow({ fontFamily, fontLabel, active, onClick }) {
+  return (
+    <div onClick={onClick}
+      style={{
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        padding: "10px 12px", borderRadius: "var(--radius)", cursor: "pointer",
+        background: active ? "var(--accent-dim)" : "var(--bg-elevated)",
+        border: `0.5px solid ${active ? "var(--accent)" : "var(--border)"}`,
+        transition: "all 0.15s",
+      }}
+      onMouseEnter={e => { if (!active) e.currentTarget.style.background = "var(--bg-hover)"; }}
+      onMouseLeave={e => { if (!active) e.currentTarget.style.background = "var(--bg-elevated)"; }}
+    >
+      <div style={{ fontSize: "var(--t13)", fontWeight: 600, fontFamily, color: active ? "var(--accent)" : "var(--text-primary)", minWidth: 0 }}>
+        {fontLabel}
+      </div>
+      {active && <Check size={14} style={{ color: "var(--accent)", flexShrink: 0, marginLeft: 8 }} />}
+    </div>
+  );
+}
+
+function TypographyTab({ t, obsConfig, applyObsConfig }) {
+  const [fontSource, setFontSource] = useState("google"); // "google" | "local"
+  const [localFonts, setLocalFonts] = useState(null);   // null = not loaded, [] = denied/unsupported
+  const [localLoading, setLocalLoading] = useState(false);
+  const [localSearch, setLocalSearch] = useState("");
+
+  const loadLocalFonts = async () => {
+    if (!window.queryLocalFonts) {
+      setLocalFonts([]);
+      return;
+    }
+    setLocalLoading(true);
+    try {
+      const fonts = await window.queryLocalFonts();
+      // Deduplicate by family name
+      const seen = new Set();
+      const families = [];
+      for (const f of fonts) {
+        if (!seen.has(f.family)) { seen.add(f.family); families.push(f.family); }
+      }
+      families.sort((a, b) => a.localeCompare(b));
+      setLocalFonts(families);
+    } catch {
+      setLocalFonts([]);
+    }
+    setLocalLoading(false);
+  };
+
+  const switchSource = (src) => {
+    setFontSource(src);
+    if (src === "local" && localFonts === null) loadLocalFonts();
+  };
+
+  // Filtered local fonts
+  const filteredLocal = localFonts
+    ? localFonts.filter(f => f.toLowerCase().includes(localSearch.toLowerCase()))
+    : [];
+
+  // Google fonts grouped
+  const googleGroups = [...new Set(OVERLAY_FONTS.map(f => f.group))];
+
+  return (
+    <>
+      {/* Source toggle */}
+      <div style={{ display: "flex", gap: 4, marginBottom: 12, background: "var(--bg-elevated)", borderRadius: "var(--radius)", padding: 4 }}>
+        {[{ id: "google", label: "Google Fonts" }, { id: "local", label: t("overlayLocalFonts") }].map(s => (
+          <button key={s.id} onClick={() => switchSource(s.id)} style={{
+            flex: 1, padding: "6px 0", borderRadius: "calc(var(--radius) - 2px)",
+            background: fontSource === s.id ? "var(--bg-hover)" : "transparent",
+            color: fontSource === s.id ? "var(--text-primary)" : "var(--text-muted)",
+            border: "none", cursor: "pointer", fontSize: "var(--t12)",
+            fontWeight: fontSource === s.id ? 600 : 400,
+            transition: "all 0.15s", fontFamily: "var(--font)",
+          }}>{s.label}</button>
+        ))}
+      </div>
+
+      {/* Google Fonts */}
+      {fontSource === "google" && (
+        <div style={{ maxHeight: 300, overflowY: "auto", display: "flex", flexDirection: "column", gap: 2, paddingRight: 2, marginBottom: 4 }}>
+          {googleGroups.map(group => (
+            <div key={group}>
+              <div style={{ fontSize: "var(--t11)", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", padding: "10px 4px 4px" }}>{group}</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                {OVERLAY_FONTS.filter(f => f.group === group).map(f => (
+                  <FontRow key={f.value} fontFamily={f.value} fontLabel={f.label}
+                    active={obsConfig.fontFamily === f.value}
+                    onClick={() => applyObsConfig({ fontFamily: f.value })} />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Local Fonts */}
+      {fontSource === "local" && (
+        <>
+          {localFonts === null || localLoading ? (
+            <div style={{ padding: "32px 0", textAlign: "center", color: "var(--text-muted)", fontSize: "var(--t13)" }}>
+              {localLoading ? t("overlayLocalLoading") : "..."}
+            </div>
+          ) : localFonts.length === 0 ? (
+            <div style={{ padding: "24px 16px", background: "var(--bg-elevated)", borderRadius: "var(--radius)", border: "0.5px solid var(--border)", fontSize: "var(--t13)", color: "var(--text-muted)", textAlign: "center", lineHeight: 1.6 }}>
+              <div style={{ fontWeight: 600, color: "var(--text-primary)", marginBottom: 4 }}>{t("overlayLocalUnavailable")}</div>
+              {t("overlayLocalUnavailableDesc")}
+            </div>
+          ) : (
+            <>
+              <input
+                type="text" value={localSearch}
+                onChange={e => setLocalSearch(e.target.value)}
+                placeholder={t("overlayLocalSearch")}
+                style={{
+                  width: "100%", padding: "8px 12px", borderRadius: "var(--radius)", marginBottom: 8,
+                  background: "var(--bg-elevated)", border: "0.5px solid var(--border)",
+                  color: "var(--text-primary)", fontSize: "var(--t13)", fontFamily: "var(--font)",
+                  outline: "none",
+                }}
+              />
+              <div style={{ maxHeight: 260, overflowY: "auto", display: "flex", flexDirection: "column", gap: 3, paddingRight: 2 }}>
+                {filteredLocal.length === 0 ? (
+                  <div style={{ padding: "20px 0", textAlign: "center", color: "var(--text-muted)", fontSize: "var(--t13)" }}>{t("overlayLocalNoResults")}</div>
+                ) : filteredLocal.map(family => {
+                  const cssValue = family.includes(" ") ? `'${family}', sans-serif` : `${family}, sans-serif`;
+                  return (
+                    <FontRow key={family} fontFamily={cssValue} fontLabel={family}
+                      active={obsConfig.fontFamily === cssValue}
+                      onClick={() => applyObsConfig({ fontFamily: cssValue })} />
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </>
+      )}
+
+      <OvlSLabel>{t("overlayTitleFontSize")}</OvlSLabel>
+      <OvlSliderRow label={t("overlayTitleFontSize")} icon={<TextSize size={15} />} value={obsConfig.titleFontSize} min={10} max={48} unit="px"
+        onChange={v => applyObsConfig({ titleFontSize: v })} />
+      <OvlSliderRow label={t("overlayArtistFontSize")} icon={<TextSize size={15} />} value={obsConfig.artistFontSize} min={9} max={42} unit="px"
+        onChange={v => applyObsConfig({ artistFontSize: v })} />
+    </>
+  );
+}
+
 function OverlayTab({ t, obsEnabled, obsPort, obsPortInput, setObsPortInput, obsConfig, obsSubTab, setObsSubTab, toggleObs, applyObsConfig, onPortSave, OVERLAY_PRESETS, DEFAULT_OVERLAY_CONFIG }) {
-  const [copied, setCopied] = React.useState(false);
+  const [copied, setCopied] = useState(false);
   const overlayUrl = `http://localhost:${obsPort}/overlay`;
 
   const subTabs = [
     { id: "general",    label: t("overlayGeneral") },
     { id: "appearance", label: t("overlayAppearance") },
-    { id: "content",    label: t("overlayContent") },
+    { id: "layout",     label: t("overlayLayout") },
+    { id: "typography", label: t("overlayTypography") },
   ];
-
-  const SubTabBar = () => (
-    <div style={{ display: "flex", gap: 4, marginBottom: 20, background: "var(--bg-card)", borderRadius: "var(--radius)", padding: 4 }}>
-      {subTabs.map(s => (
-        <button key={s.id} onClick={() => setObsSubTab(s.id)} style={{
-          flex: 1, padding: "6px 0", borderRadius: "calc(var(--radius) - 2px)",
-          background: obsSubTab === s.id ? "var(--bg-hover)" : "transparent",
-          color: obsSubTab === s.id ? "var(--text-primary)" : "var(--text-muted)",
-          border: "none", cursor: "pointer", fontSize: "var(--t13)", fontWeight: obsSubTab === s.id ? 600 : 400,
-          transition: "all 0.15s", fontFamily: "var(--font)",
-        }}>{s.label}</button>
-      ))}
-    </div>
-  );
-
-  const Row = ({ label, desc, children }) => (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, padding: "12px 0", borderBottom: "1px solid var(--border)" }}>
-      <div>
-        <div style={{ fontSize: "var(--t14)", color: "var(--text-primary)" }}>{label}</div>
-        {desc && <div style={{ fontSize: "var(--t12)", color: "var(--text-muted)", marginTop: 2 }}>{desc}</div>}
-      </div>
-      {children}
-    </div>
-  );
-
-  const ColorRow = ({ label, value, onChange }) => (
-    <Row label={label}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <div style={{ width: 28, height: 28, borderRadius: 6, background: value, border: "1px solid var(--border)", flexShrink: 0 }} />
-        <input type="color" value={value} onChange={e => onChange(e.target.value)}
-          style={{ width: 28, height: 28, border: "none", background: "none", cursor: "pointer", padding: 0 }} />
-        <span style={{ fontSize: "var(--t12)", color: "var(--text-muted)", fontFamily: "monospace" }}>{value}</span>
-      </div>
-    </Row>
-  );
-
-  const SliderRow = ({ label, value, min, max, step = 1, unit = "", onChange }) => (
-    <Row label={`${label}: ${value}${unit}`}>
-      <input type="range" min={min} max={max} step={step} value={value} onChange={e => onChange(Number(e.target.value))}
-        style={{ width: 120, accentColor: "var(--accent)" }} />
-    </Row>
-  );
-
-  const ToggleRow = ({ label, desc, value, onChange }) => (
-    <Row label={label} desc={desc}>
-      <div onClick={() => onChange(!value)} style={{
-        width: 40, height: 22, borderRadius: 11, background: value ? "var(--accent)" : "var(--bg-hover)",
-        position: "relative", cursor: "pointer", transition: "background 0.2s", flexShrink: 0,
-      }}>
-        <div style={{ position: "absolute", top: 3, left: value ? 21 : 3, width: 16, height: 16, borderRadius: "50%", background: "#fff", transition: "left 0.2s" }} />
-      </div>
-    </Row>
-  );
 
   return (
     <div>
-      <SubTabBar />
+      {/* Sub-tab bar — sticky so it stays visible while content scrolls */}
+      <div style={{ display: "flex", gap: 4, marginBottom: 20, background: "var(--bg-elevated)", borderRadius: "var(--radius)", padding: 4, position: "sticky", top: 0, zIndex: 10 }}>
+        {subTabs.map(s => (
+          <button key={s.id} onClick={() => setObsSubTab(s.id)} style={{
+            flex: 1, padding: "6px 0", borderRadius: "calc(var(--radius) - 2px)",
+            background: obsSubTab === s.id ? "var(--bg-hover)" : "transparent",
+            color: obsSubTab === s.id ? "var(--text-primary)" : "var(--text-muted)",
+            border: "none", cursor: "pointer", fontSize: "var(--t12)",
+            fontWeight: obsSubTab === s.id ? 600 : 400,
+            transition: "all 0.15s", fontFamily: "var(--font)",
+          }}>{s.label}</button>
+        ))}
+      </div>
 
       {/* ── General ────────────────────────────────────────────────────────── */}
       {obsSubTab === "general" && (
         <>
-          <ToggleRow
+          <OvlToggleRow
+            icon={<ScreencastSimple size={15} />}
             label={t("overlayEnable")} desc={t("overlayEnableDesc")}
             value={obsEnabled} onChange={toggleObs}
           />
-
-          <Row label={t("overlayPort")} desc={t("overlayPortDesc")}>
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <input
-                type="number" min={1025} max={65534} value={obsPortInput}
-                onChange={e => setObsPortInput(e.target.value)}
-                onBlur={e => onPortSave(e.target.value)}
-                onKeyDown={e => e.key === "Enter" && onPortSave(e.target.value)}
-                style={{
-                  width: 80, padding: "4px 8px", borderRadius: "var(--radius)",
-                  background: "var(--bg-card)", border: "1px solid var(--border)",
-                  color: "var(--text-primary)", fontSize: "var(--t13)", fontFamily: "monospace",
-                }}
-              />
-            </div>
-          </Row>
-
+          <OvlRow icon={<Gear size={15} />} label={t("overlayPort")} desc={t("overlayPortDesc")}>
+            <input
+              type="number" min={1025} max={65534} value={obsPortInput}
+              onChange={e => setObsPortInput(e.target.value)}
+              onBlur={e => onPortSave(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && onPortSave(e.target.value)}
+              style={{
+                width: 88, padding: "5px 10px", borderRadius: "var(--radius)",
+                background: "var(--bg-elevated)", border: "0.5px solid var(--border)",
+                color: "var(--text-primary)", fontSize: "var(--t13)", fontFamily: "monospace",
+                textAlign: "center", outline: "none",
+              }}
+            />
+          </OvlRow>
           {obsEnabled && (
-            <Row label={t("overlayUrl")} desc={t("overlayUrlDesc")}>
+            <OvlRow icon={<Link size={15} />} label={t("overlayUrl")} desc={t("overlayUrlDesc")}>
               <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                <code style={{ fontSize: "var(--t12)", color: "var(--accent)", background: "var(--bg-card)", padding: "4px 8px", borderRadius: 6 }}>
+                <code style={{
+                  fontSize: "var(--t12)", color: "var(--accent)",
+                  background: "var(--bg-elevated)", padding: "5px 10px",
+                  borderRadius: "var(--radius)", border: "0.5px solid var(--border)",
+                  letterSpacing: "0.01em",
+                }}>
                   {overlayUrl}
                 </code>
                 <button onClick={() => { navigator.clipboard.writeText(overlayUrl); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
-                  style={{ background: "none", border: "none", cursor: "pointer", color: copied ? "var(--accent)" : "var(--text-muted)", padding: 4 }}>
-                  <Copy size={14} />
+                  style={{
+                    width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center",
+                    background: copied ? "var(--accent-dim)" : "var(--bg-elevated)",
+                    border: `0.5px solid ${copied ? "var(--accent)" : "var(--border)"}`,
+                    borderRadius: "var(--radius)", cursor: "pointer",
+                    color: copied ? "var(--accent)" : "var(--text-muted)",
+                    transition: "all 0.15s",
+                  }}>
+                  {copied ? <Check size={13} /> : <Copy size={13} />}
                 </button>
               </div>
-            </Row>
+            </OvlRow>
           )}
-
           {obsEnabled && (
-            <div style={{ marginTop: 16, padding: 14, background: "var(--bg-card)", borderRadius: "var(--radius)", fontSize: "var(--t13)", color: "var(--text-muted)", lineHeight: 1.5 }}>
-              <div style={{ fontWeight: 600, color: "var(--text-primary)", marginBottom: 6 }}>OBS Setup</div>
+            <div style={{ marginTop: 16, padding: "14px 16px", background: "var(--bg-elevated)", borderRadius: "var(--radius)", fontSize: "var(--t13)", color: "var(--text-muted)", lineHeight: 1.6 }}>
+              <div style={{ fontWeight: 600, color: "var(--text-primary)", marginBottom: 6, fontSize: "var(--t13)" }}>OBS Setup</div>
               {t("overlayObsHint")}
             </div>
           )}
@@ -2467,56 +2908,121 @@ function OverlayTab({ t, obsEnabled, obsPort, obsPortInput, setObsPortInput, obs
       {/* ── Appearance ─────────────────────────────────────────────────────── */}
       {obsSubTab === "appearance" && (
         <>
-          <Row label={t("overlayPreset")}>
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
-              {Object.keys(OVERLAY_PRESETS).map(key => (
-                <button key={key} onClick={() => applyObsConfig({ ...OVERLAY_PRESETS[key], preset: key })}
-                  style={{
-                    padding: "4px 12px", borderRadius: "var(--radius)", fontSize: "var(--t12)",
-                    background: obsConfig.preset === key ? "var(--accent)" : "var(--bg-card)",
-                    color: obsConfig.preset === key ? "#fff" : "var(--text-muted)",
-                    border: "1px solid var(--border)", cursor: "pointer", fontFamily: "var(--font)",
-                    transition: "all 0.15s",
-                  }}>
-                  {t(`overlayPreset_${key}`) || key}
-                </button>
-              ))}
-            </div>
-          </Row>
+          <OvlSLabel>{t("overlayPreset")}</OvlSLabel>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 4 }}>
+            {Object.keys(OVERLAY_PRESETS).map(key => (
+              <button key={key} onClick={() => applyObsConfig({ ...OVERLAY_PRESETS[key], preset: key })}
+                style={{
+                  padding: "6px 14px", borderRadius: "var(--radius)", fontSize: "var(--t12)",
+                  background: obsConfig.preset === key ? "var(--accent)" : "var(--bg-elevated)",
+                  color: obsConfig.preset === key ? "#fff" : "var(--text-muted)",
+                  border: `0.5px solid ${obsConfig.preset === key ? "var(--accent)" : "var(--border)"}`,
+                  cursor: "pointer", fontFamily: "var(--font)", fontWeight: obsConfig.preset === key ? 600 : 400,
+                  transition: "all 0.15s",
+                }}>
+                {t(`overlayPreset_${key}`) || key}
+              </button>
+            ))}
+          </div>
 
-          <ColorRow label={t("overlayBgColor")} value={obsConfig.bgColor}
+          <OvlSLabel>{t("overlayBgColor")}</OvlSLabel>
+          <OvlColorRow label={t("overlayBgColor")} icon={<Palette size={15} />} value={obsConfig.bgColor}
             onChange={v => applyObsConfig({ bgColor: v, preset: "custom" })} />
-          <SliderRow label={t("overlayBgOpacity")} value={obsConfig.bgOpacity} min={0} max={100} unit="%"
+          <OvlSliderRow label={t("overlayBgOpacity")} icon={<CircleHalf size={15} />} value={obsConfig.bgOpacity} min={0} max={100} unit="%"
             onChange={v => applyObsConfig({ bgOpacity: v, preset: "custom" })} />
-          <ColorRow label={t("overlayAccentColor")} value={obsConfig.accentColor}
+          <OvlSliderRow label={t("overlayBgBlur")} icon={<Eye size={15} />} value={obsConfig.bgBlur} min={0} max={20} unit="px"
+            onChange={v => applyObsConfig({ bgBlur: v, preset: "custom" })} />
+
+          <OvlSLabel>{t("overlayAccentColor")}</OvlSLabel>
+          <OvlColorRow label={t("overlayAccentColor")} icon={<Palette size={15} />} value={obsConfig.accentColor}
             onChange={v => applyObsConfig({ accentColor: v, preset: "custom" })} />
-          <ColorRow label={t("overlayTextColor")} value={obsConfig.textColor}
+          <OvlColorRow label={t("overlayTextColor")} icon={<Palette size={15} />} value={obsConfig.textColor}
             onChange={v => applyObsConfig({ textColor: v, preset: "custom" })} />
-          <SliderRow label={t("overlayRadius")} value={obsConfig.borderRadius} min={0} max={32} unit="px"
+
+          <OvlSLabel>{t("overlayRadius")}</OvlSLabel>
+          <OvlSliderRow label={t("overlayRadius")} icon={<Sliders size={15} />} value={obsConfig.borderRadius} min={0} max={40} unit="px"
             onChange={v => applyObsConfig({ borderRadius: v, preset: "custom" })} />
-          <SliderRow label={t("overlayFontSize")} value={obsConfig.fontSize} min={10} max={22} unit="px"
-            onChange={v => applyObsConfig({ fontSize: v, preset: "custom" })} />
-          <ToggleRow label={t("overlayBorder")} value={obsConfig.border}
+          <OvlToggleRow label={t("overlayShowShadow")} icon={<WaveformLines size={15} />} value={obsConfig.showShadow}
+            onChange={v => applyObsConfig({ showShadow: v, preset: "custom" })} />
+          {obsConfig.showShadow && (
+            <OvlSliderRow label={t("overlayShadowStrength")} icon={<Sliders size={15} />}
+              value={Math.round((obsConfig.shadowStrength ?? 0.35) * 100)} min={5} max={80} unit="%"
+              onChange={v => applyObsConfig({ shadowStrength: v / 100, preset: "custom" })} />
+          )}
+          <OvlToggleRow label={t("overlayBorder")} icon={<CircleHalf size={15} />} value={obsConfig.border}
             onChange={v => applyObsConfig({ border: v, preset: "custom" })} />
           {obsConfig.border && (
-            <ColorRow label={t("overlayBorderColor")} value={obsConfig.borderColor}
-              onChange={v => applyObsConfig({ borderColor: v, preset: "custom" })} />
+            <>
+              <OvlColorRow label={t("overlayBorderColor")} icon={<Palette size={15} />} value={obsConfig.borderColor}
+                onChange={v => applyObsConfig({ borderColor: v, preset: "custom" })} />
+              <OvlSliderRow label={t("overlayBorderWidth")} icon={<Sliders size={15} />}
+                value={obsConfig.borderWidth ?? 1.5} min={0.5} max={16} step={0.5} unit="px"
+                onChange={v => applyObsConfig({ borderWidth: v, preset: "custom" })} />
+            </>
           )}
         </>
       )}
 
-      {/* ── Content ────────────────────────────────────────────────────────── */}
-      {obsSubTab === "content" && (
+      {/* ── Layout ─────────────────────────────────────────────────────────── */}
+      {obsSubTab === "layout" && (
         <>
-          <ToggleRow label={t("overlayShowAlbumArt")} value={obsConfig.showAlbumArt}
+          <OvlSLabel>{t("overlayWidgetSize")}</OvlSLabel>
+          {/* Dynamic / Fixed toggle */}
+          <div style={{ display: "flex", gap: 4, marginBottom: 4, background: "var(--bg-elevated)", borderRadius: "var(--radius)", padding: 4 }}>
+            {[{ id: false, label: t("overlayWidthFixed") }, { id: true, label: t("overlayWidthDynamic") }].map(opt => {
+              const active = !!(obsConfig.dynamicWidth) === opt.id;
+              return (
+                <button key={String(opt.id)} onClick={() => applyObsConfig({ dynamicWidth: opt.id })} style={{
+                  flex: 1, padding: "6px 0", borderRadius: "calc(var(--radius) - 2px)",
+                  background: active ? "var(--bg-hover)" : "transparent",
+                  color: active ? "var(--text-primary)" : "var(--text-muted)",
+                  border: "none", cursor: "pointer", fontSize: "var(--t12)",
+                  fontWeight: active ? 600 : 400, transition: "all 0.15s", fontFamily: "var(--font)",
+                }}>{opt.label}</button>
+              );
+            })}
+          </div>
+          {!obsConfig.dynamicWidth && (
+            <OvlSliderRow label={t("overlayWidgetWidth")} icon={<Sliders size={15} />} value={obsConfig.widgetWidth ?? 400} min={200} max={1200} unit="px"
+              onChange={v => applyObsConfig({ widgetWidth: v })} />
+          )}
+          <OvlSliderRow label={t("overlayWidgetHeight")} icon={<Sliders size={15} />} value={obsConfig.widgetHeight ?? 0} min={0} max={400} unit="px"
+            onChange={v => applyObsConfig({ widgetHeight: v })} />
+          <div style={{ fontSize: "var(--t11)", color: "var(--text-muted)", padding: "2px 4px 8px", lineHeight: 1.5 }}>{t("overlayWidgetHeightHint")}</div>
+
+          <OvlSLabel>{t("overlayArtSize")}</OvlSLabel>
+          <OvlSliderRow label={t("overlayArtSize")} icon={<ImageSquare size={15} />} value={obsConfig.artSize} min={32} max={120} unit="px"
+            onChange={v => applyObsConfig({ artSize: v })} />
+          <OvlSliderRow label={t("overlayArtRadius")} icon={<Sliders size={15} />} value={obsConfig.artRadius} min={0} max={60} unit="px"
+            onChange={v => applyObsConfig({ artRadius: v })} />
+
+          <OvlSLabel>{t("overlayPaddingV")}</OvlSLabel>
+          <OvlSliderRow label={t("overlayPaddingV")} icon={<Sliders size={15} />} value={obsConfig.paddingV} min={4} max={32} unit="px"
+            onChange={v => applyObsConfig({ paddingV: v })} />
+          <OvlSliderRow label={t("overlayPaddingH")} icon={<Sliders size={15} />} value={obsConfig.paddingH} min={8} max={40} unit="px"
+            onChange={v => applyObsConfig({ paddingH: v })} />
+          <OvlSliderRow label={t("overlayGap")} icon={<Sliders size={15} />} value={obsConfig.gap} min={4} max={32} unit="px"
+            onChange={v => applyObsConfig({ gap: v })} />
+          <OvlSliderRow label={t("overlayProgressHeight")} icon={<WaveformLines size={15} />} value={obsConfig.progressHeight} min={1} max={8} unit="px"
+            onChange={v => applyObsConfig({ progressHeight: v })} />
+
+          <OvlSLabel>{t("overlayContent")}</OvlSLabel>
+          <OvlToggleRow label={t("overlayShowAlbumArt")} icon={<ImageSquare size={15} />} value={obsConfig.showAlbumArt}
             onChange={v => applyObsConfig({ showAlbumArt: v })} />
-          <ToggleRow label={t("overlayShowArtist")} value={obsConfig.showArtist}
+          <OvlToggleRow label={t("overlayShowArtist")} icon={<Microphone size={15} />} value={obsConfig.showArtist}
             onChange={v => applyObsConfig({ showArtist: v })} />
-          <ToggleRow label={t("overlayShowAlbum")} value={obsConfig.showAlbum}
+          <OvlToggleRow label={t("overlayShowAlbum")} icon={<VinylRecord size={15} />} value={obsConfig.showAlbum}
             onChange={v => applyObsConfig({ showAlbum: v })} />
-          <ToggleRow label={t("overlayShowProgress")} value={obsConfig.showProgress}
+          <OvlToggleRow label={t("overlayShowProgress")} icon={<WaveformLines size={15} />} value={obsConfig.showProgress}
             onChange={v => applyObsConfig({ showProgress: v })} />
+          <OvlToggleRow label={t("overlayAutoHide")} desc={t("overlayAutoHideDesc")} icon={<Eye size={15} />} value={obsConfig.autoHide}
+            onChange={v => applyObsConfig({ autoHide: v })} />
         </>
+      )}
+
+      {/* ── Typography ─────────────────────────────────────────────────────── */}
+      {obsSubTab === "typography" && (
+        <TypographyTab t={t} obsConfig={obsConfig} applyObsConfig={applyObsConfig} />
       )}
     </div>
   );
@@ -2527,6 +3033,26 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
   const anim = useAnimations();
   const t = useLang();
   const [tab, setTab] = useState(initialTab || "darstellung");
+  const [debugUnlocked, setDebugUnlocked] = useState(() => localStorage.getItem("kiyoshi-debug-unlocked") === "true");
+  const [debugTapCount, setDebugTapCount] = useState(0);
+  const [debugToast, setDebugToast] = useState(null); // "unlocked" | "already" | null
+  const debugTapTimer = useRef(null);
+  const handleTauriVersionTap = () => {
+    if (debugUnlocked) { setDebugToast("already"); clearTimeout(debugTapTimer.current); debugTapTimer.current = setTimeout(() => setDebugToast(null), 1800); return; }
+    setDebugTapCount(n => {
+      const next = n + 1;
+      clearTimeout(debugTapTimer.current);
+      if (next >= 5) {
+        localStorage.setItem("kiyoshi-debug-unlocked", "true");
+        setDebugUnlocked(true);
+        setDebugToast("unlocked");
+        debugTapTimer.current = setTimeout(() => setDebugToast(null), 2500);
+        return 0;
+      }
+      debugTapTimer.current = setTimeout(() => setDebugTapCount(0), 2000);
+      return next;
+    });
+  };
   const [checkingUpdate, setCheckingUpdate] = useState(false);
   const [colorPickerOpen, setColorPickerOpen] = useState(false);
   const colorPickerTriggerRef = useRef(null);
@@ -2767,25 +3293,25 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
     { id: "language",    label: t("language"),    iconEl: <Translate size={18} /> },
     { id: "storage",    label: t("storage"),     iconEl: <HardDrives size={18} /> },
     { id: "sicherheit", label: t("security"),   iconEl: <Lock size={18} /> },
-    { id: "overlay",    label: t("overlay"),     iconEl: <ScreencastSimple size={18} /> },
+    { id: "overlay",    label: t("overlay"),     iconEl: <ScreencastSimple size={18} />, badge: "Beta" },
     { id: "update",     label: t("update"),      iconEl: <ArrowsClockwise size={18} /> },
-    { id: "debug",      label: t("debug"),       iconEl: <Bug size={18} /> },
+    ...(debugUnlocked ? [{ id: "debug", label: t("debug"), iconEl: <Bug size={18} /> }] : []),
   ];
 
   const shortcuts = [
-    { key: "Leertaste", action: t("scPlayPause") },
-    { key: "→",         action: t("scNext") },
-    { key: "←",         action: t("scPrev") },
-    { key: "↑",         action: t("scVolUp") },
-    { key: "↓",         action: t("scVolDown") },
-    { key: "F",         action: t("scFullscreen") },
-    { key: "Esc",       action: t("scClose") },
-    { key: "M",         action: t("scMute") },
-    { key: "L",         action: t("scToggleLyrics") },
-    { key: ",",         action: t("scSeekBack") },
-    { key: ".",         action: t("scSeekForward") },
-    { key: "Ctrl + +",  action: t("scZoomIn") },
-    { key: "Ctrl + −",  action: t("scZoomOut") },
+    { key: t("keySpace"),            action: t("scPlayPause") },
+    { key: "→",                      action: t("scNext") },
+    { key: "←",                      action: t("scPrev") },
+    { key: "↑",                      action: t("scVolUp") },
+    { key: "↓",                      action: t("scVolDown") },
+    { key: "F",                      action: t("scFullscreen") },
+    { key: t("keyEsc"),              action: t("scClose") },
+    { key: "M",                      action: t("scMute") },
+    { key: "L",                      action: t("scToggleLyrics") },
+    { key: ",",                      action: t("scSeekBack") },
+    { key: ".",                      action: t("scSeekForward") },
+    { key: `Ctrl + +`,               action: t("scZoomIn") },
+    { key: `Ctrl + −`,               action: t("scZoomOut") },
   ];
 
   const SectionLabel = SettingsSectionLabel;
@@ -2988,7 +3514,7 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                 fontSize: 8, fontWeight: 700, letterSpacing: "0.04em",
                 padding: "2px 5px", borderRadius: 4, lineHeight: 1.4,
                 boxShadow: "0 1px 4px rgba(0,0,0,0.4)",
-              }}>Alpha</div>
+              }}>Beta</div>
             </div>
           </div>
 
@@ -3009,18 +3535,43 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
             >
               <span style={{ flexShrink: 0, width: 20, display: "flex", alignItems: "center", justifyContent: "center" }}>{item.iconEl || <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor">{item.icon}</svg>}</span>
               {item.label}
-              {item.id === "update" && updateInfo && (
+              {item.badge && (
+                <span style={{
+                  marginLeft: "auto", flexShrink: 0,
+                  fontSize: 9, fontWeight: 700, letterSpacing: "0.06em",
+                  padding: "2px 6px", borderRadius: 4,
+                  background: "#e8640c", color: "#fff",
+                  textTransform: "uppercase",
+                }}>{item.badge}</span>
+              )}
+              {item.id === "update" && updateInfo && !item.badge && (
                 <span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--accent)", marginLeft: "auto", flexShrink: 0 }} />
               )}
             </div>
           ))}
           </div>{/* end scrollable nav */}
 
-          <div style={{ borderTop: "0.5px solid var(--border)", paddingTop: 12 }}>
+          <div style={{ borderTop: "0.5px solid var(--border)", paddingTop: 12, position: "relative" }}>
+            {debugToast && (
+              <div style={{
+                position: "absolute", bottom: "calc(100% + 8px)", left: 8, right: 8,
+                background: debugToast === "unlocked" ? "var(--accent)" : "var(--bg-surface)",
+                color: debugToast === "unlocked" ? "#fff" : "var(--text-secondary)",
+                border: "0.5px solid var(--border)",
+                borderRadius: "var(--radius)", padding: "8px 12px",
+                fontSize: "var(--t12)", fontWeight: 500, textAlign: "center",
+                animation: "fadeIn 0.2s ease", pointerEvents: "none", zIndex: 10,
+              }}>
+                {debugToast === "unlocked" ? "🐛 Debug-Menü freigeschaltet!" : "Debug-Menü bereits aktiv"}
+              </div>
+            )}
             <div style={{ padding: "0 8px 12px" }}>
               <div style={{ fontSize: "var(--t11)", fontWeight: 600, color: "var(--text-primary)", marginBottom: 4 }}>{APP_VERSION}</div>
               <div style={{ fontSize: "var(--t10)", color: "var(--text-muted)", lineHeight: 1.7 }}>
-                Tauri 2.10.3<br/>
+                <span
+                  onClick={handleTauriVersionTap}
+                  style={{ cursor: "pointer", userSelect: "none" }}
+                >Tauri 2.10.3</span><br/>
                 Chromium {chromiumVersion}
               </div>
             </div>
@@ -3041,8 +3592,16 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
         {/* Right Content */}
         <div style={{ flex: 1, background: "var(--bg-surface)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
           <div style={{ padding: "24px 32px 0", flexShrink: 0 }}>
-            <div style={{ fontSize: "var(--t20)", fontWeight: 700, marginBottom: 4 }}>
+            <div style={{ fontSize: "var(--t20)", fontWeight: 700, marginBottom: 4, display: "flex", alignItems: "center", gap: 10 }}>
               {navItems.find(i => i.id === tab)?.label}
+              {navItems.find(i => i.id === tab)?.badge && (
+                <span style={{
+                  fontSize: 10, fontWeight: 700, letterSpacing: "0.06em",
+                  padding: "3px 8px", borderRadius: 5,
+                  background: "#e8640c", color: "#fff",
+                  textTransform: "uppercase",
+                }}>{navItems.find(i => i.id === tab)?.badge}</span>
+              )}
             </div>
             <div style={{ height: 1, background: "var(--border)", marginTop: 20 }} />
           </div>
@@ -3260,12 +3819,22 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
               <>
                 <SectionLabel>{t("shortcuts")}</SectionLabel>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4 }}>
-                  {shortcuts.map((s, i) => (
-                    <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", borderRadius: "var(--radius)", background: "var(--bg-elevated)" }}>
-                      <span style={{ fontSize: "var(--t13)", color: "var(--text-secondary)" }}>{s.action}</span>
-                      <kbd style={{ background: "var(--bg-surface)", border: "0.5px solid var(--border)", borderRadius: 6, padding: "3px 10px", fontSize: "var(--t12)", fontFamily: "monospace", color: "var(--text-primary)", boxShadow: "0 1px 0 var(--border)", flexShrink: 0, marginLeft: 8 }}>{s.key}</kbd>
-                    </div>
-                  ))}
+                  {shortcuts.map((s, i) => {
+                    const segments = s.key.split(" + ");
+                    return (
+                      <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", borderRadius: "var(--radius)", background: "var(--bg-elevated)" }}>
+                        <span style={{ fontSize: "var(--t13)", color: "var(--text-secondary)" }}>{s.action}</span>
+                        <span style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0, marginLeft: 8 }}>
+                          {segments.map((seg, si) => (
+                            <span key={si} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                              {si > 0 && <span style={{ fontSize: "var(--t11)", color: "var(--text-muted)" }}>+</span>}
+                              <kbd style={{ background: "var(--bg-surface)", border: "0.5px solid var(--border)", borderRadius: 6, padding: "3px 9px", fontSize: "var(--t12)", fontFamily: "monospace", color: "var(--text-primary)", boxShadow: "0 1px 0 var(--border)" }}>{seg}</kbd>
+                            </span>
+                          ))}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
                 <div style={{ fontSize: "var(--t11)", color: "var(--text-muted)", marginTop: 16 }}>{t("shortcutsNote")}</div>
               </>
@@ -3371,7 +3940,7 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
 
                 <SectionLabel style={{ marginTop: 24 }}>{t("pinEmergency")}</SectionLabel>
                 <div style={{
-                  background: "rgba(244,67,54,0.06)", border: "0.5px solid rgba(244,67,54,0.25)",
+                  background: "rgba(244,67,54,0.06)",
                   borderRadius: 10, padding: "14px 16px",
                   fontSize: "var(--t12)", color: "var(--text-muted)", lineHeight: 1.7,
                 }}>
@@ -3380,7 +3949,7 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                     <button
                       onClick={() => setPinEmergencyConfirm(true)}
                       style={{
-                        background: "rgba(244,67,54,0.12)", border: "0.5px solid rgba(244,67,54,0.4)",
+                        background: "rgba(244,67,54,0.12)", border: "none",
                         borderRadius: 8, cursor: "pointer", padding: "8px 16px",
                         color: "#f44336", fontSize: "var(--t12)", fontWeight: 600,
                         fontFamily: "var(--font)", transition: "background 0.15s",
@@ -3490,7 +4059,7 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                 <SectionLabel>{t("currentVersion")}</SectionLabel>
                 <div style={{
                   padding: "12px 16px", borderRadius: "var(--radius)",
-                  background: "var(--bg-elevated)", border: "0.5px solid var(--border)",
+                  background: "var(--bg-elevated)",
                   marginBottom: 16,
                 }}>
                   <div style={{ fontSize: "var(--t14)", fontWeight: 600, color: "var(--text-primary)" }}>{APP_VERSION}</div>
@@ -3614,7 +4183,27 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
               </>
             )}
 
-            {tab === "debug" && <DebugTab t={t} />}
+            {tab === "debug" && (
+              <>
+                <DebugTab t={t} />
+                <div style={{ marginTop: 24, paddingTop: 16, borderTop: "0.5px solid var(--border)" }}>
+                  <button
+                    onClick={() => { localStorage.removeItem("kiyoshi-debug-unlocked"); setDebugUnlocked(false); setTab("darstellung"); }}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 8,
+                      padding: "8px 14px", borderRadius: "var(--radius)", cursor: "pointer",
+                      background: "transparent", border: "0.5px solid var(--border)",
+                      color: "var(--text-muted)", fontSize: "var(--t13)", transition: "all 0.15s",
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.background = "var(--bg-hover)"; e.currentTarget.style.color = "var(--text-primary)"; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--text-muted)"; }}
+                  >
+                    <EyeSlash size={15} />
+                    Debug-Menü ausblenden
+                  </button>
+                </div>
+              </>
+            )}
 
           </div>
         </div>
@@ -8607,8 +9196,15 @@ export default function App() {
     borderRadius: 14,
     showProgress: true, showAlbumArt: true,
     showArtist: true, showAlbum: false,
-    border: false, borderColor: "#EEA8FF",
-    fontFamily: "system-ui, sans-serif", fontSize: 14,
+    border: false, borderColor: "#EEA8FF", borderWidth: 1.5,
+    fontFamily: "system-ui, sans-serif",
+    titleFontSize: 14, artistFontSize: 12,
+    dynamicWidth: false, widgetWidth: 400, widgetHeight: 0, artSize: 56, artRadius: 8,
+    paddingV: 12, paddingH: 16, gap: 12,
+    progressHeight: 3,
+    showShadow: false, shadowStrength: 0.35,
+    bgBlur: 0,
+    autoHide: false,
   };
   const OVERLAY_PRESETS = {
     basic:   { bgColor: "#1a1a1a", bgOpacity: 90, accentColor: "#ffffff", textColor: "#ffffff", borderRadius: 14, border: false },
@@ -8619,7 +9215,7 @@ export default function App() {
   };
   const [obsEnabled,   setObsEnabled]   = useState(() => localStorage.getItem("kiyoshi-obs-enabled") === "true");
   const [obsPort,      setObsPort]      = useState(() => parseInt(localStorage.getItem("kiyoshi-obs-port") || "9848", 10));
-  const [obsConfig,    setObsConfig]    = useState(() => { try { return JSON.parse(localStorage.getItem("kiyoshi-obs-config")) || DEFAULT_OVERLAY_CONFIG; } catch { return DEFAULT_OVERLAY_CONFIG; } });
+  const [obsConfig,    setObsConfig]    = useState(() => { try { const s = JSON.parse(localStorage.getItem("kiyoshi-obs-config")); return s ? { ...DEFAULT_OVERLAY_CONFIG, ...s } : DEFAULT_OVERLAY_CONFIG; } catch { return DEFAULT_OVERLAY_CONFIG; } });
   const [obsSubTab,    setObsSubTab]    = useState("general");
   const [obsPortInput, setObsPortInput] = useState(() => localStorage.getItem("kiyoshi-obs-port") || "9848");
 
@@ -9539,6 +10135,8 @@ export default function App() {
             isActuallyOffline={isActuallyOffline}
             onToggleOffline={handleToggleOffline}
             onRefreshView={() => setViewRefreshKey(k => k + 1)}
+            obsEnabled={obsEnabled}
+            onOpenOverlaySettings={() => { setSettingsInitialTab("overlay"); setSettingsOpen(true); }}
           />
         </div>
         <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", position: "relative" }}>
