@@ -1,11 +1,11 @@
 {
-  "version": "v0.9.5-alpha.1",
-  "pub_date": "2026-04-14T23:16:46Z",
+  "version": "v0.9.6-beta",
+  "pub_date": "2026-04-15T08:26:24Z",
   "notes": "",
   "platforms": {
     "windows-x86_64": {
-      "url": "https://github.com/KiyoshiTheDevil/kiyoshi-music/releases/download/v0.9.5-alpha.1/Kiyoshi.Music_0.9.5-alpha.1_x64-setup.exe",
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTb3ErUzRRK3lrL3RvWHVPUC9vNEZTZDdUSEtXMXd4b2RPNmJZd0dOVkdrUmQvMTRKRWRFMjRDS2tuKzhXTEdvS0gzSzNBWmtzQjN6MU1WTjFPQ0dsNERaazJTSHpqMGdVPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc2MjA4NTQ2CWZpbGU6S2l5b3NoaSBNdXNpY18wLjkuNS1hbHBoYS4xX3g2NC1zZXR1cC5leGUKaVVQTmVBNHF3TlpBaDB2YTVLN1Eyb1lPSlk4WGltV0NwdXhPb1VhRWVaTTdVbGQ0WS9EMWFwVmlOOFFBS3ByZzRUTXQ2VStnelhtb2FiR0xrK3Y3QkE9PQo="
+      "url": "https://github.com/KiyoshiTheDevil/kiyoshi-music/releases/download/v0.9.6-beta/Kiyoshi.Music_0.9.6-beta_x64-setup.exe",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTb3ErUzRRK3lrL3RKZEZuSTFycnlIMlZkYVM5dlRWRTF0U2pldHRTc25lMjJUY3NqZmJnZXMzV29SM1R2Tk9CNXBEdkJ2TklQK2FGR0d0UnRpTjl6VkJrZll5cUZUVEFVPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc2MjQxNTI1CWZpbGU6S2l5b3NoaSBNdXNpY18wLjkuNi1iZXRhX3g2NC1zZXR1cC5leGUKNzFrbmNTS0dSaWdzR1QxS2pvNDJZcENhZHdrVFl3d3hyS0JIZ3VOVThjS095bTJ6YURRd2ZPajlhWGpuN1VZVHVpYS9raEpRVm9WRGJmTHlBMzVIQUE9PQo="
     }
   }
 }
