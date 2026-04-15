@@ -62,6 +62,8 @@ import {
   Lock,
   LockOpen,
   Key,
+  ScreencastSimple,
+  CircleFill,
 } from "./icons.jsx";
 
 const API = "http://localhost:9847";
@@ -2347,6 +2349,179 @@ function SettingsSectionLabel({ children }) {
   );
 }
 
+// ─── OBS Overlay Settings Tab ─────────────────────────────────────────────────
+function OverlayTab({ t, obsEnabled, obsPort, obsPortInput, setObsPortInput, obsConfig, obsSubTab, setObsSubTab, toggleObs, applyObsConfig, onPortSave, OVERLAY_PRESETS, DEFAULT_OVERLAY_CONFIG }) {
+  const [copied, setCopied] = React.useState(false);
+  const overlayUrl = `http://localhost:${obsPort}/overlay`;
+
+  const subTabs = [
+    { id: "general",    label: t("overlayGeneral") },
+    { id: "appearance", label: t("overlayAppearance") },
+    { id: "content",    label: t("overlayContent") },
+  ];
+
+  const SubTabBar = () => (
+    <div style={{ display: "flex", gap: 4, marginBottom: 20, background: "var(--bg-card)", borderRadius: "var(--radius)", padding: 4 }}>
+      {subTabs.map(s => (
+        <button key={s.id} onClick={() => setObsSubTab(s.id)} style={{
+          flex: 1, padding: "6px 0", borderRadius: "calc(var(--radius) - 2px)",
+          background: obsSubTab === s.id ? "var(--bg-hover)" : "transparent",
+          color: obsSubTab === s.id ? "var(--text-primary)" : "var(--text-muted)",
+          border: "none", cursor: "pointer", fontSize: "var(--t13)", fontWeight: obsSubTab === s.id ? 600 : 400,
+          transition: "all 0.15s", fontFamily: "var(--font)",
+        }}>{s.label}</button>
+      ))}
+    </div>
+  );
+
+  const Row = ({ label, desc, children }) => (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, padding: "12px 0", borderBottom: "1px solid var(--border)" }}>
+      <div>
+        <div style={{ fontSize: "var(--t14)", color: "var(--text-primary)" }}>{label}</div>
+        {desc && <div style={{ fontSize: "var(--t12)", color: "var(--text-muted)", marginTop: 2 }}>{desc}</div>}
+      </div>
+      {children}
+    </div>
+  );
+
+  const ColorRow = ({ label, value, onChange }) => (
+    <Row label={label}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div style={{ width: 28, height: 28, borderRadius: 6, background: value, border: "1px solid var(--border)", flexShrink: 0 }} />
+        <input type="color" value={value} onChange={e => onChange(e.target.value)}
+          style={{ width: 28, height: 28, border: "none", background: "none", cursor: "pointer", padding: 0 }} />
+        <span style={{ fontSize: "var(--t12)", color: "var(--text-muted)", fontFamily: "monospace" }}>{value}</span>
+      </div>
+    </Row>
+  );
+
+  const SliderRow = ({ label, value, min, max, step = 1, unit = "", onChange }) => (
+    <Row label={`${label}: ${value}${unit}`}>
+      <input type="range" min={min} max={max} step={step} value={value} onChange={e => onChange(Number(e.target.value))}
+        style={{ width: 120, accentColor: "var(--accent)" }} />
+    </Row>
+  );
+
+  const ToggleRow = ({ label, desc, value, onChange }) => (
+    <Row label={label} desc={desc}>
+      <div onClick={() => onChange(!value)} style={{
+        width: 40, height: 22, borderRadius: 11, background: value ? "var(--accent)" : "var(--bg-hover)",
+        position: "relative", cursor: "pointer", transition: "background 0.2s", flexShrink: 0,
+      }}>
+        <div style={{ position: "absolute", top: 3, left: value ? 21 : 3, width: 16, height: 16, borderRadius: "50%", background: "#fff", transition: "left 0.2s" }} />
+      </div>
+    </Row>
+  );
+
+  return (
+    <div>
+      <SubTabBar />
+
+      {/* ── General ────────────────────────────────────────────────────────── */}
+      {obsSubTab === "general" && (
+        <>
+          <ToggleRow
+            label={t("overlayEnable")} desc={t("overlayEnableDesc")}
+            value={obsEnabled} onChange={toggleObs}
+          />
+
+          <Row label={t("overlayPort")} desc={t("overlayPortDesc")}>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <input
+                type="number" min={1025} max={65534} value={obsPortInput}
+                onChange={e => setObsPortInput(e.target.value)}
+                onBlur={e => onPortSave(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && onPortSave(e.target.value)}
+                style={{
+                  width: 80, padding: "4px 8px", borderRadius: "var(--radius)",
+                  background: "var(--bg-card)", border: "1px solid var(--border)",
+                  color: "var(--text-primary)", fontSize: "var(--t13)", fontFamily: "monospace",
+                }}
+              />
+            </div>
+          </Row>
+
+          {obsEnabled && (
+            <Row label={t("overlayUrl")} desc={t("overlayUrlDesc")}>
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <code style={{ fontSize: "var(--t12)", color: "var(--accent)", background: "var(--bg-card)", padding: "4px 8px", borderRadius: 6 }}>
+                  {overlayUrl}
+                </code>
+                <button onClick={() => { navigator.clipboard.writeText(overlayUrl); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
+                  style={{ background: "none", border: "none", cursor: "pointer", color: copied ? "var(--accent)" : "var(--text-muted)", padding: 4 }}>
+                  <Copy size={14} />
+                </button>
+              </div>
+            </Row>
+          )}
+
+          {obsEnabled && (
+            <div style={{ marginTop: 16, padding: 14, background: "var(--bg-card)", borderRadius: "var(--radius)", fontSize: "var(--t13)", color: "var(--text-muted)", lineHeight: 1.5 }}>
+              <div style={{ fontWeight: 600, color: "var(--text-primary)", marginBottom: 6 }}>OBS Setup</div>
+              {t("overlayObsHint")}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ── Appearance ─────────────────────────────────────────────────────── */}
+      {obsSubTab === "appearance" && (
+        <>
+          <Row label={t("overlayPreset")}>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
+              {Object.keys(OVERLAY_PRESETS).map(key => (
+                <button key={key} onClick={() => applyObsConfig({ ...OVERLAY_PRESETS[key], preset: key })}
+                  style={{
+                    padding: "4px 12px", borderRadius: "var(--radius)", fontSize: "var(--t12)",
+                    background: obsConfig.preset === key ? "var(--accent)" : "var(--bg-card)",
+                    color: obsConfig.preset === key ? "#fff" : "var(--text-muted)",
+                    border: "1px solid var(--border)", cursor: "pointer", fontFamily: "var(--font)",
+                    transition: "all 0.15s",
+                  }}>
+                  {t(`overlayPreset_${key}`) || key}
+                </button>
+              ))}
+            </div>
+          </Row>
+
+          <ColorRow label={t("overlayBgColor")} value={obsConfig.bgColor}
+            onChange={v => applyObsConfig({ bgColor: v, preset: "custom" })} />
+          <SliderRow label={t("overlayBgOpacity")} value={obsConfig.bgOpacity} min={0} max={100} unit="%"
+            onChange={v => applyObsConfig({ bgOpacity: v, preset: "custom" })} />
+          <ColorRow label={t("overlayAccentColor")} value={obsConfig.accentColor}
+            onChange={v => applyObsConfig({ accentColor: v, preset: "custom" })} />
+          <ColorRow label={t("overlayTextColor")} value={obsConfig.textColor}
+            onChange={v => applyObsConfig({ textColor: v, preset: "custom" })} />
+          <SliderRow label={t("overlayRadius")} value={obsConfig.borderRadius} min={0} max={32} unit="px"
+            onChange={v => applyObsConfig({ borderRadius: v, preset: "custom" })} />
+          <SliderRow label={t("overlayFontSize")} value={obsConfig.fontSize} min={10} max={22} unit="px"
+            onChange={v => applyObsConfig({ fontSize: v, preset: "custom" })} />
+          <ToggleRow label={t("overlayBorder")} value={obsConfig.border}
+            onChange={v => applyObsConfig({ border: v, preset: "custom" })} />
+          {obsConfig.border && (
+            <ColorRow label={t("overlayBorderColor")} value={obsConfig.borderColor}
+              onChange={v => applyObsConfig({ borderColor: v, preset: "custom" })} />
+          )}
+        </>
+      )}
+
+      {/* ── Content ────────────────────────────────────────────────────────── */}
+      {obsSubTab === "content" && (
+        <>
+          <ToggleRow label={t("overlayShowAlbumArt")} value={obsConfig.showAlbumArt}
+            onChange={v => applyObsConfig({ showAlbumArt: v })} />
+          <ToggleRow label={t("overlayShowArtist")} value={obsConfig.showArtist}
+            onChange={v => applyObsConfig({ showArtist: v })} />
+          <ToggleRow label={t("overlayShowAlbum")} value={obsConfig.showAlbum}
+            onChange={v => applyObsConfig({ showAlbum: v })} />
+          <ToggleRow label={t("overlayShowProgress")} value={obsConfig.showProgress}
+            onChange={v => applyObsConfig({ showProgress: v })} />
+        </>
+      )}
+    </div>
+  );
+}
+
 function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, animations, onAnimationsChange, lyricsFontSize, onLyricsFontSizeChange, lyricsTranslationFontSize, onLyricsTranslationFontSizeChange, lyricsRomajiFontSize, onLyricsRomajiFontSizeChange, lyricsProviders, onLyricsProvidersChange, autoplay, onAutoplayChange, crossfade, onCrossfadeChange, discordRpc, onDiscordRpcChange, language, onLanguageChange, updateInfo, onCheckUpdate, updateDownloading, updateDownloadProgress, updateDownloaded, onDownloadUpdate, onInstallUpdate, onCancelDownload, initialTab, onTabOpened, hideExplicit, onHideExplicitChange, uiZoom, onUiZoomChange, appFontScale, onFontScaleChange, showRomaji, onToggleRomaji, showAgentTags, onToggleAgentTags, highContrast, onToggleHighContrast, appFont, onAppFontChange, ambientVisualizer, onToggleAmbientVisualizer }) {
   const anim = useAnimations();
   const t = useLang();
@@ -2591,6 +2766,7 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
     { id: "language",    label: t("language"),    iconEl: <Translate size={18} /> },
     { id: "storage",    label: t("storage"),     iconEl: <HardDrives size={18} /> },
     { id: "sicherheit", label: t("security"),   iconEl: <Lock size={18} /> },
+    { id: "overlay",    label: t("overlay"),     iconEl: <ScreencastSimple size={18} /> },
     { id: "update",     label: t("update"),      iconEl: <ArrowsClockwise size={18} /> },
     { id: "debug",      label: t("debug"),       iconEl: <Bug size={18} /> },
   ];
@@ -3288,6 +3464,35 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                   </div>
                 ))}
               </>
+            )}
+
+            {tab === "overlay" && (
+              <OverlayTab
+                t={t}
+                obsEnabled={obsEnabled}
+                obsPort={obsPort}
+                obsPortInput={obsPortInput}
+                setObsPortInput={setObsPortInput}
+                obsConfig={obsConfig}
+                obsSubTab={obsSubTab}
+                setObsSubTab={setObsSubTab}
+                toggleObs={toggleObs}
+                applyObsConfig={applyObsConfig}
+                OVERLAY_PRESETS={OVERLAY_PRESETS}
+                DEFAULT_OVERLAY_CONFIG={DEFAULT_OVERLAY_CONFIG}
+                onPortSave={(val) => {
+                  const p = parseInt(val, 10);
+                  if (p > 1024 && p < 65535) {
+                    setObsPort(p);
+                    localStorage.setItem("kiyoshi-obs-port", p);
+                    if (obsEnabled) {
+                      fetch(`${API}/overlay/server/stop`, { method: "POST" }).then(() =>
+                        fetch(`${API}/overlay/server/start`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ port: p }) })
+                      ).catch(() => {});
+                    }
+                  }
+                }}
+              />
             )}
 
             {tab === "update" && (
@@ -8403,6 +8608,46 @@ export default function App() {
   const [currentTrack, setCurrentTrack] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [discordRpc, setDiscordRpc] = useState(() => localStorage.getItem("kiyoshi-discord-rpc") !== "false");
+
+  // ── OBS Overlay ──────────────────────────────────────────────────────────────
+  const DEFAULT_OVERLAY_CONFIG = {
+    preset: "basic",
+    bgColor: "#1a1a1a", bgOpacity: 90,
+    accentColor: "#EEA8FF", textColor: "#ffffff",
+    borderRadius: 14,
+    showProgress: true, showAlbumArt: true,
+    showArtist: true, showAlbum: false,
+    border: false, borderColor: "#EEA8FF",
+    fontFamily: "system-ui, sans-serif", fontSize: 14,
+  };
+  const OVERLAY_PRESETS = {
+    basic:   { bgColor: "#1a1a1a", bgOpacity: 90, accentColor: "#ffffff", textColor: "#ffffff", borderRadius: 14, border: false },
+    pink:    { bgColor: "#e0527a", bgOpacity: 95, accentColor: "#ffffff", textColor: "#ffffff", borderRadius: 22, border: false },
+    outline: { bgColor: "#000000", bgOpacity:  0, accentColor: "#EEA8FF", textColor: "#ffffff", borderRadius: 16, border: true, borderColor: "#EEA8FF" },
+    dark:    { bgColor: "#0d0d0d", bgOpacity: 85, accentColor: "#EEA8FF", textColor: "#ffffff", borderRadius: 10, border: false },
+    minimal: { bgColor: "#000000", bgOpacity:  0, accentColor: "#ffffff", textColor: "#ffffff", borderRadius:  0, border: false, showProgress: false, showAlbumArt: false },
+  };
+  const [obsEnabled,   setObsEnabled]   = useState(() => localStorage.getItem("kiyoshi-obs-enabled") === "true");
+  const [obsPort,      setObsPort]      = useState(() => parseInt(localStorage.getItem("kiyoshi-obs-port") || "9848", 10));
+  const [obsConfig,    setObsConfig]    = useState(() => { try { return JSON.parse(localStorage.getItem("kiyoshi-obs-config")) || DEFAULT_OVERLAY_CONFIG; } catch { return DEFAULT_OVERLAY_CONFIG; } });
+  const [obsSubTab,    setObsSubTab]    = useState("general");
+  const [obsPortInput, setObsPortInput] = useState(() => localStorage.getItem("kiyoshi-obs-port") || "9848");
+
+  const applyObsConfig = (patch) => {
+    const next = { ...obsConfig, ...patch };
+    setObsConfig(next);
+    localStorage.setItem("kiyoshi-obs-config", JSON.stringify(next));
+    fetch(`${API}/overlay/config`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(next) }).catch(() => {});
+  };
+  const toggleObs = async (enabled) => {
+    setObsEnabled(enabled);
+    localStorage.setItem("kiyoshi-obs-enabled", enabled);
+    if (enabled) {
+      await fetch(`${API}/overlay/server/start`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ port: obsPort }) }).catch(() => {});
+    } else {
+      await fetch(`${API}/overlay/server/stop`, { method: "POST" }).catch(() => {});
+    }
+  };
   const [queue, setQueue] = useState([]);
   const [overlayOpen, setOverlayOpen] = useState(false);
   const [lyricsRefetchKey, setLyricsRefetchKey] = useState(0);
@@ -8540,33 +8785,44 @@ export default function App() {
     };
   }, [currentTrack, isPlaying, discordRpc]);
 
-  // Kimuco Bridge — report now-playing to the OBS overlay app.
+  // Kimuco Bridge — report now-playing to the OBS overlay app (external, port 8888).
+  // Also pushes to the built-in overlay server when enabled.
   useEffect(() => {
     const report = () => {
       const a = audioRef.current;
       const coverUrl = currentTrack?.thumbnail
         ? `${API}/imgproxy?url=${encodeURIComponent(currentTrack.thumbnail)}`
         : "";
+      const artistStr = Array.isArray(currentTrack?.artists)
+        ? currentTrack.artists.map(x => x?.name || x).join(", ")
+        : (currentTrack?.artists || "");
+      const payload = {
+        title:     currentTrack?.title || "",
+        artist:    artistStr,
+        album:     currentTrack?.album || "",
+        cover:     coverUrl,
+        progress:  a?.currentTime || 0,
+        duration:  a?.duration    || 0,
+        isPlaying: isPlaying && !!currentTrack,
+      };
+      // External Kimuco v1
       fetch("http://127.0.0.1:8888/api/source/kiyoshi", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        signal: AbortSignal.timeout(500),
-        body: JSON.stringify({
-          title:     currentTrack?.title    || "",
-          artist:    currentTrack?.artists  || "",
-          album:     currentTrack?.album    || "",
-          cover:     coverUrl,
-          progress:  a?.currentTime        || 0,
-          duration:  a?.duration           || 0,
-          isPlaying: isPlaying && !!currentTrack,
-        }),
+        method: "POST", headers: { "Content-Type": "application/json" },
+        signal: AbortSignal.timeout(500), body: JSON.stringify(payload),
       }).catch(() => {});
+      // Built-in overlay server
+      if (obsEnabled) {
+        fetch(`${API}/overlay/push`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          signal: AbortSignal.timeout(500), body: JSON.stringify(payload),
+        }).catch(() => {});
+      }
     };
 
     report();
     const id = setInterval(report, 1000);
     return () => clearInterval(id);
-  }, [currentTrack, isPlaying]);
+  }, [currentTrack, isPlaying, obsEnabled]);
 
   const handlePlay = useCallback((track, trackList) => {
     setCurrentTrack(track);

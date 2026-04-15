@@ -127,3 +127,5 @@ export const ShareNodes         = fa("share-nodes");
 export const Globe              = fa("globe");
 export const Lock               = fa("lock");
 export const LockOpen           = fa("lock-open");
+export const ScreencastSimple   = fa("tv");
+export const CircleFill         = fa("circle", true);

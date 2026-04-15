@@ -2920,6 +2920,235 @@ def debug_info():
     })
 
 
+# ─── OBS Overlay Server ───────────────────────────────────────────────────────
+import queue as _qmod
+from werkzeug.serving import make_server as _make_wsgi_server
+
+_ov_state = {
+    "title": "", "artist": "", "album": "",
+    "cover": "", "progress": 0.0, "duration": 0.0, "isPlaying": False,
+}
+_ov_config = {
+    "preset": "basic",
+    "bgColor": "#1a1a1a", "bgOpacity": 90,
+    "accentColor": "#EEA8FF", "textColor": "#ffffff",
+    "borderRadius": 14,
+    "showProgress": True, "showAlbumArt": True,
+    "showArtist": True, "showAlbum": False,
+    "border": False, "borderColor": "#EEA8FF",
+    "fontFamily": "system-ui, sans-serif", "fontSize": 14,
+}
+_ov_clients: list = []
+_ov_lock  = threading.Lock()
+_ov_server_obj  = None
+_ov_server_thread = None
+
+_ov_app = Flask("kiyoshi_overlay")
+CORS(_ov_app)
+
+# ── Widget HTML ───────────────────────────────────────────────────────────────
+_OVERLAY_HTML = r"""<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:transparent;overflow:hidden;font-family:var(--wfont)}
+#w{
+  display:inline-flex;align-items:center;gap:12px;
+  padding:10px 16px 10px 10px;
+  border-radius:var(--wr);
+  background:var(--wbg);
+  border:var(--wborder);
+  min-width:220px;max-width:420px;
+  position:relative;overflow:hidden;
+  transition:background .3s,border .3s;
+}
+#art{width:52px;height:52px;border-radius:calc(var(--wr) - 4px);object-fit:cover;flex-shrink:0;transition:opacity .3s}
+#art-ph{width:52px;height:52px;border-radius:calc(var(--wr) - 4px);background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.info{flex:1;min-width:0}
+.title{font-size:var(--wfs);font-weight:700;color:var(--wtxt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:color .3s}
+.sub{font-size:calc(var(--wfs) - 2px);color:var(--wtxts);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#pbar{position:absolute;bottom:0;left:0;right:0;height:3px;background:rgba(255,255,255,.12)}
+#pfill{height:100%;background:var(--wacc);border-radius:0 2px 2px 0;transition:width .8s linear}
+@keyframes scroll{0%{transform:translateX(0)}40%{transform:translateX(var(--scroll-dist))}60%{transform:translateX(var(--scroll-dist))}100%{transform:translateX(0)}}
+.scroll{animation:scroll 8s ease-in-out infinite;display:inline-block;white-space:nowrap}
+</style></head>
+<body><div id="w">
+  <div id="art-ph"><svg width="22" height="22" viewBox="0 0 24 24" fill="rgba(255,255,255,.4)"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg></div>
+  <img id="art" style="display:none" crossorigin="anonymous">
+  <div class="info">
+    <div class="title"><span id="title-span">No Music</span></div>
+    <div class="sub" id="sub">Waiting...</div>
+  </div>
+  <div id="pbar"><div id="pfill" style="width:0%"></div></div>
+</div>
+<script>
+const API=location.origin;
+let cfg={},state={};
+
+function rgba(hex,a){const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return`rgba(${r},${g},${b},${a})`}
+
+function applyConfig(c){
+  cfg=c;
+  const R=document.documentElement;
+  R.style.setProperty('--wr',(c.borderRadius??14)+'px');
+  R.style.setProperty('--wbg',rgba(c.bgColor||'#1a1a1a',(c.bgOpacity??90)/100));
+  R.style.setProperty('--wacc',c.accentColor||'#EEA8FF');
+  R.style.setProperty('--wtxt',c.textColor||'#fff');
+  R.style.setProperty('--wtxts',rgba(c.textColor||'#fff',.65));
+  R.style.setProperty('--wfs',(c.fontSize||14)+'px');
+  R.style.setProperty('--wfont',c.fontFamily||'system-ui,sans-serif');
+  document.getElementById('w').style.border=c.border?`1.5px solid ${c.borderColor||'#EEA8FF'}`:'none';
+  document.getElementById('pbar').style.display=c.showProgress===false?'none':'';
+  const hasArt=c.showAlbumArt!==false;
+  document.getElementById('art').style.display=hasArt&&state.cover?'':'none';
+  document.getElementById('art-ph').style.display=hasArt&&!state.cover?'':'none';
+  if(!hasArt){document.getElementById('art').style.display='none';document.getElementById('art-ph').style.display='none';}
+  renderSub();
+}
+
+function renderSub(){
+  const parts=[];
+  if(cfg.showArtist!==false&&state.artist)parts.push(state.artist);
+  if(cfg.showAlbum&&state.album)parts.push(state.album);
+  document.getElementById('sub').textContent=parts.join(' · ')||'Waiting...';
+}
+
+function checkScroll(){
+  const sp=document.getElementById('title-span');
+  const w=document.getElementById('w');
+  const overflow=sp.scrollWidth-(w.clientWidth-100);
+  if(overflow>20){
+    sp.style.setProperty('--scroll-dist',`-${overflow}px`);
+    sp.classList.add('scroll');
+  } else {
+    sp.classList.remove('scroll');
+  }
+}
+
+function updateState(s){
+  if(s._configUpdate){applyConfig(s.config||s);return;}
+  if(s._config){applyConfig(s._config);delete s._config;}
+  state=s;
+  document.getElementById('title-span').textContent=s.title||'No Music';
+  renderSub();
+  const art=document.getElementById('art'),ph=document.getElementById('art-ph');
+  if(s.cover&&cfg.showAlbumArt!==false){
+    art.src=s.cover;art.style.display='';ph.style.display='none';
+  } else if(cfg.showAlbumArt!==false){
+    art.style.display='none';ph.style.display='';
+  }
+  const pct=s.duration>0?(s.progress/s.duration*100):0;
+  document.getElementById('pfill').style.width=pct+'%';
+  setTimeout(checkScroll,100);
+}
+
+function connect(){
+  const es=new EventSource(API+'/overlay/stream');
+  es.onmessage=e=>{try{updateState(JSON.parse(e.data));}catch(_){}};
+  es.onerror=()=>{es.close();setTimeout(connect,3000);};
+}
+
+fetch(API+'/overlay/config').then(r=>r.json()).then(c=>{applyConfig(c);connect();}).catch(()=>connect());
+</script></body></html>"""
+
+def _ov_push(payload: dict):
+    msg = "data: " + json.dumps(payload) + "\n\n"
+    with _ov_lock:
+        dead = []
+        for q in _ov_clients:
+            try:
+                q.put_nowait(msg)
+            except _qmod.Full:
+                dead.append(q)
+        for q in dead:
+            try: _ov_clients.remove(q)
+            except ValueError: pass
+
+@_ov_app.route("/overlay")
+def _ov_page():
+    return Response(_OVERLAY_HTML, content_type="text/html; charset=utf-8")
+
+@_ov_app.route("/overlay/stream")
+def _ov_stream():
+    q = _qmod.Queue(maxsize=30)
+    with _ov_lock:
+        _ov_clients.append(q)
+    initial = "data: " + json.dumps({**_ov_state, "_config": _ov_config}) + "\n\n"
+    def _gen():
+        try:
+            yield initial
+            while True:
+                try:
+                    yield q.get(timeout=25)
+                except _qmod.Empty:
+                    yield ": ping\n\n"
+        finally:
+            with _ov_lock:
+                try: _ov_clients.remove(q)
+                except ValueError: pass
+    return Response(_gen(), content_type="text/event-stream",
+                    headers={"Cache-Control":"no-cache","X-Accel-Buffering":"no",
+                             "Access-Control-Allow-Origin":"*"})
+
+@_ov_app.route("/overlay/config")
+def _ov_config_endpoint():
+    return jsonify(_ov_config)
+
+def _ov_start(port: int) -> bool:
+    global _ov_server_obj, _ov_server_thread
+    _ov_stop()
+    try:
+        srv = _make_wsgi_server("0.0.0.0", port, _ov_app)
+        _ov_server_obj = srv
+        t = threading.Thread(target=srv.serve_forever, daemon=True, name="kiyoshi-overlay")
+        t.start()
+        _ov_server_thread = t
+        return True
+    except OSError as e:
+        print(f"[Overlay] Port {port} unavailable: {e}")
+        return False
+
+def _ov_stop():
+    global _ov_server_obj, _ov_server_thread
+    if _ov_server_obj:
+        try: _ov_server_obj.shutdown()
+        except Exception: pass
+        _ov_server_obj = None
+    _ov_server_thread = None
+
+# ── Main-server control endpoints ─────────────────────────────────────────────
+@app.route("/overlay/push", methods=["POST"])
+def overlay_push():
+    global _ov_state
+    data = request.json or {}
+    _ov_state.update({k: v for k, v in data.items() if k in _ov_state})
+    _ov_push(_ov_state)
+    return jsonify({"ok": True})
+
+@app.route("/overlay/config", methods=["GET", "POST"])
+def overlay_config():
+    global _ov_config
+    if request.method == "POST":
+        _ov_config.update(request.json or {})
+        _ov_push({"_configUpdate": True, "config": _ov_config})
+        return jsonify({"ok": True})
+    return jsonify(_ov_config)
+
+@app.route("/overlay/server/start", methods=["POST"])
+def overlay_server_start():
+    port = (request.json or {}).get("port", 9848)
+    ok = _ov_start(int(port))
+    return jsonify({"ok": ok, "port": port})
+
+@app.route("/overlay/server/stop", methods=["POST"])
+def overlay_server_stop():
+    _ov_stop()
+    return jsonify({"ok": True})
+
+@app.route("/overlay/status")
+def overlay_status():
+    return jsonify({"running": _ov_server_obj is not None, "clients": len(_ov_clients)})
+
 if __name__ == "__main__":
     import socket as _socket, traceback as _tb
 
