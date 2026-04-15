@@ -2522,7 +2522,8 @@ function OverlayTab({ t, obsEnabled, obsPort, obsPortInput, setObsPortInput, obs
   );
 }
 
-function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, animations, onAnimationsChange, lyricsFontSize, onLyricsFontSizeChange, lyricsTranslationFontSize, onLyricsTranslationFontSizeChange, lyricsRomajiFontSize, onLyricsRomajiFontSizeChange, lyricsProviders, onLyricsProvidersChange, autoplay, onAutoplayChange, crossfade, onCrossfadeChange, discordRpc, onDiscordRpcChange, language, onLanguageChange, updateInfo, onCheckUpdate, updateDownloading, updateDownloadProgress, updateDownloaded, onDownloadUpdate, onInstallUpdate, onCancelDownload, initialTab, onTabOpened, hideExplicit, onHideExplicitChange, uiZoom, onUiZoomChange, appFontScale, onFontScaleChange, showRomaji, onToggleRomaji, showAgentTags, onToggleAgentTags, highContrast, onToggleHighContrast, appFont, onAppFontChange, ambientVisualizer, onToggleAmbientVisualizer }) {
+function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, animations, onAnimationsChange, lyricsFontSize, onLyricsFontSizeChange, lyricsTranslationFontSize, onLyricsTranslationFontSizeChange, lyricsRomajiFontSize, onLyricsRomajiFontSizeChange, lyricsProviders, onLyricsProvidersChange, autoplay, onAutoplayChange, crossfade, onCrossfadeChange, discordRpc, onDiscordRpcChange, language, onLanguageChange, updateInfo, onCheckUpdate, updateDownloading, updateDownloadProgress, updateDownloaded, onDownloadUpdate, onInstallUpdate, onCancelDownload, initialTab, onTabOpened, hideExplicit, onHideExplicitChange, uiZoom, onUiZoomChange, appFontScale, onFontScaleChange, showRomaji, onToggleRomaji, showAgentTags, onToggleAgentTags, highContrast, onToggleHighContrast, appFont, onAppFontChange, ambientVisualizer, onToggleAmbientVisualizer,
+  obsEnabled, obsPort, obsPortInput, setObsPortInput, obsConfig, obsSubTab, setObsSubTab, toggleObs, applyObsConfig, onObsPortSave, OVERLAY_PRESETS, DEFAULT_OVERLAY_CONFIG }) {
   const anim = useAnimations();
   const t = useLang();
   const [tab, setTab] = useState(initialTab || "darstellung");
@@ -3480,18 +3481,7 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                 applyObsConfig={applyObsConfig}
                 OVERLAY_PRESETS={OVERLAY_PRESETS}
                 DEFAULT_OVERLAY_CONFIG={DEFAULT_OVERLAY_CONFIG}
-                onPortSave={(val) => {
-                  const p = parseInt(val, 10);
-                  if (p > 1024 && p < 65535) {
-                    setObsPort(p);
-                    localStorage.setItem("kiyoshi-obs-port", p);
-                    if (obsEnabled) {
-                      fetch(`${API}/overlay/server/stop`, { method: "POST" }).then(() =>
-                        fetch(`${API}/overlay/server/start`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ port: p }) })
-                      ).catch(() => {});
-                    }
-                  }
-                }}
+                onPortSave={onObsPortSave}
               />
             )}
 
@@ -9764,6 +9754,29 @@ export default function App() {
               const next = !ambientVisualizer;
               setAmbientVisualizer(next);
               localStorage.setItem("kiyoshi-ambient-visualizer", String(next));
+            }}
+            obsEnabled={obsEnabled}
+            obsPort={obsPort}
+            obsPortInput={obsPortInput}
+            setObsPortInput={setObsPortInput}
+            obsConfig={obsConfig}
+            obsSubTab={obsSubTab}
+            setObsSubTab={setObsSubTab}
+            toggleObs={toggleObs}
+            applyObsConfig={applyObsConfig}
+            OVERLAY_PRESETS={OVERLAY_PRESETS}
+            DEFAULT_OVERLAY_CONFIG={DEFAULT_OVERLAY_CONFIG}
+            onObsPortSave={(val) => {
+              const p = parseInt(val, 10);
+              if (p > 1024 && p < 65535) {
+                setObsPort(p);
+                localStorage.setItem("kiyoshi-obs-port", p);
+                if (obsEnabled) {
+                  fetch(`${API}/overlay/server/stop`, { method: "POST" }).then(() =>
+                    fetch(`${API}/overlay/server/start`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ port: p }) })
+                  ).catch(() => {});
+                }
+              }
             }}
           />
         )}
