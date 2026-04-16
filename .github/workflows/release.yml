@@ -184,10 +184,16 @@ jobs:
           VERSION="${TAG#v}"
           RELEASE_ID="${{ needs.create-release.outputs.release_id }}"
 
-          # Publish the draft — this makes browser_download_url non-empty for all assets
+          # Extract changelog for this version and publish the draft
+          RELEASE_NOTES=""
+          if [ -f CHANGELOG.md ]; then
+            RELEASE_NOTES=$(awk "/^## \[${VERSION}\]/{found=1; next} found && /^## \[/{exit} found{print}" CHANGELOG.md | sed '/^[[:space:]]*$/d' | head -80)
+          fi
+
           gh api "repos/${{ github.repository }}/releases/$RELEASE_ID" \
             --method PATCH \
-            --field draft=false
+            --field draft=false \
+            --field body="${RELEASE_NOTES}"
 
           # Poll for assets — tauri-action@v0 uploads .exe + .exe.sig (Tauri 2.x format)
           EXE_URL=""
@@ -220,13 +226,21 @@ jobs:
             SIG_CONTENT=$(curl -fsSL "$SIG_URL")
           fi
 
+          # Extract the changelog section for this version from CHANGELOG.md
+          # Matches everything between "## [X.Y.Z...]" and the next "## [" heading
+          NOTES=""
+          if [ -f CHANGELOG.md ]; then
+            NOTES=$(awk "/^## \[${VERSION}\]/{found=1; next} found && /^## \[/{exit} found{print}" CHANGELOG.md | sed '/^[[:space:]]*$/d' | head -80)
+          fi
+
           # Use jq to build JSON safely (handles newlines in sig content)
           jq -n \
             --arg version "v${VERSION}" \
             --arg pub_date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             --arg url "${EXE_URL}" \
             --arg sig "${SIG_CONTENT}" \
-            '{version: $version, pub_date: $pub_date, notes: "", platforms: {"windows-x86_64": {url: $url, signature: $sig}}}' \
+            --arg notes "${NOTES}" \
+            '{version: $version, pub_date: $pub_date, notes: $notes, platforms: {"windows-x86_64": {url: $url, signature: $sig}}}' \
             > updates/latest.json
 
           # Commit to repo so the raw.githubusercontent.com endpoint always works
