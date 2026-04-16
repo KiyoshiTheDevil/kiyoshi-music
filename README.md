@@ -1,42 +1,101 @@
 <div align="center">
   <img width="96" alt="Kiyoshi Music Logo" src="https://github.com/user-attachments/assets/bcf17683-7660-4bae-ad16-2cf474742074">
   <h1>Kiyoshi Music</h1>
-  <p>An unofficial YouTube Music desktop client for Windows, built with Tauri 2 + React.</p>
+  <p>An unofficial YouTube Music desktop client — built with Tauri 2 &amp; React.</p>
 
-  ![Version](https://img.shields.io/badge/version-Alpha_9-purple)
-  ![Platform](https://img.shields.io/badge/platform-Windows-blue)
-  ![Tauri](https://img.shields.io/badge/Tauri-2.x-lightgrey)
-  ![License](https://img.shields.io/badge/license-Personal_Use-red)
+  [![Version](https://img.shields.io/badge/version-0.9.7--beta-a855f7?style=flat-square)](https://github.com/KiyoshiTheDevil/kiyoshi-music/releases/latest)
+  [![Platform](https://img.shields.io/badge/platform-Windows-0078d4?style=flat-square&logo=windows&logoColor=white)](https://github.com/KiyoshiTheDevil/kiyoshi-music/releases/latest)
+  [![Platform](https://img.shields.io/badge/Linux-experimental-f97316?style=flat-square&logo=linux&logoColor=white)](#)
+  [![Tauri](https://img.shields.io/badge/Tauri-2.x-24c8db?style=flat-square&logo=tauri&logoColor=white)](https://tauri.app)
+  [![Crowdin](https://img.shields.io/badge/translate-Crowdin-2e3340?style=flat-square&logo=crowdin&logoColor=white)](https://crowdin.com/project/kiyoshi-music)
+  [![License](https://img.shields.io/badge/license-Personal_Use-ef4444?style=flat-square)](#disclaimer)
 </div>
 
 ---
 
+<div align="center">
+  <img src="docs/screenshot-home.png" alt="Home Screen" width="720">
+</div>
 
+---
 
-Help translate the App in your Language!
-Check out the [Crowdin-Page](https://crowdin.com/project/kiyoshi-music)!
+## Features
 
-If you have suggestions or ideas on how the player could be improved, do not hesitate to give feedback! (⁠≧⁠▽⁠≦⁠)
+**Playback**
+- Full YouTube Music playback with queue management
+- Crossfade between tracks
+- Adjustable volume with persistent state
+- Keyboard shortcuts for all playback controls
 
+**Library & Discovery**
+- Browse your YouTube Music library, playlists, albums and artists
+- Home feed, charts and recommendations
+- Search with instant results
+- Offline mode indicator
 
-### Known Issues:
-| Issue | Progress |
-|---|---|
-| Performance Issues | Fixed |
-| Higher RAM usage sometimes | Fixed |
-| Disabling Animations not disabling all animations in app | In progress |
+**Lyrics**
+- Synced and static lyrics
+- Romaji transliteration for Japanese tracks
+- Translation support
+- Multiple lyrics provider fallback
 
-Please be aware, that Linux support is no priority right now, but steadily worked on. Linux-Builds are not guarenteed to work and might need further updates.
+**Visuals & Themes**
+- Dark theme with customisable accent colour
+- Ambient visualizer behind the player
+- Custom font selection and UI zoom
+- High contrast accessibility mode
 
-If you find more issues and bugs, please report then in the Issues-Tab! Thank you!
+**OBS / Streaming Overlay**
+- Built-in Now-Playing widget server — point your OBS browser source at `http://localhost:9847/overlay`
+- Fully configurable via in-app settings: background, blur, border, shadow, typography, art size
+- Per-corner style — mix rounded and beveled corners independently on both the widget frame and album art
+- Save, load, export and import custom overlay profiles
 
-A Google Account is not mandatory to use the app itself. It is only required to, if you wish to sync the library and playlists with your YouTube Music-Library.
+**Integrations**
+- Discord Rich Presence
+- System tray with media controls
+- Auto-updater with in-app changelog
+
+**Other**
+- Google account optional — log in only if you want library sync
+- German & English UI, more languages via [Crowdin](https://crowdin.com/project/kiyoshi-music)
+
+---
+
+## Screenshots
+
+| Home | Lyrics | Playlist |
+|:----:|:------:|:--------:|
+| ![Home](docs/screenshot-home.png) | ![Lyrics](docs/screenshot-lyrics.png) | ![Playlist](docs/screenshot-playlist.png) |
 
 ---
 
 ## Download
 
-Head over to the [Releases](https://github.com/KiyoshiTheDevil/kiyoshi-music/releases) page and download the latest installer.
+Head to the [**Releases**](https://github.com/KiyoshiTheDevil/kiyoshi-music/releases/latest) page and grab the latest Windows installer (`.exe`).
+
+> **Linux:** AppImage and `.deb` builds are provided but not the primary focus. They may require additional attention and are not guaranteed to be fully stable.
+
+> **Google Account:** Not required to use the app. Only needed if you want to sync your YouTube Music library and playlists.
+
+---
+
+## Help Translate
+
+Want Kiyoshi Music in your language?  
+Join the translation effort on **[Crowdin](https://crowdin.com/project/kiyoshi-music)** — every contribution helps! (⁠≧⁠▽⁠≦⁠)
+
+---
+
+## Known Issues
+
+| Issue | Status |
+|---|---|
+| Performance issues | ✅ Fixed |
+| Higher RAM usage sometimes | ✅ Fixed |
+| Some animations ignore the "Disable Animations" setting | 🔧 In progress |
+
+Found a bug? Please report it in the [**Issues**](https://github.com/KiyoshiTheDevil/kiyoshi-music/issues) tab — thank you!
 
 ---
 
@@ -44,26 +103,26 @@ Head over to the [Releases](https://github.com/KiyoshiTheDevil/kiyoshi-music/rel
 
 ### Prerequisites
 
-- [Node.js](https://nodejs.org/) (v18+)
-- [Rust](https://rustup.rs/)
-- [Python](https://www.python.org/) (3.10+)
+- [Node.js](https://nodejs.org/) v18+
+- [Rust](https://rustup.rs/) (stable)
+- [Python](https://www.python.org/) 3.10+
 
 ### Setup
 
 ```bash
-# 1. Clone the repository
+# 1. Clone
 git clone https://github.com/KiyoshiTheDevil/kiyoshi-music.git
 cd kiyoshi-music
 
-# 2. Install Node dependencies
+# 2. Frontend dependencies
 npm install
 
-# 3. Install Python dependencies
+# 3. Python backend dependencies
 cd python-backend
 pip install -r requirements.txt
 cd ..
 
-# 4. Authenticate with your YouTube account
+# 4. (Optional) Authenticate with your YouTube account
 cd python-backend
 python setup_auth.py
 cd ..
@@ -83,7 +142,13 @@ npm run tauri build
 
 ---
 
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for a full version history.
+
+---
+
 ## Disclaimer
 
-Kiyoshi Music is an unofficial client and is not affiliated with or endorsed by YouTube or Google.
+Kiyoshi Music is an unofficial client and is not affiliated with or endorsed by YouTube or Google.  
 It uses the unofficial YouTube Music API for personal use only. Use at your own risk.
