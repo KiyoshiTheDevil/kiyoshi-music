@@ -48,6 +48,9 @@ python-backend/ffprobe.exe
 python-backend/ffmpeg
 python-backend/ffprobe
 
+# Laufzeit-Logs
+python-backend/server_startup.log
+
 # Debug-Dateien
 python-backend/debug.py
 python-backend/debug2.py
