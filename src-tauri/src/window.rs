@@ -122,3 +122,4 @@ pub fn close_login_window(app: tauri::AppHandle) {
         let _ = w.destroy();
     }
 }
+

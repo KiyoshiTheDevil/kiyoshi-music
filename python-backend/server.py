@@ -2939,11 +2939,17 @@ _ov_config = {
     "fontFamily": "system-ui, sans-serif",
     "titleFontSize": 14, "artistFontSize": 12,
     "dynamicWidth": False, "widgetWidth": 400, "widgetHeight": 0, "artSize": 56, "artRadius": 8,
+    "artRadiusTL": 8, "artRadiusTR": 8, "artRadiusBR": 8, "artRadiusBL": 8,
+    "artCornerTypeTL": "r", "artCornerTypeTR": "r", "artCornerTypeBR": "r", "artCornerTypeBL": "r",
     "paddingV": 12, "paddingH": 16, "gap": 12,
     "progressHeight": 3,
     "showShadow": False, "shadowStrength": 0.35,
-    "bgBlur": 0,
+    "bgBlur": 10, "bgBlurEnabled": False,
     "autoHide": False,
+    "scrollTitle": False, "scrollSpeed": 80,
+    "radiusTL": 14, "radiusTR": 14, "radiusBR": 14, "radiusBL": 14,
+    "cornerTypeTL": "r", "cornerTypeTR": "r", "cornerTypeBR": "r", "cornerTypeBL": "r",
+    "borderBlur": 0,
 }
 _ov_clients: list = []
 _ov_lock  = threading.Lock()
@@ -2961,7 +2967,7 @@ _OVERLAY_HTML = r"""<!DOCTYPE html>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700&family=Inter:wght@400;700&family=Roboto:wght@400;700&family=Nunito:wght@400;700&family=Exo+2:wght@400;700&family=Poppins:wght@400;700&family=Raleway:wght@400;700&family=Montserrat:wght@400;700&family=DM+Sans:opsz,wght@9..40,400;9..40,700&family=Ubuntu:wght@400;700&family=Lexend:wght@400;700&family=Space+Grotesk:wght@400;700&family=Sora:wght@400;700&family=Barlow:wght@400;700&family=Figtree:wght@400;700&family=Plus+Jakarta+Sans:wght@400;700&family=Kanit:wght@400;700&family=Oxanium:wght@400;700&family=Chakra+Petch:wght@400;700&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{background:transparent;overflow:hidden;font-family:var(--wfont)}
+body{background:transparent;overflow:visible;font-family:var(--wfont);display:flex;align-items:center;justify-content:center;min-height:100vh;min-width:100vw}
 #w{
   display:flex;align-items:center;gap:var(--wgap);
   padding:var(--wpadv) var(--wpadh);
@@ -2972,17 +2978,19 @@ body{background:transparent;overflow:hidden;font-family:var(--wfont)}
   position:relative;overflow:hidden;
   transition:background .3s,border .3s,box-shadow .3s,opacity .4s;
 }
-#art{width:var(--wart);height:var(--wart);border-radius:var(--wart-r);object-fit:cover;flex-shrink:0;transition:opacity .3s}
-#art-ph{width:var(--wart);height:var(--wart);border-radius:var(--wart-r);background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+#art{width:var(--wart);height:var(--wart);border-radius:var(--wart-rtl) var(--wart-rtr) var(--wart-rbr) var(--wart-rbl);object-fit:cover;flex-shrink:0;transition:opacity .3s}
+#art-ph{width:var(--wart);height:var(--wart);border-radius:var(--wart-rtl) var(--wart-rtr) var(--wart-rbr) var(--wart-rbl);background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .info{flex:1;min-width:0}
 .title{font-size:var(--wtfs);font-weight:700;color:var(--wtxt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:color .3s}
 .sub{font-size:var(--wasfs);color:var(--wtxts);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#w-blur-bg{position:absolute;inset:0;background-size:cover;background-position:center;z-index:0;opacity:0;transition:opacity .3s;pointer-events:none}
+#art,#art-ph,.info,#pbar{position:relative;z-index:1}
 #pbar{position:absolute;bottom:0;left:0;right:0;height:3px;background:rgba(255,255,255,.12)}
 #pfill{height:100%;background:var(--wacc);border-radius:0 2px 2px 0;transition:width .8s linear}
-@keyframes scroll{0%{transform:translateX(0)}40%{transform:translateX(var(--scroll-dist))}60%{transform:translateX(var(--scroll-dist))}100%{transform:translateX(0)}}
-.scroll{animation:scroll 8s ease-in-out infinite;display:inline-block;white-space:nowrap}
+.scroll{animation:scroll linear infinite;display:inline-block;white-space:nowrap}
 </style></head>
 <body><div id="w">
+  <div id="w-blur-bg"></div>
   <div id="art-ph"><svg width="22" height="22" viewBox="0 0 24 24" fill="rgba(255,255,255,.4)"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg></div>
   <img id="art" style="display:none">
   <div class="info">
@@ -2994,6 +3002,8 @@ body{background:transparent;overflow:hidden;font-family:var(--wfont)}
 <script>
 const API=location.origin;
 let cfg={},state={};
+// Preview background (set via ?bg= query param)
+(()=>{const p=new URLSearchParams(location.search).get('bg');if(p)document.body.style.background=p==='light'?'#efefef':p==='checkered'?'repeating-conic-gradient(#aaa 0% 25%,#ddd 0% 50%) 0 0/20px 20px':'#111';})();
 
 function rgba(hex,a){const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return`rgba(${r},${g},${b},${a})`}
 
@@ -3012,13 +3022,68 @@ function applyConfig(c){
   R.style.setProperty('--wwidth',c.dynamicWidth?'max-content':(c.widgetWidth||400)+'px');
   R.style.setProperty('--wheight',(c.widgetHeight||0)>0?(c.widgetHeight+'px'):'0px');
   R.style.setProperty('--wart',(c.artSize||56)+'px');
-  R.style.setProperty('--wart-r',(c.artRadius??8)+'px');
+  const _artEls=[document.getElementById('art'),document.getElementById('art-ph')];
+  (function(){
+    const W=c.artSize||56,H=W;
+    const cn={
+      tl:{t:c.artCornerTypeTL||'r',s:c.artRadiusTL??c.artRadius??8},
+      tr:{t:c.artCornerTypeTR||'r',s:c.artRadiusTR??c.artRadius??8},
+      br:{t:c.artCornerTypeBR||'r',s:c.artRadiusBR??c.artRadius??8},
+      bl:{t:c.artCornerTypeBL||'r',s:c.artRadiusBL??c.artRadius??8},
+    };
+    let d=`M ${cn.tl.s} 0 `;
+    if(cn.tr.t==='r')d+=`L ${W-cn.tr.s} 0 Q ${W} 0 ${W} ${cn.tr.s} `;
+    else d+=`L ${W-cn.tr.s} 0 L ${W} ${cn.tr.s} `;
+    if(cn.br.t==='r')d+=`L ${W} ${H-cn.br.s} Q ${W} ${H} ${W-cn.br.s} ${H} `;
+    else d+=`L ${W} ${H-cn.br.s} L ${W-cn.br.s} ${H} `;
+    if(cn.bl.t==='r')d+=`L ${cn.bl.s} ${H} Q 0 ${H} 0 ${H-cn.bl.s} `;
+    else d+=`L ${cn.bl.s} ${H} L 0 ${H-cn.bl.s} `;
+    if(cn.tl.t==='r')d+=`L 0 ${cn.tl.s} Q 0 0 ${cn.tl.s} 0 Z`;
+    else d+=`L 0 ${cn.tl.s} L ${cn.tl.s} 0 Z`;
+    const _acp=`path('${d.trim()}')`;
+    _artEls.forEach(el=>{if(el){el.style.clipPath=_acp;el.style.borderRadius='0';}});
+  })();
   R.style.setProperty('--wpadv',(c.paddingV||12)+'px');
   R.style.setProperty('--wpadh',(c.paddingH||16)+'px');
   R.style.setProperty('--wgap',(c.gap||12)+'px');
   W.style.border=c.border?`${c.borderWidth||1.5}px solid ${c.borderColor||'#EEA8FF'}`:'none';
-  W.style.boxShadow=c.showShadow?`0 8px 32px rgba(0,0,0,${c.shadowStrength||0.35})`:'none';
-  W.style.backdropFilter=c.bgBlur>0?`blur(${c.bgBlur}px)`:'none';
+  const _shadow=c.showShadow?`0 8px 32px rgba(0,0,0,${c.shadowStrength||0.35})`:'';
+  const _bglow=(c.border&&(c.borderBlur||0)>0)?`0 0 ${(c.borderBlur||0)*2}px ${c.borderBlur||0}px ${c.borderColor||'#EEA8FF'}`:'';
+  W.style.boxShadow=[_shadow,_bglow].filter(Boolean).join(',')||'none';
+  (function(){
+    const WW=W.offsetWidth||c.widgetWidth||400;
+    const WH=W.offsetHeight||(c.artSize||56)+(c.paddingV||12)*2+(c.showProgress!==false?(c.progressHeight||3):0);
+    const wn={
+      tl:{t:c.cornerTypeTL||'r',s:c.radiusTL??c.borderRadius??14},
+      tr:{t:c.cornerTypeTR||'r',s:c.radiusTR??c.borderRadius??14},
+      br:{t:c.cornerTypeBR||'r',s:c.radiusBR??c.borderRadius??14},
+      bl:{t:c.cornerTypeBL||'r',s:c.radiusBL??c.borderRadius??14},
+    };
+    let d=`M ${wn.tl.s} 0 `;
+    if(wn.tr.t==='r')d+=`L ${WW-wn.tr.s} 0 Q ${WW} 0 ${WW} ${wn.tr.s} `;
+    else d+=`L ${WW-wn.tr.s} 0 L ${WW} ${wn.tr.s} `;
+    if(wn.br.t==='r')d+=`L ${WW} ${WH-wn.br.s} Q ${WW} ${WH} ${WW-wn.br.s} ${WH} `;
+    else d+=`L ${WW} ${WH-wn.br.s} L ${WW-wn.br.s} ${WH} `;
+    if(wn.bl.t==='r')d+=`L ${wn.bl.s} ${WH} Q 0 ${WH} 0 ${WH-wn.bl.s} `;
+    else d+=`L ${wn.bl.s} ${WH} L 0 ${WH-wn.bl.s} `;
+    if(wn.tl.t==='r')d+=`L 0 ${wn.tl.s} Q 0 0 ${wn.tl.s} 0 Z`;
+    else d+=`L 0 ${wn.tl.s} L ${wn.tl.s} 0 Z`;
+    W.style.borderRadius='0';
+    W.style.clipPath=`path('${d.trim()}')`;
+  })();
+  const blurBg=document.getElementById('w-blur-bg');
+  if(c.bgBlurEnabled&&c.bgBlur>0){
+    const spread=Math.round(c.bgBlur*2);
+    blurBg.style.inset=`-${spread}px`;
+    blurBg.style.filter=`blur(${c.bgBlur}px)`;
+    blurBg.style.opacity=state.cover?'1':'0';
+    if(state.cover) blurBg.style.backgroundImage=`url(${state.cover})`;
+  }else{
+    blurBg.style.opacity='0';
+    blurBg.style.filter='none';
+  }
+  W.style.backdropFilter='none';
+  W.style.webkitBackdropFilter='none';
   document.getElementById('pbar').style.display=c.showProgress===false?'none':'';
   document.getElementById('pbar').style.height=(c.progressHeight||3)+'px';
   const hasArt=c.showAlbumArt!==false;
@@ -3029,6 +3094,7 @@ function applyConfig(c){
   }
   renderSub();
   applyAutoHide();
+  setTimeout(checkScroll,50);
 }
 
 function renderSub(){
@@ -3049,14 +3115,36 @@ function applyAutoHide(){
 
 function checkScroll(){
   const sp=document.getElementById('title-span');
-  const w=document.getElementById('w');
-  const infoW=w.clientWidth-(cfg.artSize||56)-(cfg.paddingH||16)*2-(cfg.gap||12)-40;
-  const overflow=sp.scrollWidth-Math.max(infoW,60);
-  if(overflow>20){
-    sp.style.setProperty('--scroll-dist',`-${overflow}px`);
-    sp.classList.add('scroll');
-  } else {
+  const titleEl=sp.parentElement;
+  if(!cfg.scrollTitle){
     sp.classList.remove('scroll');
+    titleEl.style.textOverflow='';
+    return;
+  }
+  // Already scrolling — don't reset the animation on every state update
+  if(sp.classList.contains('scroll')) return;
+  // Measure full text width vs visible container width
+  const overflow=titleEl.scrollWidth-titleEl.clientWidth;
+  if(overflow>4){
+    // Duration based on scroll speed setting (px/s)
+    const speed=cfg.scrollSpeed||80;
+    const scrollSec=Math.max(0.5,overflow/speed); // time for one-way scroll
+    const pauseStart=1, pauseEnd=5;
+    const totalSec=pauseStart+scrollSec+pauseEnd;
+    // p1 = end of start pause (%), p2 = end of scroll (%)
+    // at 100% the animation loops — CSS jumps back to 0% instantly (no tween between iterations)
+    const p1=Math.round(pauseStart/totalSec*1000)/10;
+    const p2=Math.round((pauseStart+scrollSec)/totalSec*1000)/10;
+    // Inject / replace dynamic keyframe
+    let kf=document.getElementById('_scroll_kf');
+    if(!kf){kf=document.createElement('style');kf.id='_scroll_kf';document.head.appendChild(kf);}
+    kf.textContent=`@keyframes scroll{0%,${p1}%{transform:translateX(0)}${p2}%,100%{transform:translateX(${-overflow}px)}}`;
+    sp.style.animationDuration=totalSec.toFixed(1)+'s';
+    sp.style.animationTimingFunction='ease-in-out';
+    sp.classList.add('scroll');
+    titleEl.style.textOverflow='clip';
+  }else{
+    titleEl.style.textOverflow='';
   }
 }
 
@@ -3064,13 +3152,27 @@ function updateState(s){
   if(s._configUpdate){applyConfig(s.config||s);return;}
   if(s._config){applyConfig(s._config);delete s._config;}
   state=s;
-  document.getElementById('title-span').textContent=s.title||'No Music';
+  const sp2=document.getElementById('title-span');
+  const newTitle=s.title||'No Music';
+  if(sp2.textContent!==newTitle){
+    // Title changed — reset scroll so it re-evaluates for the new text
+    sp2.classList.remove('scroll');
+    sp2.parentElement.style.textOverflow='';
+    sp2.textContent=newTitle;
+    // Wait 2 frames so layout is updated before measuring
+    requestAnimationFrame(()=>requestAnimationFrame(checkScroll));
+  }
   renderSub();
   const art=document.getElementById('art'),ph=document.getElementById('art-ph');
+  const blurBg2=document.getElementById('w-blur-bg');
   if(s.cover&&cfg.showAlbumArt!==false){
     art.src=s.cover;art.style.display='';ph.style.display='none';
   } else if(cfg.showAlbumArt!==false){
     art.style.display='none';ph.style.display='';
+  }
+  if(cfg.bgBlurEnabled&&cfg.bgBlur>0){
+    blurBg2.style.backgroundImage=s.cover?`url(${s.cover})`:'none';
+    blurBg2.style.opacity=s.cover?'1':'0';
   }
   const pct=s.duration>0?(s.progress/s.duration*100):0;
   document.getElementById('pfill').style.width=pct+'%';
@@ -3102,7 +3204,15 @@ def _ov_push(payload: dict):
 
 @_ov_app.route("/overlay")
 def _ov_page():
-    return Response(_OVERLAY_HTML, content_type="text/html; charset=utf-8")
+    resp = Response(_OVERLAY_HTML, content_type="text/html; charset=utf-8")
+    resp.headers["X-Frame-Options"] = "ALLOWALL"
+    resp.headers["Content-Security-Policy"] = "frame-ancestors *"
+    resp.headers["Access-Control-Allow-Origin"] = "*"
+    return resp
+
+@_ov_app.route("/overlay/config")
+def _ov_config_get():
+    return jsonify(_ov_config)
 
 @_ov_app.route("/overlay/stream")
 def _ov_stream():

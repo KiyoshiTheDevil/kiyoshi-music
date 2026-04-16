@@ -2578,6 +2578,164 @@ const OVERLAY_FONTS = [
   { label: "Chakra Petch",     value: "'Chakra Petch', sans-serif",             group: "Techy" },
 ];
 
+// ── Figma-style 2×2 corner grid ──────────────────────────────────────────────
+// Font Awesome icon (fa-solid) — FA Pro CSS loaded via /css/all.min.css
+function FaIcon({ name, size = 14 }) {
+  return <i className={`fa-solid fa-${name}`} style={{ fontSize: size, width: size, textAlign: "center", flexShrink: 0, lineHeight: 1 }} />;
+}
+// Public folder SVG via CSS mask-image (inherits currentColor)
+function PubIcon({ file, size = 15 }) {
+  return (
+    <span style={{
+      display: "inline-block", width: size, height: size, flexShrink: 0,
+      backgroundColor: "currentColor",
+      maskImage: `url('/${file}')`, maskSize: "contain", maskRepeat: "no-repeat", maskPosition: "center",
+      WebkitMaskImage: `url('/${file}')`, WebkitMaskSize: "contain", WebkitMaskRepeat: "no-repeat", WebkitMaskPosition: "center",
+    }} />
+  );
+}
+
+// Generates an SVG path() clip-path that supports per-corner round (Q bezier) or bevel (straight cut).
+// Works for any rectangle (W × H). For square art use W = H = artSize.
+function buildCornerPath(W, H, corners) {
+  const { tl, tr, br, bl } = corners; // each: { t: 'r'|'b', s: number }
+  let d = `M ${tl.s} 0 `;
+  if (tr.t === 'r') d += `L ${W - tr.s} 0 Q ${W} 0 ${W} ${tr.s} `;
+  else              d += `L ${W - tr.s} 0 L ${W} ${tr.s} `;
+  if (br.t === 'r') d += `L ${W} ${H - br.s} Q ${W} ${H} ${W - br.s} ${H} `;
+  else              d += `L ${W} ${H - br.s} L ${W - br.s} ${H} `;
+  if (bl.t === 'r') d += `L ${bl.s} ${H} Q 0 ${H} 0 ${H - bl.s} `;
+  else              d += `L ${bl.s} ${H} L 0 ${H - bl.s} `;
+  if (tl.t === 'r') d += `L 0 ${tl.s} Q 0 0 ${tl.s} 0 Z`;
+  else              d += `L 0 ${tl.s} L ${tl.s} 0 Z`;
+  return `path('${d.trim()}')`;
+}
+
+function CornerIcon({ corner }) {
+  const r = { tl: "5px 0 0 0", tr: "0 5px 0 0", br: "0 0 5px 0", bl: "0 0 0 5px" }[corner];
+  return <div style={{ width: 12, height: 12, border: "1.5px solid currentColor", borderRadius: r, flexShrink: 0, opacity: 0.55 }} />;
+}
+function CornerInput({ corner, value, onChange, min, max }) {
+  const [draft, setDraft] = useState(String(value ?? 0));
+  useEffect(() => { setDraft(String(value ?? 0)); }, [value]);
+  const commit = (raw) => {
+    const n = parseInt(raw, 10);
+    const clamped = isNaN(n) ? (value ?? 0) : Math.max(min, Math.min(max, n));
+    onChange(corner, clamped);
+    setDraft(String(clamped));
+  };
+  const adjust = (d) => {
+    const n = Math.max(min, Math.min(max, (parseInt(draft, 10) || 0) + d));
+    setDraft(String(n)); onChange(corner, n);
+  };
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 7, background: "var(--bg-elevated)", borderRadius: 8, padding: "9px 10px" }}>
+      <CornerIcon corner={corner} />
+      <input type="number" min={min} max={max} value={draft}
+        onChange={e => setDraft(e.target.value)}
+        onBlur={e => commit(e.target.value)}
+        onKeyDown={e => {
+          if (e.key === "Enter") commit(draft);
+          if (e.key === "ArrowUp") { e.preventDefault(); adjust(1); }
+          if (e.key === "ArrowDown") { e.preventDefault(); adjust(-1); }
+        }}
+        style={{ flex: 1, minWidth: 0, width: 0, background: "none", border: "none", outline: "none", color: "var(--text-primary)", fontSize: "var(--t13)", fontFamily: "monospace" }}
+      />
+      <span style={{ fontSize: "var(--t11)", color: "var(--text-muted)", flexShrink: 0 }}>px</span>
+    </div>
+  );
+}
+function CornerGrid({ tl, tr, bl, br, onChange, min = 0, max = 60 }) {
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, padding: "10px 0 4px" }}>
+      <CornerInput corner="tl" value={tl} onChange={onChange} min={min} max={max} />
+      <CornerInput corner="tr" value={tr} onChange={onChange} min={min} max={max} />
+      <CornerInput corner="bl" value={bl} onChange={onChange} min={min} max={max} />
+      <CornerInput corner="br" value={br} onChange={onChange} min={min} max={max} />
+    </div>
+  );
+}
+
+const _CORNER_DEG = { tl: 0, tr: 90, br: 180, bl: 270 };
+function CornerMaskIcon({ file, corner, size = 14 }) {
+  const deg = _CORNER_DEG[corner];
+  return (
+    <span style={{
+      display: "inline-block", width: size, height: size, flexShrink: 0,
+      backgroundColor: "currentColor",
+      maskImage: `url('/${file}')`, maskSize: "contain", maskRepeat: "no-repeat", maskPosition: "center",
+      WebkitMaskImage: `url('/${file}')`, WebkitMaskSize: "contain", WebkitMaskRepeat: "no-repeat", WebkitMaskPosition: "center",
+      transform: deg ? `rotate(${deg}deg)` : undefined,
+    }} />
+  );
+}
+function RoundCornerIcon({ corner, size = 14 }) {
+  return <CornerMaskIcon file="corner-round.svg" corner={corner} size={size} />;
+}
+function BevelCornerIcon({ corner, size = 14 }) {
+  return <CornerMaskIcon file="corner-bevel.svg" corner={corner} size={size} />;
+}
+// Mixed-type corner cell: two icon buttons (round / bevel) + size input in a single row
+function CornerInputMixed({ corner, type, value, onChangeType, onChangeValue, min = 0, max = 60 }) {
+  const [draft, setDraft] = useState(String(value ?? 0));
+  useEffect(() => { setDraft(String(value ?? 0)); }, [value]);
+  const commit = (raw) => {
+    const n = parseInt(raw, 10);
+    const clamped = isNaN(n) ? (value ?? 0) : Math.max(min, Math.min(max, n));
+    onChangeValue(corner, clamped);
+    setDraft(String(clamped));
+  };
+  const adjust = (d) => {
+    const n = Math.max(min, Math.min(max, (parseInt(draft, 10) || 0) + d));
+    setDraft(String(n)); onChangeValue(corner, n);
+  };
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 5, background: "var(--bg-elevated)", borderRadius: 8, padding: "7px 10px" }}>
+      {/* Round button */}
+      <button onClick={() => onChangeType(corner, "r")} style={{
+        display: "flex", alignItems: "center", justifyContent: "center",
+        width: 28, height: 22, borderRadius: 5, border: "none", cursor: "pointer", flexShrink: 0,
+        background: type === "r" ? "color-mix(in srgb, var(--accent) 22%, transparent)" : "transparent",
+        color: type === "r" ? "var(--accent)" : "var(--text-muted)",
+        transition: "background 0.12s, color 0.12s",
+      }}>
+        <RoundCornerIcon corner={corner} />
+      </button>
+      {/* Bevel button */}
+      <button onClick={() => onChangeType(corner, "b")} style={{
+        display: "flex", alignItems: "center", justifyContent: "center",
+        width: 28, height: 22, borderRadius: 5, border: "none", cursor: "pointer", flexShrink: 0,
+        background: type === "b" ? "color-mix(in srgb, var(--accent) 22%, transparent)" : "transparent",
+        color: type === "b" ? "var(--accent)" : "var(--text-muted)",
+        transition: "background 0.12s, color 0.12s",
+      }}>
+        <BevelCornerIcon corner={corner} />
+      </button>
+      <input type="number" min={min} max={max} value={draft}
+        onChange={e => setDraft(e.target.value)}
+        onBlur={e => commit(e.target.value)}
+        onKeyDown={e => {
+          if (e.key === "Enter") commit(draft);
+          if (e.key === "ArrowUp") { e.preventDefault(); adjust(1); }
+          if (e.key === "ArrowDown") { e.preventDefault(); adjust(-1); }
+        }}
+        style={{ flex: 1, minWidth: 0, width: 0, background: "none", border: "none", outline: "none", color: "var(--text-primary)", fontSize: "var(--t13)", fontFamily: "monospace" }}
+      />
+      <span style={{ fontSize: "var(--t11)", color: "var(--text-muted)", flexShrink: 0 }}>px</span>
+    </div>
+  );
+}
+function CornerGridMixed({ tl, tr, bl, br, onChangeType, onChangeValue, min = 0, max = 60 }) {
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, padding: "10px 0 4px" }}>
+      <CornerInputMixed corner="tl" type={tl.type} value={tl.value} onChangeType={onChangeType} onChangeValue={onChangeValue} min={min} max={max} />
+      <CornerInputMixed corner="tr" type={tr.type} value={tr.value} onChangeType={onChangeType} onChangeValue={onChangeValue} min={min} max={max} />
+      <CornerInputMixed corner="bl" type={bl.type} value={bl.value} onChangeType={onChangeType} onChangeValue={onChangeValue} min={min} max={max} />
+      <CornerInputMixed corner="br" type={br.type} value={br.value} onChangeType={onChangeType} onChangeValue={onChangeValue} min={min} max={max} />
+    </div>
+  );
+}
+
 // Top-level so React never recreates them between renders (hooks stay stable)
 function OvlRow({ label, desc, icon, children }) {
   return (
@@ -2642,14 +2800,14 @@ function OvlSliderRow({ label, icon, value, min, max, step = 1, unit = "", onCha
             onClick={openEdit}
             title="Click to type a value"
             style={{
-              fontSize: "var(--t12)", color: "var(--text-muted)", width: 46,
+              fontSize: "var(--t12)", color: "var(--text-secondary)", width: 46,
               textAlign: "right", fontVariantNumeric: "tabular-nums",
               cursor: "text", borderRadius: 4, padding: "2px 4px",
               border: "0.5px solid transparent",
               transition: "border-color 0.15s, color 0.15s",
             }}
             onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--text-primary)"; }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = "transparent"; e.currentTarget.style.color = "var(--text-muted)"; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = "transparent"; e.currentTarget.style.color = "var(--text-secondary)"; }}
           >
             {safeVal}{unit}
           </span>
@@ -2822,14 +2980,168 @@ function TypographyTab({ t, obsConfig, applyObsConfig }) {
   );
 }
 
-function OverlayTab({ t, obsEnabled, obsPort, obsPortInput, setObsPortInput, obsConfig, obsSubTab, setObsSubTab, toggleObs, applyObsConfig, onPortSave, OVERLAY_PRESETS, DEFAULT_OVERLAY_CONFIG }) {
+// Renders the OBS widget appearance purely in React — no iframe needed.
+function OverlayWidgetPreview({ c, fillWidth = false }) {
+  const toRgba = (hex, a) => {
+    if (!hex || hex.length < 7) return `rgba(0,0,0,${a})`;
+    const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+    return `rgba(${r},${g},${b},${a})`;
+  };
+  const shadow = c.showShadow ? `0 8px 32px rgba(0,0,0,${c.shadowStrength||0.35})` : "";
+  const bglow = (c.border&&(c.borderBlur||0)>0) ? `0 0 ${(c.borderBlur||0)*2}px ${c.borderBlur||0}px ${c.borderColor||"#EEA8FF"}` : "";
+  const art = c.artSize || 56;
+  const acc = c.accentColor || "#EEA8FF";
+  const txt = c.textColor || "#fff";
+  const blurVal = c.bgBlurEnabled && (c.bgBlur||0) > 0 ? `blur(${c.bgBlur}px)` : undefined;
+  // Widget corners
+  const _wc = (k) => ({ t: c[`cornerType${k}`] || "r", s: c[`radius${k}`] ?? c.borderRadius ?? 14 });
+  const estW = fillWidth ? 500 : (c.dynamicWidth ? 320 : (c.widgetWidth || 400));
+  const estH = (c.widgetHeight || 0) > 0 ? c.widgetHeight
+    : art + (c.paddingV || 12) * 2 + (c.showProgress !== false ? (c.progressHeight || 3) : 0);
+  const clipPath = buildCornerPath(estW, estH, { tl: _wc("TL"), tr: _wc("TR"), br: _wc("BR"), bl: _wc("BL") });
+  // Art corners
+  const _ac = (k) => ({ t: c[`artCornerType${k}`] || "r", s: c[`artRadius${k}`] ?? c.artRadius ?? 8 });
+  const artClipPath = buildCornerPath(art, art, { tl: _ac("TL"), tr: _ac("TR"), br: _ac("BR"), bl: _ac("BL") });
+  return (
+    <div style={{
+      display: "flex", alignItems: "center",
+      gap: c.gap||12, padding: `${c.paddingV||12}px ${c.paddingH||16}px`,
+      clipPath,
+      background: toRgba(c.bgColor||"#1a1a1a",(c.bgOpacity??90)/100),
+      width: fillWidth ? "100%" : c.dynamicWidth ? "max-content" : c.widgetWidth||400,
+      border: c.border ? `${c.borderWidth||1.5}px solid ${c.borderColor||"#EEA8FF"}` : "none",
+      boxShadow: [shadow,bglow].filter(Boolean).join(",") || "none",
+      backdropFilter: blurVal, WebkitBackdropFilter: blurVal,
+      position: "relative", overflow: "hidden",
+      fontFamily: c.fontFamily || "system-ui,sans-serif",
+      flexShrink: 0,
+    }}>
+      {c.showAlbumArt !== false && (
+        <div style={{
+          width: art, height: art,
+          clipPath: artClipPath,
+          background: toRgba(acc, 0.2),
+          display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+        }}>
+          <MusicNote size={art * 0.42} weight="fill" style={{ color: acc, opacity: 0.75 }} />
+        </div>
+      )}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: c.titleFontSize||14, fontWeight: 700, color: txt, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          Song Title
+        </div>
+        {c.showArtist !== false && (
+          <div style={{ fontSize: c.artistFontSize||12, color: toRgba(txt, 0.65), marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            {c.showAlbum !== false ? "Artist Name · Album" : "Artist Name"}
+          </div>
+        )}
+      </div>
+      {c.showProgress !== false && (
+        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: c.progressHeight||3, background: "rgba(255,255,255,0.12)" }}>
+          <div style={{ height: "100%", width: "45%", background: acc, borderRadius: "0 2px 2px 0" }} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function OverlayPreviewFloat({ config, onClose }) {
+  const [bg, setBg] = useState("dark");
+  const [pos, setPos] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("kiyoshi-overlay-preview-pos")) || { x: 120, y: 120 }; }
+    catch { return { x: 120, y: 120 }; }
+  });
+  const posRef = useRef(pos);
+  posRef.current = pos;
+
+  const startDrag = useCallback((e) => {
+    if (e.button !== 0 || e.target.closest("button")) return;
+    e.preventDefault();
+    const ox = e.clientX - posRef.current.x;
+    const oy = e.clientY - posRef.current.y;
+    const onMove = (me) => {
+      const np = { x: me.clientX - ox, y: me.clientY - oy };
+      setPos(np);
+      posRef.current = np;
+      localStorage.setItem("kiyoshi-overlay-preview-pos", JSON.stringify(np));
+    };
+    const onUp = () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  }, []);
+
+  const bgStyle = bg === "light" ? "#efefef"
+    : bg === "checkered" ? "repeating-conic-gradient(#aaa 0% 25%,#ddd 0% 50%) 0 0/20px 20px"
+    : "#111";
+
+  return createPortal(
+    <div style={{
+      position: "fixed", left: pos.x, top: pos.y, zIndex: 9998,
+      width: Math.min(600, Math.max(340, (config.widgetWidth||400) + 80)),
+      minWidth: 300, minHeight: 160,
+      display: "flex", flexDirection: "column",
+      background: "var(--bg-surface)", border: "0.5px solid var(--border)",
+      borderRadius: 10, boxShadow: "0 20px 60px rgba(0,0,0,0.75)",
+      fontFamily: "var(--font)", overflow: "hidden",
+      resize: "both",
+    }}>
+      {/* Title bar */}
+      <div onMouseDown={startDrag} style={{
+        display: "flex", alignItems: "center", gap: 8,
+        padding: "7px 10px", background: "var(--bg-elevated)",
+        borderBottom: "0.5px solid var(--border)",
+        cursor: "grab", userSelect: "none", flexShrink: 0,
+      }}>
+        <Eye size={13} style={{ color: "var(--accent)", flexShrink: 0 }} />
+        <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)", flex: 1 }}>Widget Preview</span>
+        {["dark", "light", "checkered"].map(id => (
+          <button key={id} onClick={() => setBg(id)} style={{
+            padding: "3px 8px", borderRadius: 4, border: "0.5px solid var(--border)",
+            background: bg === id ? "var(--accent-dim)" : "var(--bg-elevated)",
+            color: bg === id ? "var(--accent)" : "var(--text-muted)",
+            cursor: "pointer", fontSize: 11, fontFamily: "var(--font)",
+            fontWeight: bg === id ? 600 : 400, transition: "all 0.15s",
+          }}>{id.charAt(0).toUpperCase() + id.slice(1)}</button>
+        ))}
+        <div style={{ width: 1, height: 12, background: "var(--border)", margin: "0 2px" }} />
+        <button onClick={onClose} style={{
+          width: 20, height: 20, borderRadius: "50%", border: "none", cursor: "pointer",
+          background: "rgba(255,80,80,0.15)", color: "#ff6b6b",
+          display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, padding: 0,
+          transition: "background 0.15s",
+        }}
+          onMouseEnter={e => e.currentTarget.style.background = "rgba(255,80,80,0.35)"}
+          onMouseLeave={e => e.currentTarget.style.background = "rgba(255,80,80,0.15)"}
+        ><X size={10} weight="bold" /></button>
+      </div>
+      {/* Preview canvas */}
+      <div style={{
+        background: bgStyle,
+        padding: 24, display: "flex", alignItems: "center", justifyContent: "center",
+        flex: 1, overflow: "hidden",
+      }}>
+        <OverlayWidgetPreview c={config} fillWidth />
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+function OverlayTab({ t, obsEnabled, obsPort, obsPortInput, setObsPortInput, obsConfig, obsSubTab, setObsSubTab, toggleObs, applyObsConfig, onPortSave, OVERLAY_PRESETS, DEFAULT_OVERLAY_CONFIG, previewOpen, setPreviewOpen, obsProfiles, onSaveProfile, onLoadProfile, onDeleteProfile, onExportProfile, onImportProfiles, onResetConfig }) {
   const [copied, setCopied] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [profileName, setProfileName] = useState("");
+  const importFileRef = useRef(null);
   const overlayUrl = `http://localhost:${obsPort}/overlay`;
 
   const subTabs = [
     { id: "general",    label: t("overlayGeneral") },
     { id: "appearance", label: t("overlayAppearance") },
     { id: "layout",     label: t("overlayLayout") },
+    { id: "content",    label: t("overlayContent") },
     { id: "typography", label: t("overlayTypography") },
   ];
 
@@ -2841,7 +3153,7 @@ function OverlayTab({ t, obsEnabled, obsPort, obsPortInput, setObsPortInput, obs
           <button key={s.id} onClick={() => setObsSubTab(s.id)} style={{
             flex: 1, padding: "6px 0", borderRadius: "calc(var(--radius) - 2px)",
             background: obsSubTab === s.id ? "var(--bg-hover)" : "transparent",
-            color: obsSubTab === s.id ? "var(--text-primary)" : "var(--text-muted)",
+            color: obsSubTab === s.id ? "var(--text-primary)" : "var(--text-secondary)",
             border: "none", cursor: "pointer", fontSize: "var(--t12)",
             fontWeight: obsSubTab === s.id ? 600 : 400,
             transition: "all 0.15s", fontFamily: "var(--font)",
@@ -2893,6 +3205,15 @@ function OverlayTab({ t, obsEnabled, obsPort, obsPortInput, setObsPortInput, obs
                   }}>
                   {copied ? <Check size={13} /> : <Copy size={13} />}
                 </button>
+                <button onClick={() => setPreviewOpen(true)}
+                  style={{
+                    width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center",
+                    background: "var(--bg-elevated)", border: "0.5px solid var(--border)",
+                    borderRadius: "var(--radius)", cursor: "pointer", color: "var(--text-muted)",
+                    transition: "all 0.15s",
+                  }}>
+                  <Eye size={13} />
+                </button>
               </div>
             </OvlRow>
           )}
@@ -2908,30 +3229,103 @@ function OverlayTab({ t, obsEnabled, obsPort, obsPortInput, setObsPortInput, obs
       {/* ── Appearance ─────────────────────────────────────────────────────── */}
       {obsSubTab === "appearance" && (
         <>
-          <OvlSLabel>{t("overlayPreset")}</OvlSLabel>
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 4 }}>
-            {Object.keys(OVERLAY_PRESETS).map(key => (
-              <button key={key} onClick={() => applyObsConfig({ ...OVERLAY_PRESETS[key], preset: key })}
+          <OvlSLabel>{t("overlayProfiles")}</OvlSLabel>
+          {/* Profile list */}
+          {obsProfiles.length === 0 ? (
+            <div style={{ fontSize: "var(--t12)", color: "var(--text-muted)", padding: "10px 4px 8px", lineHeight: 1.5 }}>
+              {t("overlayProfilesEmpty")}
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 3, marginBottom: 4 }}>
+              {obsProfiles.map(p => (
+                <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "9px 12px", background: "var(--bg-elevated)", borderRadius: 8, cursor: "default" }}>
+                  <button onClick={() => onLoadProfile(p)} style={{
+                    flex: 1, textAlign: "left", background: "none", border: "none", cursor: "pointer",
+                    color: "var(--text-primary)", fontSize: "var(--t13)", fontFamily: "var(--font)", fontWeight: 500, padding: 0,
+                  }}>{p.name}</button>
+                  <button onClick={() => onExportProfile(p)} title={t("overlayProfileExport")} style={{
+                    display: "flex", alignItems: "center", padding: "4px 6px", borderRadius: 5,
+                    background: "none", border: "none", cursor: "pointer",
+                    color: "var(--text-muted)", transition: "color 0.12s",
+                  }} onMouseEnter={e => e.currentTarget.style.color = "var(--text-primary)"}
+                     onMouseLeave={e => e.currentTarget.style.color = "var(--text-muted)"}>
+                    <FaIcon name="file-export" size={14} />
+                  </button>
+                  <button onClick={() => onDeleteProfile(p.id)} title={t("overlayProfileDelete")} style={{
+                    display: "flex", alignItems: "center", padding: "4px 6px", borderRadius: 5,
+                    background: "none", border: "none", cursor: "pointer",
+                    color: "var(--text-muted)", transition: "color 0.12s",
+                  }} onMouseEnter={e => e.currentTarget.style.color = "var(--error, #e05252)"}
+                     onMouseLeave={e => e.currentTarget.style.color = "var(--text-muted)"}>
+                    <Trash size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          {/* Save / Import row */}
+          {savingProfile ? (
+            <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
+              <input
+                autoFocus value={profileName} onChange={e => setProfileName(e.target.value)}
+                placeholder={t("overlayProfileNamePlaceholder")}
+                onKeyDown={e => {
+                  if (e.key === "Enter" && profileName.trim()) { onSaveProfile(profileName); setSavingProfile(false); setProfileName(""); }
+                  if (e.key === "Escape") { setSavingProfile(false); setProfileName(""); }
+                }}
                 style={{
-                  padding: "6px 14px", borderRadius: "var(--radius)", fontSize: "var(--t12)",
-                  background: obsConfig.preset === key ? "var(--accent)" : "var(--bg-elevated)",
-                  color: obsConfig.preset === key ? "#fff" : "var(--text-muted)",
-                  border: `0.5px solid ${obsConfig.preset === key ? "var(--accent)" : "var(--border)"}`,
-                  cursor: "pointer", fontFamily: "var(--font)", fontWeight: obsConfig.preset === key ? 600 : 400,
-                  transition: "all 0.15s",
-                }}>
-                {t(`overlayPreset_${key}`) || key}
-              </button>
-            ))}
-          </div>
+                  flex: 1, padding: "7px 10px", borderRadius: 7, border: "1px solid var(--border)",
+                  background: "var(--bg-elevated)", color: "var(--text-primary)",
+                  fontSize: "var(--t13)", fontFamily: "var(--font)", outline: "none",
+                }}
+              />
+              <button onClick={() => { if (profileName.trim()) { onSaveProfile(profileName); setSavingProfile(false); setProfileName(""); } }}
+                disabled={!profileName.trim()} style={{
+                  padding: "7px 12px", borderRadius: 7, border: "none", cursor: "pointer",
+                  background: "var(--accent)", color: "#fff", fontSize: "var(--t12)", fontFamily: "var(--font)",
+                  opacity: profileName.trim() ? 1 : 0.4,
+                }}>{t("overlayProfileSave")}</button>
+              <button onClick={() => { setSavingProfile(false); setProfileName(""); }} style={{
+                padding: "7px 10px", borderRadius: 7, border: "1px solid var(--border)",
+                background: "none", color: "var(--text-muted)", fontSize: "var(--t12)", fontFamily: "var(--font)", cursor: "pointer",
+              }}><X size={13} /></button>
+            </div>
+          ) : (
+            <div style={{ display: "flex", gap: 4, marginBottom: 6 }}>
+              <button onClick={() => setSavingProfile(true)} style={{
+                flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                padding: "7px 0", borderRadius: 7, border: "none",
+                background: "var(--bg-elevated)", color: "var(--text-secondary)",
+                fontSize: "var(--t12)", fontFamily: "var(--font)", cursor: "pointer",
+              }}><FaIcon name="floppy-disk" size={13} /> {t("overlayProfileSaveCurrent")}</button>
+              <button onClick={() => importFileRef.current?.click()} style={{
+                flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                padding: "7px 0", borderRadius: 7, border: "none",
+                background: "var(--bg-elevated)", color: "var(--text-secondary)",
+                fontSize: "var(--t12)", fontFamily: "var(--font)", cursor: "pointer",
+              }}><FaIcon name="file-import" size={13} /> {t("overlayProfileImport")}</button>
+            </div>
+          )}
+          <input ref={importFileRef} type="file" accept=".json" style={{ display: "none" }}
+            onChange={e => { if (e.target.files[0]) { onImportProfiles(e.target.files[0]); e.target.value = ""; } }} />
+          {/* Reset */}
+          <button onClick={onResetConfig} style={{
+            width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+            padding: "7px 0", borderRadius: 7, border: "none",
+            background: "none", color: "var(--text-muted)", fontSize: "var(--t12)", fontFamily: "var(--font)", cursor: "pointer", marginBottom: 8,
+          }}><ArrowClockwise size={13} /> {t("overlayProfileReset")}</button>
 
           <OvlSLabel>{t("overlayBgColor")}</OvlSLabel>
           <OvlColorRow label={t("overlayBgColor")} icon={<Palette size={15} />} value={obsConfig.bgColor}
             onChange={v => applyObsConfig({ bgColor: v, preset: "custom" })} />
           <OvlSliderRow label={t("overlayBgOpacity")} icon={<CircleHalf size={15} />} value={obsConfig.bgOpacity} min={0} max={100} unit="%"
             onChange={v => applyObsConfig({ bgOpacity: v, preset: "custom" })} />
-          <OvlSliderRow label={t("overlayBgBlur")} icon={<Eye size={15} />} value={obsConfig.bgBlur} min={0} max={20} unit="px"
-            onChange={v => applyObsConfig({ bgBlur: v, preset: "custom" })} />
+          <OvlToggleRow label={t("overlayBgBlurEnabled")} icon={<FaIcon name="image" />} value={obsConfig.bgBlurEnabled}
+            onChange={v => applyObsConfig({ bgBlurEnabled: v, preset: "custom" })} />
+          {obsConfig.bgBlurEnabled && (
+            <OvlSliderRow label={t("overlayBgBlur")} icon={<Eye size={15} />} value={obsConfig.bgBlur} min={1} max={40} unit="px"
+              onChange={v => applyObsConfig({ bgBlur: v, preset: "custom" })} />
+          )}
 
           <OvlSLabel>{t("overlayAccentColor")}</OvlSLabel>
           <OvlColorRow label={t("overlayAccentColor")} icon={<Palette size={15} />} value={obsConfig.accentColor}
@@ -2939,17 +3333,46 @@ function OverlayTab({ t, obsEnabled, obsPort, obsPortInput, setObsPortInput, obs
           <OvlColorRow label={t("overlayTextColor")} icon={<Palette size={15} />} value={obsConfig.textColor}
             onChange={v => applyObsConfig({ textColor: v, preset: "custom" })} />
 
-          <OvlSLabel>{t("overlayRadius")}</OvlSLabel>
-          <OvlSliderRow label={t("overlayRadius")} icon={<Sliders size={15} />} value={obsConfig.borderRadius} min={0} max={40} unit="px"
-            onChange={v => applyObsConfig({ borderRadius: v, preset: "custom" })} />
-          <OvlToggleRow label={t("overlayShowShadow")} icon={<WaveformLines size={15} />} value={obsConfig.showShadow}
+          <OvlSLabel>{t("overlayCorners")}</OvlSLabel>
+          {/* Quick presets */}
+          <div style={{ display: "flex", gap: 4, marginBottom: 2 }}>
+            {[
+              { file: "corners-all-round.svg", label: t("overlayAllRound"), types: "r" },
+              { file: "corners-all-bevel.svg", label: t("overlayAllBevel"), types: "b" },
+            ].map(p => (
+              <button key={p.types} onClick={() => applyObsConfig({
+                cornerTypeTL: p.types, cornerTypeTR: p.types,
+                cornerTypeBR: p.types, cornerTypeBL: p.types,
+                preset: "custom",
+              })} style={{
+                flex: 1, padding: "6px 0", borderRadius: 7, border: "1px solid var(--border)",
+                background: "var(--bg-elevated)", color: "var(--text-secondary)",
+                fontSize: "var(--t12)", cursor: "pointer", fontFamily: "var(--font)",
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                transition: "background 0.12s",
+              }}>
+                <CornerMaskIcon file={p.file} corner="tl" size={13} />
+                {p.label}
+              </button>
+            ))}
+          </div>
+          <CornerGridMixed
+            tl={{ type: obsConfig.cornerTypeTL || "r", value: obsConfig.radiusTL ?? obsConfig.borderRadius ?? 14 }}
+            tr={{ type: obsConfig.cornerTypeTR || "r", value: obsConfig.radiusTR ?? obsConfig.borderRadius ?? 14 }}
+            br={{ type: obsConfig.cornerTypeBR || "r", value: obsConfig.radiusBR ?? obsConfig.borderRadius ?? 14 }}
+            bl={{ type: obsConfig.cornerTypeBL || "r", value: obsConfig.radiusBL ?? obsConfig.borderRadius ?? 14 }}
+            onChangeType={(corner, t) => applyObsConfig({ [`cornerType${corner.toUpperCase()}`]: t, preset: "custom" })}
+            onChangeValue={(corner, v) => applyObsConfig({ [`radius${corner.toUpperCase()}`]: v, preset: "custom" })}
+            min={0} max={40}
+          />
+          <OvlToggleRow label={t("overlayShowShadow")} icon={<PubIcon file="drop-shadow.svg" />} value={obsConfig.showShadow}
             onChange={v => applyObsConfig({ showShadow: v, preset: "custom" })} />
           {obsConfig.showShadow && (
             <OvlSliderRow label={t("overlayShadowStrength")} icon={<Sliders size={15} />}
               value={Math.round((obsConfig.shadowStrength ?? 0.35) * 100)} min={5} max={80} unit="%"
               onChange={v => applyObsConfig({ shadowStrength: v / 100, preset: "custom" })} />
           )}
-          <OvlToggleRow label={t("overlayBorder")} icon={<CircleHalf size={15} />} value={obsConfig.border}
+          <OvlToggleRow label={t("overlayBorder")} icon={<FaIcon name="border-outer" />} value={obsConfig.border}
             onChange={v => applyObsConfig({ border: v, preset: "custom" })} />
           {obsConfig.border && (
             <>
@@ -2958,6 +3381,9 @@ function OverlayTab({ t, obsEnabled, obsPort, obsPortInput, setObsPortInput, obs
               <OvlSliderRow label={t("overlayBorderWidth")} icon={<Sliders size={15} />}
                 value={obsConfig.borderWidth ?? 1.5} min={0.5} max={16} step={0.5} unit="px"
                 onChange={v => applyObsConfig({ borderWidth: v, preset: "custom" })} />
+              <OvlSliderRow label={t("overlayBorderBlur")} icon={<Sliders size={15} />}
+                value={obsConfig.borderBlur ?? 0} min={0} max={20} unit="px"
+                onChange={v => applyObsConfig({ borderBlur: v, preset: "custom" })} />
             </>
           )}
         </>
@@ -2983,40 +3409,75 @@ function OverlayTab({ t, obsEnabled, obsPort, obsPortInput, setObsPortInput, obs
             })}
           </div>
           {!obsConfig.dynamicWidth && (
-            <OvlSliderRow label={t("overlayWidgetWidth")} icon={<Sliders size={15} />} value={obsConfig.widgetWidth ?? 400} min={200} max={1200} unit="px"
+            <OvlSliderRow label={t("overlayWidgetWidth")} icon={<PubIcon file="widget-width.svg" />} value={obsConfig.widgetWidth ?? 400} min={200} max={1200} unit="px"
               onChange={v => applyObsConfig({ widgetWidth: v })} />
           )}
-          <OvlSliderRow label={t("overlayWidgetHeight")} icon={<Sliders size={15} />} value={obsConfig.widgetHeight ?? 0} min={0} max={400} unit="px"
+          <OvlSliderRow label={t("overlayWidgetHeight")} icon={<PubIcon file="widget-height.svg" />} value={obsConfig.widgetHeight ?? 0} min={0} max={400} unit="px"
             onChange={v => applyObsConfig({ widgetHeight: v })} />
           <div style={{ fontSize: "var(--t11)", color: "var(--text-muted)", padding: "2px 4px 8px", lineHeight: 1.5 }}>{t("overlayWidgetHeightHint")}</div>
 
           <OvlSLabel>{t("overlayArtSize")}</OvlSLabel>
           <OvlSliderRow label={t("overlayArtSize")} icon={<ImageSquare size={15} />} value={obsConfig.artSize} min={32} max={120} unit="px"
             onChange={v => applyObsConfig({ artSize: v })} />
-          <OvlSliderRow label={t("overlayArtRadius")} icon={<Sliders size={15} />} value={obsConfig.artRadius} min={0} max={60} unit="px"
-            onChange={v => applyObsConfig({ artRadius: v })} />
+
+          <OvlSLabel>{t("overlayArtRadius")}</OvlSLabel>
+          {/* Quick presets */}
+          <div style={{ display: "flex", gap: 4, marginBottom: 2 }}>
+            {[
+              { file: "corners-all-round.svg", label: t("overlayAllRound"), types: "r" },
+              { file: "corners-all-bevel.svg", label: t("overlayAllBevel"), types: "b" },
+            ].map(p => (
+              <button key={p.types} onClick={() => applyObsConfig({
+                artCornerTypeTL: p.types, artCornerTypeTR: p.types,
+                artCornerTypeBR: p.types, artCornerTypeBL: p.types,
+              })} style={{
+                flex: 1, padding: "6px 0", borderRadius: 7, border: "1px solid var(--border)",
+                background: "var(--bg-elevated)", color: "var(--text-secondary)",
+                fontSize: "var(--t12)", cursor: "pointer", fontFamily: "var(--font)",
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                transition: "background 0.12s",
+              }}>
+                <CornerMaskIcon file={p.file} corner="tl" size={13} />
+                {p.label}
+              </button>
+            ))}
+          </div>
+          <CornerGridMixed
+            tl={{ type: obsConfig.artCornerTypeTL || "r", value: obsConfig.artRadiusTL ?? obsConfig.artRadius ?? 8 }}
+            tr={{ type: obsConfig.artCornerTypeTR || "r", value: obsConfig.artRadiusTR ?? obsConfig.artRadius ?? 8 }}
+            br={{ type: obsConfig.artCornerTypeBR || "r", value: obsConfig.artRadiusBR ?? obsConfig.artRadius ?? 8 }}
+            bl={{ type: obsConfig.artCornerTypeBL || "r", value: obsConfig.artRadiusBL ?? obsConfig.artRadius ?? 8 }}
+            onChangeType={(corner, t) => applyObsConfig({ [`artCornerType${corner.toUpperCase()}`]: t })}
+            onChangeValue={(corner, v) => applyObsConfig({ [`artRadius${corner.toUpperCase()}`]: v })}
+            min={0} max={60}
+          />
 
           <OvlSLabel>{t("overlayPaddingV")}</OvlSLabel>
-          <OvlSliderRow label={t("overlayPaddingV")} icon={<Sliders size={15} />} value={obsConfig.paddingV} min={4} max={32} unit="px"
+          <OvlSliderRow label={t("overlayPaddingV")} icon={<FaIcon name="distribute-spacing-vertical" />} value={obsConfig.paddingV} min={4} max={32} unit="px"
             onChange={v => applyObsConfig({ paddingV: v })} />
-          <OvlSliderRow label={t("overlayPaddingH")} icon={<Sliders size={15} />} value={obsConfig.paddingH} min={8} max={40} unit="px"
+          <OvlSliderRow label={t("overlayPaddingH")} icon={<FaIcon name="distribute-spacing-horizontal" />} value={obsConfig.paddingH} min={8} max={40} unit="px"
             onChange={v => applyObsConfig({ paddingH: v })} />
-          <OvlSliderRow label={t("overlayGap")} icon={<Sliders size={15} />} value={obsConfig.gap} min={4} max={32} unit="px"
+          <OvlSliderRow label={t("overlayGap")} icon={<PubIcon file="content-spacing.svg" />} value={obsConfig.gap} min={4} max={32} unit="px"
             onChange={v => applyObsConfig({ gap: v })} />
-          <OvlSliderRow label={t("overlayProgressHeight")} icon={<WaveformLines size={15} />} value={obsConfig.progressHeight} min={1} max={8} unit="px"
+          <OvlSliderRow label={t("overlayProgressHeight")} icon={<PubIcon file="progress-bar-height.svg" />} value={obsConfig.progressHeight} min={1} max={8} unit="px"
             onChange={v => applyObsConfig({ progressHeight: v })} />
+        </>
+      )}
 
+      {/* ── Content ────────────────────────────────────────────────────────── */}
+      {obsSubTab === "content" && (
+        <>
           <OvlSLabel>{t("overlayContent")}</OvlSLabel>
-          <OvlToggleRow label={t("overlayShowAlbumArt")} icon={<ImageSquare size={15} />} value={obsConfig.showAlbumArt}
-            onChange={v => applyObsConfig({ showAlbumArt: v })} />
-          <OvlToggleRow label={t("overlayShowArtist")} icon={<Microphone size={15} />} value={obsConfig.showArtist}
-            onChange={v => applyObsConfig({ showArtist: v })} />
-          <OvlToggleRow label={t("overlayShowAlbum")} icon={<VinylRecord size={15} />} value={obsConfig.showAlbum}
-            onChange={v => applyObsConfig({ showAlbum: v })} />
-          <OvlToggleRow label={t("overlayShowProgress")} icon={<WaveformLines size={15} />} value={obsConfig.showProgress}
-            onChange={v => applyObsConfig({ showProgress: v })} />
-          <OvlToggleRow label={t("overlayAutoHide")} desc={t("overlayAutoHideDesc")} icon={<Eye size={15} />} value={obsConfig.autoHide}
-            onChange={v => applyObsConfig({ autoHide: v })} />
+          <OvlToggleRow label={t("overlayShowAlbumArt")} icon={<ImageSquare size={15} />} value={obsConfig.showAlbumArt} onChange={v => applyObsConfig({ showAlbumArt: v })} />
+          <OvlToggleRow label={t("overlayShowArtist")} icon={<Microphone size={15} />} value={obsConfig.showArtist} onChange={v => applyObsConfig({ showArtist: v })} />
+          <OvlToggleRow label={t("overlayShowAlbum")} icon={<VinylRecord size={15} />} value={obsConfig.showAlbum} onChange={v => applyObsConfig({ showAlbum: v })} />
+          <OvlToggleRow label={t("overlayShowProgress")} icon={<WaveformLines size={15} />} value={obsConfig.showProgress} onChange={v => applyObsConfig({ showProgress: v })} />
+          <OvlToggleRow label={t("overlayAutoHide")} desc={t("overlayAutoHideDesc")} icon={<Eye size={15} />} value={obsConfig.autoHide} onChange={v => applyObsConfig({ autoHide: v })} />
+          <OvlToggleRow label={t("overlayScrollTitle")} desc={t("overlayScrollTitleDesc")} icon={<TextSize size={15} />} value={obsConfig.scrollTitle} onChange={v => applyObsConfig({ scrollTitle: v })} />
+          {obsConfig.scrollTitle && (
+            <OvlSliderRow label={t("overlayScrollSpeed")} icon={<Sliders size={15} />} value={obsConfig.scrollSpeed ?? 80} min={10} max={200} step={10} unit="px/s"
+              onChange={v => applyObsConfig({ scrollSpeed: v })} />
+          )}
         </>
       )}
 
@@ -3028,8 +3489,9 @@ function OverlayTab({ t, obsEnabled, obsPort, obsPortInput, setObsPortInput, obs
   );
 }
 
-function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, animations, onAnimationsChange, lyricsFontSize, onLyricsFontSizeChange, lyricsTranslationFontSize, onLyricsTranslationFontSizeChange, lyricsRomajiFontSize, onLyricsRomajiFontSizeChange, lyricsProviders, onLyricsProvidersChange, autoplay, onAutoplayChange, crossfade, onCrossfadeChange, discordRpc, onDiscordRpcChange, language, onLanguageChange, updateInfo, onCheckUpdate, updateDownloading, updateDownloadProgress, updateDownloaded, onDownloadUpdate, onInstallUpdate, onCancelDownload, initialTab, onTabOpened, hideExplicit, onHideExplicitChange, uiZoom, onUiZoomChange, appFontScale, onFontScaleChange, showRomaji, onToggleRomaji, showAgentTags, onToggleAgentTags, highContrast, onToggleHighContrast, appFont, onAppFontChange, ambientVisualizer, onToggleAmbientVisualizer,
-  obsEnabled, obsPort, obsPortInput, setObsPortInput, obsConfig, obsSubTab, setObsSubTab, toggleObs, applyObsConfig, onObsPortSave, OVERLAY_PRESETS, DEFAULT_OVERLAY_CONFIG }) {
+function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, animations, onAnimationsChange, lyricsFontSize, onLyricsFontSizeChange, lyricsTranslationFontSize, onLyricsTranslationFontSizeChange, lyricsRomajiFontSize, onLyricsRomajiFontSizeChange, lyricsProviders, onLyricsProvidersChange, autoplay, onAutoplayChange, crossfade, onCrossfadeChange, closeTray, onCloseTrayChange, discordRpc, onDiscordRpcChange, language, onLanguageChange, updateInfo, onCheckUpdate, updateDownloading, updateDownloadProgress, updateDownloaded, onDownloadUpdate, onInstallUpdate, onCancelDownload, initialTab, onTabOpened, hideExplicit, onHideExplicitChange, uiZoom, onUiZoomChange, appFontScale, onFontScaleChange, showRomaji, onToggleRomaji, showAgentTags, onToggleAgentTags, highContrast, onToggleHighContrast, appFont, onAppFontChange, ambientVisualizer, onToggleAmbientVisualizer,
+  obsEnabled, obsPort, obsPortInput, setObsPortInput, obsConfig, obsSubTab, setObsSubTab, toggleObs, applyObsConfig, onObsPortSave, OVERLAY_PRESETS, DEFAULT_OVERLAY_CONFIG,
+  obsProfiles, onSaveProfile, onLoadProfile, onDeleteProfile, onExportProfile, onImportProfiles, onResetConfig }) {
   const anim = useAnimations();
   const t = useLang();
   const [tab, setTab] = useState(initialTab || "darstellung");
@@ -3055,6 +3517,7 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
   };
   const [checkingUpdate, setCheckingUpdate] = useState(false);
   const [colorPickerOpen, setColorPickerOpen] = useState(false);
+  const [overlayPreviewOpen, setOverlayPreviewOpen] = useState(false);
   const colorPickerTriggerRef = useRef(null);
   useEffect(() => { if (initialTab) { setTab(initialTab); onTabOpened?.(); } }, [initialTab]);
   const chromiumVersion = window.navigator.userAgent.match(/Chrome\/([\d.]+)/)?.[1] ?? "—";
@@ -3736,6 +4199,9 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                     <span style={{ fontSize: "var(--t12)", color: "var(--text-muted)", width: 28 }}>{crossfade}s</span>
                   </div>
                 </SettingRow>
+                <SettingRow label={t("closeTray")} description={t("closeTrayDesc")} icon={<X />}>
+                  <Toggle value={closeTray} onChange={onCloseTrayChange} />
+                </SettingRow>
                 <SettingRow label={t("discordRpc")} description={t("discordRpcDesc")} icon={<ShareNodes />}>
                   <Toggle value={discordRpc} onChange={onDiscordRpcChange} />
                 </SettingRow>
@@ -4051,8 +4517,18 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                 OVERLAY_PRESETS={OVERLAY_PRESETS}
                 DEFAULT_OVERLAY_CONFIG={DEFAULT_OVERLAY_CONFIG}
                 onPortSave={onObsPortSave}
+                previewOpen={overlayPreviewOpen}
+                setPreviewOpen={setOverlayPreviewOpen}
+                obsProfiles={obsProfiles}
+                onSaveProfile={onSaveProfile}
+                onLoadProfile={onLoadProfile}
+                onDeleteProfile={onDeleteProfile}
+                onExportProfile={onExportProfile}
+                onImportProfiles={onImportProfiles}
+                onResetConfig={onResetConfig}
               />
             )}
+            {overlayPreviewOpen && <OverlayPreviewFloat config={obsConfig} onClose={() => setOverlayPreviewOpen(false)} />}
 
             {tab === "update" && (
               <>
@@ -4589,6 +5065,7 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
   const crossfadeAudioRef = useRef(new Audio());
   const crossfadeActiveRef = useRef(false);
   const crossfadeNextTrackRef = useRef(null);
+  const crossfadeStartTsRef = useRef(0);
   const skipStreamResetRef = useRef(false);
   const _lastProgressTs = useRef(0); // throttle: last time setProgress was called
   useEffect(() => { repeatRef.current = repeat; }, [repeat]);
@@ -4727,28 +5204,32 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
     const a = audioRef.current;
     if (!a || !streamUrl) return;
 
-    // If crossfade already transferred this track to main audio, skip restart
-    if (skipStreamResetRef.current) {
-      skipStreamResetRef.current = false;
+    const cf = crossfadeAudioRef.current;
+
+    // Check whether crossfade already transferred this track to main audio.
+    // If so, skip the src reset — but still fall through to attach listeners.
+    const skipSrcReset = skipStreamResetRef.current;
+    skipStreamResetRef.current = false;
+
+    if (skipSrcReset) {
+      // Audio already playing from crossfade transfer — just sync state
       setIsPlaying(true);
       if (a.duration) setDuration(a.duration);
-      return;
+      // Don't touch a.src — fall through to register listeners below
+    } else {
+      // Cancel any in-progress crossfade from the previous track
+      crossfadeActiveRef.current = false;
+      crossfadeNextTrackRef.current = null;
+      cf.pause();
+      cf.volume = 0;
+
+      a.src = streamUrl;
+      a.volume = volCurve(volume);
+      volumeRef.current = volume;
+      a.play().catch(e => console.error("[Player] play() error:", e));
+      setIsPlaying(true);
+      setProgress(0);
     }
-
-    // Cancel any in-progress crossfade from the previous track
-    const cf = crossfadeAudioRef.current;
-    crossfadeActiveRef.current = false;
-    crossfadeNextTrackRef.current = null;
-    cf.pause();
-    cf.volume = 0;
-
-    console.log("[Player] streamUrl →", streamUrl?.substring(0, 80));
-    a.src = streamUrl;
-    a.volume = volCurve(volume);
-    volumeRef.current = volume;
-    a.play().catch(e => console.error("[Player] play() error:", e));
-    setIsPlaying(true);
-    setProgress(0);
 
     // IpcAudio may return 0 when Rust can't determine duration from metadata;
     // fall back to the track's formatted duration string in that case.
@@ -4758,7 +5239,10 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
     };
 
     const onEnd = () => {
-      if (crossfadeActiveRef.current && crossfadeNextTrackRef.current) {
+      // Only do the crossfade transfer if cf.src is actually loaded —
+      // if fetchUrl() hasn't returned yet, cf.src is "" and we must NOT
+      // set skipStreamResetRef, otherwise the normal stream setup is blocked.
+      if (crossfadeActiveRef.current && crossfadeNextTrackRef.current && cf.src) {
         // Crossfade audio is already playing — transfer it to the main element
         const next = crossfadeNextTrackRef.current;
         crossfadeNextTrackRef.current = null;
@@ -4773,19 +5257,28 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
         a.play().catch(() => {});
         skipStreamResetRef.current = true;
         setTrack(next);
-      } else if (repeatRef.current === "one") {
-        a.currentTime = 0; a.play();
       } else {
-        const next = getAdjacentTrack("next");
-        if (next) setTrack(next);
-        else if (repeatRef.current === "none") setIsPlaying(false);
+        // Either no crossfade, or fetchUrl() hadn't returned in time.
+        // Clean up any partial crossfade state and restore volume (was faded to 0).
+        crossfadeActiveRef.current = false;
+        crossfadeNextTrackRef.current = null;
+        cf.pause();
+        cf.src = "";
+        a.volume = volCurve(volumeRef.current);
+
+        if (repeatRef.current === "one") {
+          a.currentTime = 0; a.play();
+        } else {
+          const next = getAdjacentTrack("next");
+          if (next) setTrack(next);
+          else if (repeatRef.current === "none") setIsPlaying(false);
+        }
       }
     };
 
     // Combined timeupdate handler: progress update (throttled) + crossfade logic
     const onTimeUpdate = () => {
       // Throttle setProgress to max 4× per second to avoid excessive re-renders.
-      // Rust emits audio-progress every 100 ms (10×/sec); we only need ~4× for the seekbar.
       const now = performance.now();
       if (now - _lastProgressTs.current >= 250) {
         _lastProgressTs.current = now;
@@ -4795,7 +5288,7 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
       if (!crossfadeRef.current || crossfadeRef.current <= 0 || !a.duration) return;
       const remaining = a.duration - a.currentTime;
 
-      // Fade out main audio
+      // Fade out main audio linearly over the crossfade window
       if (remaining <= crossfadeRef.current && remaining > 0) {
         const vol = Math.max(0, remaining / crossfadeRef.current);
         a.volume = vol * volCurve(volumeRef.current);
@@ -4804,6 +5297,7 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
       // Start crossfade audio (once) when window begins
       if (remaining <= crossfadeRef.current && !crossfadeActiveRef.current) {
         crossfadeActiveRef.current = true;
+        crossfadeStartTsRef.current = Date.now(); // record exact window start
         const next = getAdjacentTrack("next");
         if (!next) return;
         crossfadeNextTrackRef.current = next;
@@ -4812,12 +5306,13 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
           cf.src = url;
           cf.volume = 0;
           cf.play().catch(() => {});
-          // Fade in crossfade audio over the crossfade window
+          // Fade-in is synced to when the crossfade WINDOW started, not when
+          // fetchUrl resolved — so it stays in lock-step with the fade-out
+          // even if the URL fetch took a second or two.
           const cfMs = crossfadeRef.current * 1000;
-          const startTs = Date.now();
           const fadeTick = () => {
             if (!crossfadeActiveRef.current) return;
-            const pct = Math.min(1, (Date.now() - startTs) / cfMs);
+            const pct = Math.min(1, (Date.now() - crossfadeStartTsRef.current) / cfMs);
             cf.volume = pct * volCurve(volumeRef.current);
             if (pct < 1) requestAnimationFrame(fadeTick);
           };
@@ -4826,6 +5321,9 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
       }
     };
 
+    // Always register listeners — even after a crossfade transfer.
+    // Previously the early return for skipSrcReset lost these listeners,
+    // which broke progress tracking, track-end detection and subsequent crossfades.
     a.addEventListener("timeupdate", onTimeUpdate);
     a.addEventListener("loadedmetadata", onDur);
     a.addEventListener("ended", onEnd);
@@ -9187,6 +9685,10 @@ export default function App() {
   const [currentTrack, setCurrentTrack] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [discordRpc, setDiscordRpc] = useState(() => localStorage.getItem("kiyoshi-discord-rpc") !== "false");
+  const [closeTray, setCloseTray] = useState(() => localStorage.getItem("kiyoshi-close-tray") !== "false");
+  useEffect(() => {
+    import("@tauri-apps/api/core").then(({ invoke }) => invoke("set_close_to_tray", { enabled: closeTray }).catch(() => {}));
+  }, []);
 
   // ── OBS Overlay ──────────────────────────────────────────────────────────────
   const DEFAULT_OVERLAY_CONFIG = {
@@ -9200,11 +9702,17 @@ export default function App() {
     fontFamily: "system-ui, sans-serif",
     titleFontSize: 14, artistFontSize: 12,
     dynamicWidth: false, widgetWidth: 400, widgetHeight: 0, artSize: 56, artRadius: 8,
+    artRadiusTL: 8, artRadiusTR: 8, artRadiusBR: 8, artRadiusBL: 8,
+    artCornerTypeTL: "r", artCornerTypeTR: "r", artCornerTypeBR: "r", artCornerTypeBL: "r",
     paddingV: 12, paddingH: 16, gap: 12,
     progressHeight: 3,
     showShadow: false, shadowStrength: 0.35,
-    bgBlur: 0,
+    bgBlur: 10, bgBlurEnabled: false,
     autoHide: false,
+    scrollTitle: false, scrollSpeed: 80,
+    radiusTL: 14, radiusTR: 14, radiusBR: 14, radiusBL: 14,
+    cornerTypeTL: "r", cornerTypeTR: "r", cornerTypeBR: "r", cornerTypeBL: "r",
+    borderBlur: 0,
   };
   const OVERLAY_PRESETS = {
     basic:   { bgColor: "#1a1a1a", bgOpacity: 90, accentColor: "#ffffff", textColor: "#ffffff", borderRadius: 14, border: false },
@@ -9225,6 +9733,67 @@ export default function App() {
     localStorage.setItem("kiyoshi-obs-config", JSON.stringify(next));
     fetch(`${API}/overlay/config`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(next) }).catch(() => {});
   };
+
+  const [obsProfiles, setObsProfiles] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("kiyoshi-obs-profiles") || "[]"); }
+    catch { return []; }
+  });
+  const _saveProfiles = (list) => { setObsProfiles(list); localStorage.setItem("kiyoshi-obs-profiles", JSON.stringify(list)); };
+  const saveObsProfile = (name) => {
+    _saveProfiles([...obsProfiles, { id: Date.now(), name: name.trim(), config: { ...obsConfig } }]);
+  };
+  const loadObsProfile = (profile) => {
+    const next = { ...DEFAULT_OVERLAY_CONFIG, ...profile.config };
+    setObsConfig(next);
+    localStorage.setItem("kiyoshi-obs-config", JSON.stringify(next));
+    fetch(`${API}/overlay/config`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(next) }).catch(() => {});
+  };
+  const deleteObsProfile = (id) => _saveProfiles(obsProfiles.filter(p => p.id !== id));
+  const exportObsProfile = async (profile) => {
+    const content = JSON.stringify({ kiyoshiProfile: true, name: profile.name, config: profile.config }, null, 2);
+    const defaultName = `kiyoshi-${profile.name.replace(/[^a-z0-9]/gi, "-").toLowerCase()}.json`;
+    try {
+      const { save } = await import("@tauri-apps/plugin-dialog");
+      const { writeTextFile } = await import("@tauri-apps/plugin-fs");
+      const path = await save({
+        defaultPath: defaultName,
+        filters: [{ name: "Kiyoshi Profile", extensions: ["json"] }],
+      });
+      if (path) await writeTextFile(path, content);
+    } catch {
+      // Fallback for non-Tauri environments
+      const blob = new Blob([content], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = Object.assign(document.createElement("a"), { href: url, download: defaultName });
+      document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+    }
+  };
+  const importObsProfiles = (file) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const raw = JSON.parse(e.target.result);
+        const list = (Array.isArray(raw) ? raw : [raw]).filter(p => p.name && p.config)
+          .map(p => ({ id: Date.now() + Math.random(), name: p.name, config: p.config }));
+        if (list.length) _saveProfiles([...obsProfiles, ...list]);
+      } catch {}
+    };
+    reader.readAsText(file);
+  };
+  const resetObsConfig = () => {
+    setObsConfig(DEFAULT_OVERLAY_CONFIG);
+    localStorage.setItem("kiyoshi-obs-config", JSON.stringify(DEFAULT_OVERLAY_CONFIG));
+    fetch(`${API}/overlay/config`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(DEFAULT_OVERLAY_CONFIG) }).catch(() => {});
+  };
+
+  // Sync saved config to backend on mount (recovers after server restart)
+  useEffect(() => {
+    fetch(`${API}/overlay/config`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(obsConfig),
+    }).catch(() => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const toggleObs = async (enabled) => {
     setObsEnabled(enabled);
     localStorage.setItem("kiyoshi-obs-enabled", enabled);
@@ -10314,6 +10883,8 @@ export default function App() {
             onAutoplayChange={v => { setAutoplay(v); localStorage.setItem("kiyoshi-autoplay", v); }}
             crossfade={crossfade}
             onCrossfadeChange={v => { setCrossfade(v); localStorage.setItem("kiyoshi-crossfade", v); }}
+            closeTray={closeTray}
+            onCloseTrayChange={v => { setCloseTray(v); localStorage.setItem("kiyoshi-close-tray", String(v)); import("@tauri-apps/api/core").then(({ invoke }) => invoke("set_close_to_tray", { enabled: v }).catch(() => {})); }}
             discordRpc={discordRpc}
             onDiscordRpcChange={(v) => { setDiscordRpc(v); localStorage.setItem("kiyoshi-discord-rpc", v); if (!v) import("@tauri-apps/api/core").then(({ invoke }) => invoke("clear_discord_rpc").catch(() => {})); }}
             language={language}
@@ -10364,6 +10935,13 @@ export default function App() {
             applyObsConfig={applyObsConfig}
             OVERLAY_PRESETS={OVERLAY_PRESETS}
             DEFAULT_OVERLAY_CONFIG={DEFAULT_OVERLAY_CONFIG}
+            obsProfiles={obsProfiles}
+            onSaveProfile={saveObsProfile}
+            onLoadProfile={loadObsProfile}
+            onDeleteProfile={deleteObsProfile}
+            onExportProfile={exportObsProfile}
+            onImportProfiles={importObsProfiles}
+            onResetConfig={resetObsConfig}
             onObsPortSave={(val) => {
               const p = parseInt(val, 10);
               if (p > 1024 && p < 65535) {

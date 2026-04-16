@@ -6,6 +6,7 @@ mod window;
 mod server;
 mod obs;
 
+use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::Manager;
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, TrayIconBuilder, TrayIconEvent};
@@ -20,6 +21,12 @@ use obs::start_audio_session_tagger;
 use std::env;
 
 struct AppTray(tauri::tray::TrayIcon<tauri::Wry>);
+struct CloseTray(AtomicBool);
+
+#[tauri::command]
+fn set_close_to_tray(enabled: bool, state: tauri::State<CloseTray>) {
+    state.0.store(enabled, Ordering::Relaxed);
+}
 
 #[tauri::command]
 fn relaunch_app(app: tauri::AppHandle) {
@@ -68,6 +75,7 @@ fn main() {
         .manage(WasMaximized::new())
         .manage(DiscordRpc::new())
         .manage(AudioPlayer::new())
+        .manage(CloseTray(AtomicBool::new(true)))
         .setup(|app| {
             let audio_tx = start_audio_thread(app.handle().clone());
             app.state::<AudioPlayer>().set_sender(audio_tx);
@@ -124,7 +132,7 @@ fn main() {
             audio_play, audio_pause, audio_resume,
             audio_stop, audio_seek, audio_set_volume,
             relaunch_app, quit_app, stop_server_cmd,
-            update_tray_labels,
+            update_tray_labels, set_close_to_tray,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
@@ -134,9 +142,11 @@ fn main() {
                 tauri::RunEvent::WindowEvent { ref label, event: tauri::WindowEvent::CloseRequested { api, .. }, .. }
                     if label == "main" =>
                 {
-                    api.prevent_close();
-                    if let Some(win) = app_handle.get_webview_window("main") {
-                        let _ = win.hide();
+                    if app_handle.state::<CloseTray>().0.load(Ordering::Relaxed) {
+                        api.prevent_close();
+                        if let Some(win) = app_handle.get_webview_window("main") {
+                            let _ = win.hide();
+                        }
                     }
                 }
                 // Echtes Beenden (via Tray-Menü oder quit_app-Command)
