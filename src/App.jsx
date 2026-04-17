@@ -65,6 +65,7 @@ import {
   ScreencastSimple,
   CircleFill,
   Robot,
+  Eyedropper,
 } from "./icons.jsx";
 
 const API = "http://localhost:9847";
@@ -1340,7 +1341,7 @@ function ColorPickerPopover({ value, onChange, onClose, anchorRef, inline = fals
         }} />
       </div>
 
-      {/* Preview + Hex input */}
+      {/* Preview + Hex input + Eyedropper */}
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <div style={{ width: 28, height: 28, borderRadius: 6, background: currentHex, flexShrink: 0, border: "0.5px solid rgba(255,255,255,0.12)" }} />
         <input
@@ -1361,6 +1362,29 @@ function ColorPickerPopover({ value, onChange, onClose, anchorRef, inline = fals
           }}
           spellCheck={false}
         />
+        {window.EyeDropper && (
+          <Tooltip text="Farbpipette">
+            <button
+              onClick={async () => {
+                try {
+                  const dropper = new window.EyeDropper();
+                  const { sRGBHex } = await dropper.open();
+                  const { h: nh, s: ns, v: nv } = hexToHsv(sRGBHex);
+                  setHue(nh); setSat(ns); setVal(nv); setHexInput(sRGBHex);
+                  onChange(sRGBHex);
+                } catch {}
+              }}
+              style={{
+                flexShrink: 0, width: 28, height: 28, borderRadius: 6,
+                background: "var(--bg-main)", border: "0.5px solid var(--border)",
+                color: "var(--text-secondary)", cursor: "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}
+            >
+              <Eyedropper size={13} />
+            </button>
+          </Tooltip>
+        )}
       </div>
     </div>
   );
@@ -2521,7 +2545,7 @@ function ColorPicker({ value, onChange }) {
             }} />
           </div>
 
-          {/* Swatch + hex input */}
+          {/* Swatch + hex input + eyedropper */}
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <div style={{ width: 36, height: 36, borderRadius: 8, background: currentHex, border: "0.5px solid rgba(255,255,255,0.15)", flexShrink: 0 }} />
             <input
@@ -2541,6 +2565,30 @@ function ColorPicker({ value, onChange }) {
                 outline: "none", letterSpacing: "0.04em",
               }}
             />
+            {window.EyeDropper && (
+              <button
+                title="Farbpipette"
+                onClick={async () => {
+                  try {
+                    setOpen(false);
+                    await new Promise(r => setTimeout(r, 80));
+                    const dropper = new window.EyeDropper();
+                    const { sRGBHex } = await dropper.open();
+                    setHsv(_hexToHsv(sRGBHex));
+                    setHexInput(sRGBHex);
+                    onChange(sRGBHex);
+                  } catch {}
+                }}
+                style={{
+                  flexShrink: 0, width: 36, height: 36, borderRadius: 8,
+                  background: "var(--bg-elevated)", border: "0.5px solid rgba(255,255,255,0.12)",
+                  color: "var(--text-secondary)", cursor: "pointer",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                }}
+              >
+                <Eyedropper size={15} />
+              </button>
+            )}
           </div>
         </div>,
         document.body
