@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Changelog — Kiyoshi Music</title>
+  <link rel="stylesheet" href="../style.css" />
+  <link rel="stylesheet" href="../css/all.min.css" />
+  <link rel="stylesheet" href="../css/sharp-solid.min.css" />
+  <style>
+    .page-hero {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 72px 24px 48px;
+    }
+    .page-hero h1 { font-size: clamp(36px, 5vw, 56px); letter-spacing: 0.01em; line-height: 1.1; }
+    .page-hero p  { margin-top: 12px; color: var(--text-secondary); font-size: 15px; }
+
+    .releases {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 0 24px 96px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .release {
+      border: 0.5px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .release-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 24px;
+      cursor: pointer;
+      transition: background 0.15s;
+      gap: 16px;
+      user-select: none;
+    }
+    .release-header:hover { background: var(--bg-surface); }
+
+    .release-header-left { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+    .release-name {
+      font-family: 'Stack Sans Notch', system-ui, sans-serif;
+      font-size: 17px;
+      letter-spacing: 0.01em;
+    }
+
+    .release-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 500;
+    }
+    .release-tag--pre    { background: var(--accent-dim); color: var(--accent); }
+    .release-tag--stable { background: rgba(64,251,130,0.1); color: #40fb82; }
+
+    .release-header-right { display: flex; align-items: center; gap: 16px; flex-shrink: 0; }
+    .release-date  { font-size: 12px; color: var(--text-muted); }
+    .release-chevron { color: var(--text-muted); font-size: 13px; transition: transform 0.2s; }
+    .release.open .release-chevron { transform: rotate(180deg); }
+
+    .release-body {
+      display: none;
+      padding: 20px 24px 24px;
+      border-top: 0.5px solid var(--border);
+    }
+    .release.open .release-body { display: block; }
+
+    .release-notes { display: flex; flex-direction: column; gap: 20px; }
+
+    .notes-section h3 {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+      font-family: 'MiSans Latin', system-ui, sans-serif;
+    }
+    .notes-section ul { list-style: none; display: flex; flex-direction: column; gap: 7px; }
+    .notes-section li {
+      font-size: 13px;
+      color: var(--text-secondary);
+      padding-left: 14px;
+      position: relative;
+      line-height: 1.55;
+    }
+    .notes-section li::before { content: '–'; position: absolute; left: 0; color: var(--text-muted); }
+
+    .release-downloads {
+      margin-top: 20px;
+      padding-top: 20px;
+      border-top: 0.5px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .dl-platform { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+    .dl-platform-label {
+      font-size: 12px;
+      color: var(--text-muted);
+      width: 64px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .loading, .error { max-width: 1000px; margin: 0 auto; padding: 48px 24px; color: var(--text-muted); font-size: 14px; }
+    .error a { color: var(--accent); }
+  </style>
+</head>
+<body>
+
+  <header>
+    <nav>
+      <a href="/" class="nav-logo">
+        <img src="../logo.svg" alt="Kiyoshi Music" class="nav-logo-img" />
+      </a>
+      <div class="nav-links">
+        <a href="/" class="nav-link">Home</a>
+        <a href="/download" class="nav-link">Download</a>
+        <button class="nav-a11y-btn" id="dyslexiaToggle" title="Toggle OpenDyslexic font">
+          <i class="fa-solid fa-universal-access"></i>
+        </button>
+        <a href="https://github.com/KiyoshiTheDevil/kiyoshi-music" class="nav-link" target="_blank" rel="noopener">
+          <i class="fa-brands fa-github"></i> GitHub
+        </a>
+      </div>
+    </nav>
+  </header>
+
+  <main>
+    <div class="page-hero">
+      <h1>Changelog</h1>
+      <p>Every release, every fix, every improvement.</p>
+    </div>
+    <div id="releases-container" class="releases">
+      <div class="loading">Loading releases…</div>
+    </div>
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+      <a href="/" class="footer-logo"><img src="../logo.svg" alt="Kiyoshi Music" class="nav-logo-img" /></a>
+      <div class="footer-links">
+        <a href="https://github.com/KiyoshiTheDevil/kiyoshi-music" target="_blank" rel="noopener">GitHub</a>
+        <a href="/download">Download</a>
+        <a href="https://github.com/KiyoshiTheDevil/kiyoshi-music/issues" target="_blank" rel="noopener">Issues</a>
+      </div>
+    </div>
+    <p class="footer-sub">Kiyoshi Music is not affiliated with YouTube or Google.</p>
+  </footer>
+
+  <script type="module">
+    import { initA11y, formatDate, groupAssets, assetLabel, platformIcon, parseNotes, fetchReleases } from '../js/releases.js';
+
+    initA11y();
+
+    async function load() {
+      const container = document.getElementById('releases-container');
+      try {
+        const releases = await fetchReleases();
+        container.innerHTML = releases.map((r, i) => {
+          const groups = groupAssets(r.assets);
+          return `
+            <div class="release ${i === 0 ? 'open' : ''}" id="release-${r.id}">
+              <div class="release-header" onclick="document.getElementById('release-${r.id}').classList.toggle('open')">
+                <div class="release-header-left">
+                  <span class="release-name">${r.name || r.tag_name}</span>
+                  <span class="release-tag ${r.prerelease ? 'release-tag--pre' : 'release-tag--stable'}">
+                    <i class="fa-solid ${r.prerelease ? 'fa-flask' : 'fa-check'}"></i>
+                    ${r.prerelease ? 'Pre-release' : 'Stable'}
+                  </span>
+                </div>
+                <div class="release-header-right">
+                  <span class="release-date">${formatDate(r.published_at)}</span>
+                  <i class="fa-solid fa-chevron-down release-chevron"></i>
+                </div>
+              </div>
+              <div class="release-body">
+                <div class="release-notes">${parseNotes(r.body)}</div>
+                ${groups.length ? `
+                  <div class="release-downloads">
+                    ${groups.map(g => `
+                      <div class="dl-platform">
+                        <span class="dl-platform-label"><i class="${g.meta.icon}"></i> ${g.meta.label}</span>
+                        ${g.assets.map(a => `
+                          <a href="${a.browser_download_url}" class="btn-ghost" download>
+                            <i class="fa-solid fa-download"></i> ${assetLabel(a.name)}
+                          </a>`).join('')}
+                      </div>`).join('')}
+                  </div>` : ''}
+              </div>
+            </div>`;
+        }).join('');
+      } catch {
+        container.innerHTML = '<div class="error">Could not load releases. <a href="https://github.com/KiyoshiTheDevil/kiyoshi-music/releases" target="_blank">View on GitHub →</a></div>';
+      }
+    }
+
+    load();
+  </script>
+
+</body>
+</html>

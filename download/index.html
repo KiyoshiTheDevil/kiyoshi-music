@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Download — Kiyoshi Music</title>
+  <link rel="stylesheet" href="../style.css" />
+  <link rel="stylesheet" href="../css/all.min.css" />
+  <link rel="stylesheet" href="../css/sharp-solid.min.css" />
+  <style>
+    .page-hero {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 72px 24px 48px;
+    }
+    .page-hero h1 { font-size: clamp(36px, 5vw, 56px); letter-spacing: 0.01em; line-height: 1.1; }
+    .page-hero p  { margin-top: 12px; color: var(--text-secondary); font-size: 15px; }
+
+    /* ── Latest card ── */
+    .latest { max-width: 1000px; margin: 0 auto; padding: 0 24px 56px; }
+
+    .latest-card {
+      background: var(--bg-surface);
+      border: 0.5px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+      position: relative;
+    }
+    .latest-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--accent-glow), transparent);
+    }
+
+    .latest-info {
+      padding: 32px 32px 24px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 32px;
+    }
+
+    .latest-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--accent);
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .latest-name {
+      font-family: 'Stack Sans Notch', system-ui, sans-serif;
+      font-size: 36px;
+      letter-spacing: 0.01em;
+      line-height: 1.1;
+    }
+
+    .latest-meta {
+      margin-top: 10px;
+      display: flex;
+      gap: 16px;
+      font-size: 13px;
+      color: var(--text-muted);
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .release-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 500;
+    }
+    .release-tag--pre    { background: var(--accent-dim); color: var(--accent); }
+    .release-tag--stable { background: rgba(64,251,130,0.1); color: #40fb82; }
+
+    /* Bar-style download buttons */
+    .latest-downloads {
+      border-top: 0.5px solid var(--border);
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .platform-section {
+      display: flex;
+      align-items: stretch;
+      border-bottom: 0.5px solid var(--border);
+    }
+    .platform-section:last-child { border-bottom: none; }
+
+    .platform-label-col {
+      width: 110px;
+      min-width: 110px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 0 20px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      flex-shrink: 0;
+      border-right: 0.5px solid var(--border);
+    }
+
+    .platform-btns {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      flex: 1;
+      padding: 10px 16px;
+      align-items: center;
+    }
+
+    .btn-download {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 24px;
+      background: var(--accent);
+      color: #1a0020;
+      font-family: 'Stack Sans Notch', system-ui, sans-serif;
+      font-size: 18px;
+      letter-spacing: 0.01em;
+      line-height: 1;
+      white-space: nowrap;
+      transition: background 0.15s;
+    }
+    .btn-download i { font-size: 16px; flex-shrink: 0; }
+    .btn-download:hover { background: #ea6afc; }
+
+    /* ── All releases ── */
+    .releases {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 0 24px 96px;
+    }
+
+    .releases h2 {
+      font-size: 22px;
+      letter-spacing: 0.01em;
+      color: var(--text-secondary);
+      margin-bottom: 16px;
+    }
+
+    .release {
+      border: 0.5px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 6px;
+    }
+
+    .release-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 24px;
+      cursor: pointer;
+      transition: background 0.15s;
+      gap: 16px;
+      user-select: none;
+    }
+    .release-header:hover { background: var(--bg-surface); }
+
+    .release-header-left { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+    .release-name {
+      font-family: 'Stack Sans Notch', system-ui, sans-serif;
+      font-size: 16px;
+      letter-spacing: 0.01em;
+    }
+
+    .release-date  { font-size: 12px; color: var(--text-muted); }
+    .release-chevron { color: var(--text-muted); font-size: 13px; transition: transform 0.2s; flex-shrink: 0; }
+    .release.open .release-chevron { transform: rotate(180deg); }
+
+    .release-body {
+      display: none;
+      border-top: 0.5px solid var(--border);
+    }
+    .release.open .release-body { display: block; }
+
+    /* Notes */
+    .release-notes {
+      padding: 20px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .notes-section h3 {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+      font-family: 'MiSans Latin', system-ui, sans-serif;
+    }
+    .notes-section ul { list-style: none; display: flex; flex-direction: column; gap: 7px; }
+    .notes-section li {
+      font-size: 13px;
+      color: var(--text-secondary);
+      padding-left: 14px;
+      position: relative;
+      line-height: 1.55;
+    }
+    .notes-section li::before { content: '–'; position: absolute; left: 0; color: var(--text-muted); }
+
+    /* Downloads inside release */
+    .release-downloads {
+      border-top: 0.5px solid var(--border);
+    }
+
+    .loading, .error { max-width: 1000px; margin: 0 auto; padding: 48px 24px; color: var(--text-muted); font-size: 14px; }
+    .error a { color: var(--accent); }
+  </style>
+</head>
+<body>
+
+  <header>
+    <nav>
+      <a href="/" class="nav-logo">
+        <img src="../logo.svg" alt="Kiyoshi Music" class="nav-logo-img" />
+      </a>
+      <div class="nav-links">
+        <a href="/" class="nav-link">Home</a>
+        <button class="nav-a11y-btn" id="dyslexiaToggle" title="Toggle OpenDyslexic font">
+          <i class="fa-solid fa-universal-access"></i>
+        </button>
+        <a href="https://github.com/KiyoshiTheDevil/kiyoshi-music" class="nav-link" target="_blank" rel="noopener">
+          <i class="fa-brands fa-github"></i> GitHub
+        </a>
+      </div>
+    </nav>
+  </header>
+
+  <main>
+    <div class="page-hero">
+      <h1>Download</h1>
+      <p>Get the latest release or browse the full changelog.</p>
+    </div>
+
+    <div id="latest-container" class="latest">
+      <div class="loading">Loading latest release…</div>
+    </div>
+
+    <div class="releases">
+      <h2>All Releases</h2>
+      <div id="releases-container">
+        <div class="loading">Loading…</div>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+      <a href="/" class="footer-logo"><img src="../logo.svg" alt="Kiyoshi Music" class="nav-logo-img" /></a>
+      <div class="footer-links">
+        <a href="https://github.com/KiyoshiTheDevil/kiyoshi-music" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://github.com/KiyoshiTheDevil/kiyoshi-music/issues" target="_blank" rel="noopener">Issues</a>
+      </div>
+    </div>
+    <p class="footer-sub">Kiyoshi Music is not affiliated with YouTube or Google.</p>
+  </footer>
+
+  <script type="module">
+    import { initA11y, formatDate, groupAssets, assetLabel, platformIcon, parseNotes, fetchReleases } from '../js/releases.js';
+
+    initA11y();
+
+    function renderDownloads(assets, barStyle = false) {
+      const groups = groupAssets(assets);
+      if (!groups.length) return '';
+      return `
+        <div class="${barStyle ? 'latest-downloads' : 'release-downloads'}">
+          ${groups.map(g => `
+            <div class="platform-section">
+              <div class="platform-label-col">
+                <i class="${g.meta.icon}"></i> ${g.meta.label}
+              </div>
+              <div class="platform-btns">
+                ${g.assets.map(a => barStyle
+                  ? `<a href="${a.browser_download_url}" class="btn-download" download>
+                       <i class="fa-solid fa-download"></i> ${assetLabel(a.name)}
+                     </a>`
+                  : `<a href="${a.browser_download_url}" class="btn-ghost" download>
+                       <i class="fa-solid fa-download"></i> ${assetLabel(a.name)}
+                     </a>`
+                ).join('')}
+              </div>
+            </div>`).join('')}
+        </div>`;
+    }
+
+    async function load() {
+      const latestEl   = document.getElementById('latest-container');
+      const releasesEl = document.getElementById('releases-container');
+      try {
+        const releases = await fetchReleases();
+        const latest   = releases[0];
+        const rest     = releases.slice(1);
+
+        // Latest card
+        latestEl.innerHTML = `
+          <div class="latest-card">
+            <div class="latest-info">
+              <div>
+                <div class="latest-label"><i class="fa-solid fa-sparkles"></i> Latest Release</div>
+                <div class="latest-name">${latest.name || latest.tag_name}</div>
+                <div class="latest-meta">
+                  <span><i class="fa-solid fa-calendar"></i> ${formatDate(latest.published_at)}</span>
+                  <span class="release-tag ${latest.prerelease ? 'release-tag--pre' : 'release-tag--stable'}">
+                    <i class="fa-solid ${latest.prerelease ? 'fa-flask' : 'fa-check'}"></i>
+                    ${latest.prerelease ? 'Pre-release' : 'Stable'}
+                  </span>
+                </div>
+              </div>
+            </div>
+            ${renderDownloads(latest.assets, true)}
+          </div>`;
+
+        // All releases (collapsible)
+        releasesEl.innerHTML = rest.map((r, i) => `
+          <div class="release" id="release-${r.id}">
+            <div class="release-header" onclick="document.getElementById('release-${r.id}').classList.toggle('open')">
+              <div class="release-header-left">
+                <span class="release-name">${r.name || r.tag_name}</span>
+                <span class="release-tag ${r.prerelease ? 'release-tag--pre' : 'release-tag--stable'}">
+                  <i class="fa-solid ${r.prerelease ? 'fa-flask' : 'fa-check'}"></i>
+                  ${r.prerelease ? 'Pre-release' : 'Stable'}
+                </span>
+                <span class="release-date">${formatDate(r.published_at)}</span>
+              </div>
+              <i class="fa-solid fa-chevron-down release-chevron"></i>
+            </div>
+            <div class="release-body">
+              ${r.body ? `<div class="release-notes">${parseNotes(r.body)}</div>` : ''}
+              ${renderDownloads(r.assets, false)}
+            </div>
+          </div>`).join('');
+
+      } catch {
+        latestEl.innerHTML = '<div class="error">Could not load releases. <a href="https://github.com/KiyoshiTheDevil/kiyoshi-music/releases" target="_blank">View on GitHub →</a></div>';
+        releasesEl.innerHTML = '';
+      }
+    }
+
+    load();
+  </script>
+
+</body>
+</html>

@@ -5,28 +5,39 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Kiyoshi Music</title>
   <link rel="stylesheet" href="style.css" />
-  <script src="https://unpkg.com/@phosphor-icons/web@2.1.1"></script>
+  <link rel="stylesheet" href="css/all.min.css" />
+  <link rel="stylesheet" href="css/sharp-solid.min.css" />
 </head>
 <body>
+
   <header>
     <nav>
       <a href="/" class="nav-logo">
         <img src="logo.svg" alt="Kiyoshi Music" class="nav-logo-img" />
       </a>
-      <a href="https://github.com/KiyoshiTheDevil/kiyoshi-music" class="nav-link" target="_blank" rel="noopener">
-        <i class="ph ph-github-logo"></i> GitHub
-      </a>
+      <div class="nav-links">
+        <a href="#features" class="nav-link">Features</a>
+        <a href="/download" class="nav-link">Download</a>
+        <button class="nav-a11y-btn" id="dyslexiaToggle" title="Toggle OpenDyslexic font">
+          <i class="fa-solid fa-universal-access"></i>
+        </button>
+        <a href="https://github.com/KiyoshiTheDevil/kiyoshi-music" class="nav-link" target="_blank" rel="noopener">
+          <i class="fa-brands fa-github"></i> GitHub
+        </a>
+      </div>
     </nav>
   </header>
 
   <main>
+
+    <!-- Hero -->
     <section class="hero">
-      <h1>Kiyoshi Music</h1>
+      <h1>YouTube Music,<br>the way it should be.</h1>
       <div class="hero-badge">Alpha 9.2</div>
-      <p class="hero-sub">A YouTube Music desktop client built for those who want more.</p>
+      <p class="hero-sub">Kiyoshi Music is a desktop client for YouTube Music with synced lyrics, deep customization, and a built-in OBS overlay.</p>
       <div class="hero-actions">
         <a href="https://github.com/KiyoshiTheDevil/kiyoshi-music/releases/download/Alpha/Kiyoshi.Music.Setup.-.Alpha.9_2.exe" class="btn-primary">
-          Download for Windows
+          <i class="fa-brands fa-windows"></i> Download for Windows
         </a>
         <a href="https://github.com/KiyoshiTheDevil/kiyoshi-music/releases" class="btn-ghost" target="_blank" rel="noopener">
           All Releases
@@ -35,45 +46,163 @@
       <p class="hero-note">Windows 10/11 x64 &nbsp;·&nbsp; Linux <span class="coming-soon">coming soon</span></p>
     </section>
 
+    <!-- Highlights -->
+    <section class="highlights" id="features">
+      <div class="highlights-stack">
+
+        <div class="highlight-bar highlight-bar--1">
+          <i class="fa-sharp fa-solid fa-microphone-stand"></i>
+          <span>Synced Lyrics</span>
+        </div>
+
+        <div class="highlight-bar highlight-bar--2">
+          <i class="fa-sharp fa-solid fa-paintbrush"></i>
+          <span>Customization</span>
+        </div>
+
+        <div class="highlight-bar highlight-bar--3">
+          <i class="fa-sharp fa-solid fa-tv"></i>
+          <span>OBS Widget</span>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Feature Grid -->
     <section class="features">
       <div class="features-grid">
+
         <div class="feature-card">
-          <i class="ph ph-microphone-stage feature-icon"></i>
-          <h3>Synced Lyrics</h3>
-          <p>Word-by-word sync with multiple providers — LRCLIB, BetterLyrics, SimpMusic, Kugou. Translation and Romaji support included.</p>
+          <i class="fa-solid fa-shuffle feature-icon"></i>
+          <h3>Full Playback Controls</h3>
+          <p>Shuffle, repeat, autoplay, crossfade (0–12s), queue management, and progress scrubbing.</p>
         </div>
+
         <div class="feature-card">
-          <i class="ph ph-keyboard feature-icon"></i>
-          <h3>Keyboard Shortcuts</h3>
-          <p>Control everything without touching the mouse. Playback, queue, search — all reachable via keyboard.</p>
-        </div>
-        <div class="feature-card">
-          <i class="ph ph-discord-logo feature-icon"></i>
-          <h3>Discord Rich Presence</h3>
-          <p>Show what you're listening to directly in your Discord status — artist, song, and album cover.</p>
-        </div>
-        <div class="feature-card">
-          <i class="ph ph-books feature-icon"></i>
+          <i class="fa-solid fa-books feature-icon"></i>
           <h3>Library Management</h3>
-          <p>Playlists, liked songs, history, and more. In-playlist search and total duration at a glance.</p>
+          <p>Playlists, liked songs, history, artist and album pages. In-playlist search and total duration at a glance.</p>
         </div>
+
         <div class="feature-card">
-          <i class="ph ph-download-simple feature-icon"></i>
+          <i class="fa-brands fa-discord feature-icon"></i>
+          <h3>Discord Rich Presence</h3>
+          <p>Show what you're listening to in your Discord status — artist, song title, and album cover.</p>
+        </div>
+
+        <div class="feature-card">
+          <i class="fa-solid fa-keyboard feature-icon"></i>
+          <h3>Keyboard Shortcuts</h3>
+          <p>Space, arrow keys, F, M, L and more. Control everything without touching the mouse.</p>
+        </div>
+
+        <div class="feature-card">
+          <i class="fa-solid fa-language feature-icon"></i>
+          <h3>16+ Languages</h3>
+          <p>English, German, Japanese, Korean, French, Spanish, and more. Auto-detects your system locale.</p>
+        </div>
+
+        <div class="feature-card">
+          <i class="fa-solid fa-download feature-icon"></i>
           <h3>MP3 / OPUS Export</h3>
           <p>Save your music locally in MP3 or OPUS format directly from the app.</p>
         </div>
+
         <div class="feature-card">
-          <i class="ph ph-sliders feature-icon"></i>
-          <h3>Fully Customizable</h3>
-          <p>Accent colors, font size, UI scaling, explicit filter, language — Kiyoshi adapts to you.</p>
+          <i class="fa-solid fa-lock feature-icon"></i>
+          <h3>PIN & Password Lock</h3>
+          <p>Protect the app with a 4 or 6-digit PIN or a full password.</p>
         </div>
+
+        <div class="feature-card">
+          <i class="fa-solid fa-cloud-slash feature-icon"></i>
+          <h3>Offline Mode</h3>
+          <p>Play cached content without an internet connection. Manage cache size and clear by category.</p>
+        </div>
+
+        <div class="feature-card">
+          <i class="fa-solid fa-arrows-maximize feature-icon"></i>
+          <h3>UI Scaling</h3>
+          <p>Scale the entire interface from 80% to 150%. Adjustable font size from 13px to 19px.</p>
+        </div>
+
       </div>
     </section>
+
+    <!-- What's New -->
+    <section class="whats-new" id="whats-new">
+      <div class="whats-new-inner">
+        <div class="whats-new-label">
+          <i class="fa-solid fa-sparkles"></i> What's New
+        </div>
+        <h2>Alpha 9.2</h2>
+        <div class="changelog-grid">
+          <div class="changelog-col">
+            <p class="changelog-heading">Added</p>
+            <ul>
+              <li>Lyrics translation support</li>
+              <li>Japanese Romaji toggle</li>
+              <li>Font size sliders for lyrics, translation &amp; romaji</li>
+              <li>Hot-swap for lyrics providers</li>
+            </ul>
+          </div>
+          <div class="changelog-col">
+            <p class="changelog-heading">Fixed</p>
+            <ul>
+              <li>Critical security vulnerabilities</li>
+              <li>OBS application audio output</li>
+              <li>Settings resetting after restart</li>
+              <li>Localization for hardcoded strings</li>
+              <li>Linux builds</li>
+            </ul>
+          </div>
+          <div class="changelog-col">
+            <p class="changelog-heading">Improved</p>
+            <ul>
+              <li>Lyrics display performance</li>
+              <li>Song load times</li>
+              <li>Tooltips throughout the app</li>
+            </ul>
+          </div>
+        </div>
+        <a href="https://github.com/KiyoshiTheDevil/kiyoshi-music/releases/tag/Alpha" class="btn-ghost" target="_blank" rel="noopener">
+          Full Release Notes <i class="fa-solid fa-arrow-right"></i>
+        </a>
+      </div>
+    </section>
+
   </main>
 
   <footer>
-    <p>Made with care by <a href="https://github.com/KiyoshiTheDevil" target="_blank" rel="noopener">KiyoshiTheDevil</a></p>
+    <div class="footer-inner">
+      <a href="/" class="footer-logo">
+        <img src="logo.svg" alt="Kiyoshi Music" class="nav-logo-img" />
+      </a>
+      <div class="footer-links">
+        <a href="https://github.com/KiyoshiTheDevil/kiyoshi-music" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://github.com/KiyoshiTheDevil/kiyoshi-music/releases" target="_blank" rel="noopener">Releases</a>
+        <a href="https://github.com/KiyoshiTheDevil/kiyoshi-music/issues" target="_blank" rel="noopener">Issues</a>
+      </div>
+    </div>
     <p class="footer-sub">Kiyoshi Music is not affiliated with YouTube or Google.</p>
   </footer>
+
+  <script>
+    const btn = document.getElementById('dyslexiaToggle');
+    const STORAGE_KEY = 'kiyoshi-dyslexia';
+
+    function applyFont(enabled) {
+      document.body.classList.toggle('dyslexia', enabled);
+      btn.classList.toggle('active', enabled);
+    }
+
+    applyFont(localStorage.getItem(STORAGE_KEY) === '1');
+
+    btn.addEventListener('click', () => {
+      const enabled = !document.body.classList.contains('dyslexia');
+      localStorage.setItem(STORAGE_KEY, enabled ? '1' : '0');
+      applyFont(enabled);
+    });
+  </script>
 </body>
 </html>
