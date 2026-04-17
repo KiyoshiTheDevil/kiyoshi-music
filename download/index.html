@@ -223,6 +223,19 @@
       border-top: 0.5px solid var(--border);
     }
 
+    .linux-warning {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: #f5a623;
+      background: rgba(245, 166, 35, 0.1);
+      border: 0.5px solid rgba(245, 166, 35, 0.25);
+      border-radius: 6px;
+      padding: 4px 10px;
+      white-space: nowrap;
+    }
+
     .loading, .error { max-width: 1000px; margin: 0 auto; padding: 48px 24px; color: var(--text-muted); font-size: 14px; }
     .error a { color: var(--accent); }
   </style>
@@ -299,6 +312,7 @@
                        <i class="fa-solid fa-download"></i> ${assetLabel(a.name)}
                      </a>`
                 ).join('')}
+                ${g.platform === 'linux' ? `<span class="linux-warning"><i class="fa-solid fa-triangle-exclamation"></i> Experimental — may not work</span>` : ''}
               </div>
             </div>`).join('')}
         </div>`;
