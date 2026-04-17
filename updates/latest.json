@@ -1,11 +1,11 @@
 {
-  "version": "v0.9.7-beta",
-  "pub_date": "2026-04-16T17:11:38Z",
-  "notes": "",
+  "version": "v0.9.8-beta",
+  "pub_date": "2026-04-17T07:25:48Z",
+  "notes": "### New Features\n- **Like hearts in playlist rows** — Heart button next to the three-dots in all playlist views (Liked Songs, Collections/Albums, Downloads); shows per-track liked state, toggling syncs to YouTube Music instantly\n- **\"Like Song\" in player more-menu** — Three-dot menu in the player now includes a Like/Unlike toggle for the currently playing track\n- **\"Like / Unlike\" in track context menu** — Right-click context menu on any track now shows Like/Unlike with correct per-track state\n- **\"Add to Playlist\" in player more-menu** — Three-dot menu in the player now supports adding the current track to any playlist\n### Improvements\n- **App-level liked state** — `likedIds` Set loaded from `/liked/ids` on startup; all views share a single source of truth and update optimistically with automatic rollback on error\n- **OBS overlay border rendering** — Rewrote border layer as a sibling `div` with `path(evenodd)` donut clip; transparent widget backgrounds now render correctly without bleed-through\n- **OBS overlay bevel border thickness** — Corrected perpendicular distance calculation for 45° cuts (`bw × (2 − √2)`) so bevel borders match straight-edge thickness exactly\n### Bug Fixes\n- Fixed `isLiked`/`toggleLike` out-of-scope reference in track context menu (was referencing Player-internal state from App scope)\n- Fixed stray `onToggleLike` reference in HomeView Quick Picks rows causing a ReferenceError on startup\n---",
   "platforms": {
     "windows-x86_64": {
-      "url": "https://github.com/KiyoshiTheDevil/kiyoshi-music/releases/download/v0.9.7-beta/Kiyoshi.Music_0.9.7-beta_x64-setup.exe",
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTb3ErUzRRK3lrL2pLcDYxSFFldmQ0aEhlUy9mQWlCUGR1RTljWlJzTEJrL0I2c0pYQURiZFQ4aFowS2wySStCcXlhZGpjRW1CZjlJM1EyT2J2bkVrdE9VTkY1bnZkVkFnPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc2MzU5NDQyCWZpbGU6S2l5b3NoaSBNdXNpY18wLjkuNy1iZXRhX3g2NC1zZXR1cC5leGUKMkk5dm56SWl0d1BzV2hTL0haN0Rld0JzZmFGQVRGM2JlTWpBaFl4a0xaMSs4SmpHTXRMQTdKUUpzNVFIK1owbk1QcE1lT0hycnJxdHp4NmhpYjlkRFE9PQo="
+      "url": "https://github.com/KiyoshiTheDevil/kiyoshi-music/releases/download/v0.9.8-beta/Kiyoshi.Music_0.9.8-beta_x64-setup.exe",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTb3ErUzRRK3lrL2hvc0pnU2N4cm10NFd5a2xPdG5oY3VYWHAzeVlYakxCWnZQMlE3bTJhVDdkc0pLVEwwb0ZZdjNEWHlGM3V3bjYwK211UFZRWXQ4RG43ekxqREZVaWdjPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc2NDEwNjgwCWZpbGU6S2l5b3NoaSBNdXNpY18wLjkuOC1iZXRhX3g2NC1zZXR1cC5leGUKeVBxSUw4dSsvdjNVM1pCMmhyNFlsR3NkZ0ZSRkw1ekRpbVZSVDdDSG1tcXlDWmhPaG1BWkw0czd6ZkxWTmd6RjZ3SUhFV0VDSEV5aXI5TG9ZRkxvQnc9PQo="
     }
   }
 }
