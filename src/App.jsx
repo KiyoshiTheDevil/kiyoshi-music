@@ -3036,10 +3036,11 @@ function OverlayWidgetPreview({ c, fillWidth = false }) {
     const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
     return `rgba(${r},${g},${b},${a})`;
   };
-  const shadow = c.showShadow ? `0 8px 32px rgba(0,0,0,${c.shadowStrength||0.35})` : "";
-  const bglow = (c.border&&(c.borderBlur||0)>0) ? `0 0 ${(c.borderBlur||0)*2}px ${c.borderBlur||0}px ${c.borderColor||"#EEA8FF"}` : "";
-  // inset box-shadow instead of border — clip-path clips border at corners, inset shadow follows the path
-  const borderShadow = c.border ? `inset 0 0 0 ${c.borderWidth||1.5}px ${c.borderColor||"#EEA8FF"}` : "";
+  const bw = c.border ? (c.borderWidth || 1.5) : 0;
+  // filter:drop-shadow is not clipped by clip-path (unlike box-shadow)
+  const dropShadow = c.showShadow ? `drop-shadow(0 8px 32px rgba(0,0,0,${c.shadowStrength||0.35}))` : "";
+  const glowFilter = c.border && (c.borderBlur||0) > 0 ? `drop-shadow(0 0 ${c.borderBlur}px ${c.borderColor||"#EEA8FF"})` : "";
+  const filterVal = [dropShadow, glowFilter].filter(Boolean).join(" ") || undefined;
   const art = c.artSize || 56;
   const acc = c.accentColor || "#EEA8FF";
   const txt = c.textColor || "#fff";
@@ -3054,43 +3055,51 @@ function OverlayWidgetPreview({ c, fillWidth = false }) {
   const _ac = (k) => ({ t: c[`artCornerType${k}`] || "r", s: c[`artRadius${k}`] ?? c.artRadius ?? 8 });
   const artClipPath = buildCornerPath(art, art, { tl: _ac("TL"), tr: _ac("TR"), br: _ac("BR"), bl: _ac("BL") });
   return (
+    // Wrapper: clip-path + border-as-background (padding = border width) + drop-shadow filter
     <div style={{
-      display: "flex", alignItems: "center",
-      gap: c.gap||12, padding: `${c.paddingV||12}px ${c.paddingH||16}px`,
       clipPath,
-      background: toRgba(c.bgColor||"#1a1a1a",(c.bgOpacity??90)/100),
-      width: fillWidth ? "100%" : c.dynamicWidth ? "max-content" : c.widgetWidth||400,
-      boxShadow: [shadow, bglow, borderShadow].filter(Boolean).join(",") || "none",
-      backdropFilter: blurVal, WebkitBackdropFilter: blurVal,
-      position: "relative", overflow: "hidden",
-      fontFamily: c.fontFamily || "system-ui,sans-serif",
+      background: c.border ? (c.borderColor || "#EEA8FF") : "transparent",
+      padding: bw || undefined,
+      display: "inline-flex",
       flexShrink: 0,
+      filter: filterVal,
     }}>
-      {c.showAlbumArt !== false && (
-        <div style={{
-          width: art, height: art,
-          clipPath: artClipPath,
-          background: toRgba(acc, 0.2),
-          display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-        }}>
-          <MusicNote size={art * 0.42} weight="fill" style={{ color: acc, opacity: 0.75 }} />
+      {/* Inner widget: content, background, overflow — no clip-path needed (parent clips) */}
+      <div style={{
+        display: "flex", alignItems: "center",
+        gap: c.gap||12, padding: `${c.paddingV||12}px ${c.paddingH||16}px`,
+        background: toRgba(c.bgColor||"#1a1a1a",(c.bgOpacity??90)/100),
+        width: fillWidth ? "100%" : c.dynamicWidth ? "max-content" : c.widgetWidth||400,
+        backdropFilter: blurVal, WebkitBackdropFilter: blurVal,
+        position: "relative", overflow: "hidden",
+        fontFamily: c.fontFamily || "system-ui,sans-serif",
+      }}>
+        {c.showAlbumArt !== false && (
+          <div style={{
+            width: art, height: art,
+            clipPath: artClipPath,
+            background: toRgba(acc, 0.2),
+            display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+          }}>
+            <MusicNote size={art * 0.42} weight="fill" style={{ color: acc, opacity: 0.75 }} />
+          </div>
+        )}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: c.titleFontSize||14, fontWeight: 700, color: txt, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            Song Title
+          </div>
+          {c.showArtist !== false && (
+            <div style={{ fontSize: c.artistFontSize||12, color: toRgba(txt, 0.65), marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              {c.showAlbum !== false ? "Artist Name · Album" : "Artist Name"}
+            </div>
+          )}
         </div>
-      )}
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: c.titleFontSize||14, fontWeight: 700, color: txt, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-          Song Title
-        </div>
-        {c.showArtist !== false && (
-          <div style={{ fontSize: c.artistFontSize||12, color: toRgba(txt, 0.65), marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-            {c.showAlbum !== false ? "Artist Name · Album" : "Artist Name"}
+        {c.showProgress !== false && (
+          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: c.progressHeight||3, background: "rgba(255,255,255,0.12)" }}>
+            <div style={{ height: "100%", width: "45%", background: acc, borderRadius: "0 2px 2px 0" }} />
           </div>
         )}
       </div>
-      {c.showProgress !== false && (
-        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: c.progressHeight||3, background: "rgba(255,255,255,0.12)" }}>
-          <div style={{ height: "100%", width: "45%", background: acc, borderRadius: "0 2px 2px 0" }} />
-        </div>
-      )}
     </div>
   );
 }

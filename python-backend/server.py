@@ -2968,15 +2968,15 @@ _OVERLAY_HTML = r"""<!DOCTYPE html>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{background:transparent;overflow:visible;font-family:var(--wfont);display:flex;align-items:center;justify-content:center;min-height:100vh;min-width:100vw}
+#wb{display:inline-flex;flex-shrink:0;transition:background .15s,padding .15s,filter .3s,opacity .4s;}
 #w{
   display:flex;align-items:center;gap:var(--wgap);
   padding:var(--wpadv) var(--wpadh);
-  border-radius:var(--wr);
   background:var(--wbg);
-  width:var(--wwidth);
+  width:100%;
   min-height:var(--wheight);
   position:relative;overflow:hidden;
-  transition:background .3s,border .3s,box-shadow .3s,opacity .4s;
+  transition:background .3s,opacity .4s;
 }
 #art{width:var(--wart);height:var(--wart);border-radius:var(--wart-rtl) var(--wart-rtr) var(--wart-rbr) var(--wart-rbl);object-fit:cover;flex-shrink:0;transition:opacity .3s}
 #art-ph{width:var(--wart);height:var(--wart);border-radius:var(--wart-rtl) var(--wart-rtr) var(--wart-rbr) var(--wart-rbl);background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;flex-shrink:0}
@@ -2989,7 +2989,7 @@ body{background:transparent;overflow:visible;font-family:var(--wfont);display:fl
 #pfill{height:100%;background:var(--wacc);border-radius:0 2px 2px 0;transition:width .8s linear}
 .scroll{animation:scroll linear infinite;display:inline-block;white-space:nowrap}
 </style></head>
-<body><div id="w">
+<body><div id="wb"><div id="w">
   <div id="w-blur-bg"></div>
   <div id="art-ph"><svg width="22" height="22" viewBox="0 0 24 24" fill="rgba(255,255,255,.4)"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg></div>
   <img id="art" style="display:none">
@@ -2998,7 +2998,7 @@ body{background:transparent;overflow:visible;font-family:var(--wfont);display:fl
     <div class="sub" id="sub">Waiting...</div>
   </div>
   <div id="pbar"><div id="pfill" style="width:0%"></div></div>
-</div>
+</div></div>
 <script>
 const API=location.origin;
 let cfg={},state={};
@@ -3019,7 +3019,7 @@ function applyConfig(c){
   R.style.setProperty('--wtfs',(c.titleFontSize||14)+'px');
   R.style.setProperty('--wasfs',(c.artistFontSize||12)+'px');
   R.style.setProperty('--wfont',c.fontFamily||'system-ui,sans-serif');
-  R.style.setProperty('--wwidth',c.dynamicWidth?'max-content':(c.widgetWidth||400)+'px');
+  const WB=document.getElementById('wb');
   R.style.setProperty('--wheight',(c.widgetHeight||0)>0?(c.widgetHeight+'px'):'0px');
   R.style.setProperty('--wart',(c.artSize||56)+'px');
   const _artEls=[document.getElementById('art'),document.getElementById('art-ph')];
@@ -3046,11 +3046,14 @@ function applyConfig(c){
   R.style.setProperty('--wpadv',(c.paddingV||12)+'px');
   R.style.setProperty('--wpadh',(c.paddingH||16)+'px');
   R.style.setProperty('--wgap',(c.gap||12)+'px');
+  const _bw=c.border?(c.borderWidth||1.5):0;
+  WB.style.padding=_bw>0?_bw+'px':'0';
+  WB.style.background=c.border?(c.borderColor||'#EEA8FF'):'transparent';
+  const _dshadow=c.showShadow?`drop-shadow(0 8px 32px rgba(0,0,0,${c.shadowStrength||0.35}))`:'';
+  const _dglow=c.border&&(c.borderBlur||0)>0?`drop-shadow(0 0 ${c.borderBlur}px ${c.borderColor||'#EEA8FF'})`:'';
+  WB.style.filter=[_dshadow,_dglow].filter(Boolean).join(' ')||'none';
   W.style.border='none';
-  const _shadow=c.showShadow?`0 8px 32px rgba(0,0,0,${c.shadowStrength||0.35})`:'';
-  const _bglow=(c.border&&(c.borderBlur||0)>0)?`0 0 ${(c.borderBlur||0)*2}px ${c.borderBlur||0}px ${c.borderColor||'#EEA8FF'}`:'';
-  const _bshadow=c.border?`inset 0 0 0 ${c.borderWidth||1.5}px ${c.borderColor||'#EEA8FF'}`:'';
-  W.style.boxShadow=[_shadow,_bglow,_bshadow].filter(Boolean).join(',')||'none';
+  W.style.boxShadow='none';
   (function(){
     const WW=W.offsetWidth||c.widgetWidth||400;
     const WH=W.offsetHeight||(c.artSize||56)+(c.paddingV||12)*2+(c.showProgress!==false?(c.progressHeight||3):0);
@@ -3069,8 +3072,10 @@ function applyConfig(c){
     else d+=`L ${wn.bl.s} ${WH} L 0 ${WH-wn.bl.s} `;
     if(wn.tl.t==='r')d+=`L 0 ${wn.tl.s} Q 0 0 ${wn.tl.s} 0 Z`;
     else d+=`L 0 ${wn.tl.s} L ${wn.tl.s} 0 Z`;
+    WB.style.width=c.dynamicWidth?'max-content':(c.widgetWidth||400)+'px';
+    WB.style.clipPath=`path('${d.trim()}')`;
+    W.style.clipPath='none';
     W.style.borderRadius='0';
-    W.style.clipPath=`path('${d.trim()}')`;
   })();
   const blurBg=document.getElementById('w-blur-bg');
   if(c.bgBlurEnabled&&c.bgBlur>0){
@@ -3106,11 +3111,11 @@ function renderSub(){
 }
 
 function applyAutoHide(){
-  const W=document.getElementById('w');
+  const WB=document.getElementById('wb');
   if(cfg.autoHide){
-    W.style.opacity=(state.isPlaying&&state.title)?'1':'0';
+    WB.style.opacity=(state.isPlaying&&state.title)?'1':'0';
   }else{
-    W.style.opacity='1';
+    WB.style.opacity='1';
   }
 }
 
