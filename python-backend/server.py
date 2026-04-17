@@ -3046,10 +3046,11 @@ function applyConfig(c){
   R.style.setProperty('--wpadv',(c.paddingV||12)+'px');
   R.style.setProperty('--wpadh',(c.paddingH||16)+'px');
   R.style.setProperty('--wgap',(c.gap||12)+'px');
-  W.style.border=c.border?`${c.borderWidth||1.5}px solid ${c.borderColor||'#EEA8FF'}`:'none';
+  W.style.border='none';
   const _shadow=c.showShadow?`0 8px 32px rgba(0,0,0,${c.shadowStrength||0.35})`:'';
   const _bglow=(c.border&&(c.borderBlur||0)>0)?`0 0 ${(c.borderBlur||0)*2}px ${c.borderBlur||0}px ${c.borderColor||'#EEA8FF'}`:'';
-  W.style.boxShadow=[_shadow,_bglow].filter(Boolean).join(',')||'none';
+  const _bshadow=c.border?`inset 0 0 0 ${c.borderWidth||1.5}px ${c.borderColor||'#EEA8FF'}`:'';
+  W.style.boxShadow=[_shadow,_bglow,_bshadow].filter(Boolean).join(',')||'none';
   (function(){
     const WW=W.offsetWidth||c.widgetWidth||400;
     const WH=W.offsetHeight||(c.artSize||56)+(c.paddingV||12)*2+(c.showProgress!==false?(c.progressHeight||3):0);

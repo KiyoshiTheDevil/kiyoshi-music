@@ -3038,6 +3038,8 @@ function OverlayWidgetPreview({ c, fillWidth = false }) {
   };
   const shadow = c.showShadow ? `0 8px 32px rgba(0,0,0,${c.shadowStrength||0.35})` : "";
   const bglow = (c.border&&(c.borderBlur||0)>0) ? `0 0 ${(c.borderBlur||0)*2}px ${c.borderBlur||0}px ${c.borderColor||"#EEA8FF"}` : "";
+  // inset box-shadow instead of border — clip-path clips border at corners, inset shadow follows the path
+  const borderShadow = c.border ? `inset 0 0 0 ${c.borderWidth||1.5}px ${c.borderColor||"#EEA8FF"}` : "";
   const art = c.artSize || 56;
   const acc = c.accentColor || "#EEA8FF";
   const txt = c.textColor || "#fff";
@@ -3058,8 +3060,7 @@ function OverlayWidgetPreview({ c, fillWidth = false }) {
       clipPath,
       background: toRgba(c.bgColor||"#1a1a1a",(c.bgOpacity??90)/100),
       width: fillWidth ? "100%" : c.dynamicWidth ? "max-content" : c.widgetWidth||400,
-      border: c.border ? `${c.borderWidth||1.5}px solid ${c.borderColor||"#EEA8FF"}` : "none",
-      boxShadow: [shadow,bglow].filter(Boolean).join(",") || "none",
+      boxShadow: [shadow, bglow, borderShadow].filter(Boolean).join(",") || "none",
       backdropFilter: blurVal, WebkitBackdropFilter: blurVal,
       position: "relative", overflow: "hidden",
       fontFamily: c.fontFamily || "system-ui,sans-serif",
