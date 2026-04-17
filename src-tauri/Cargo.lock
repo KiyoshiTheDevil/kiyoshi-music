@@ -2245,7 +2245,7 @@ dependencies = [
 
 [[package]]
 name = "kiyoshi-music"
-version = "0.9.6-beta"
+version = "0.9.7-beta"
 dependencies = [
  "discord-rich-presence",
  "reqwest 0.12.28",

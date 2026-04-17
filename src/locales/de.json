@@ -153,6 +153,7 @@
 
   "switchProfileTitle": "Profil wechseln",
   "addAccount": "Konto hinzufügen",
+  "reauthSession": "Session erneuern",
   "removeAccountTitle": "Konto entfernen?",
   "removeAccountDesc": "Möchtest du dieses Konto wirklich entfernen? Diese Aktion kann nicht rückgängig gemacht werden.",
   "removeAccountConfirm": "Entfernen",

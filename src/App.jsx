@@ -98,7 +98,7 @@ const _MAX_FRONTEND_LOGS = 500;
 })();
 
 // ─── App Version ─────────────────────────────────────────────────────────────
-const APP_VERSION = "0.9.7-beta";
+const APP_VERSION = "0.9.8-beta";
 
 // ─── Update Checker (GitHub Releases) ───────────────────────────────────────
 const APP_TAG = "v0.9.7-beta";
@@ -705,7 +705,7 @@ function TrackRow({ track, isPlaying, onPlay, onOpenArtist, onContextMenu }) {
 const SIDEBAR_EXPANDED = 240;
 const SIDEBAR_COLLAPSED = 56;
 
-function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenSettings, onOpenUpdateTab, onOpenOverlaySettings, onCloseOverlay, onOpenPlaylist, onOpenAlbum, onOpenArtist, onAddRecent, onContextMenu, currentProfileData, onOpenProfileSwitcher, profiles, onSwitchProfile, onAddProfile, onDeleteProfile, onCreatePlaylist, updateInfo, offlineMode, isActuallyOffline, onToggleOffline, onRefreshView, obsEnabled }) {
+function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenSettings, onOpenUpdateTab, onOpenOverlaySettings, onCloseOverlay, onOpenPlaylist, onOpenAlbum, onOpenArtist, onAddRecent, onContextMenu, currentProfileData, onOpenProfileSwitcher, profiles, onSwitchProfile, onAddProfile, onDeleteProfile, onReauthProfile, onCreatePlaylist, updateInfo, offlineMode, isActuallyOffline, onToggleOffline, onRefreshView, obsEnabled }) {
   const [query, setQuery] = useState("");
   const [tooltip, setTooltip] = useState(null);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
@@ -1010,6 +1010,7 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
               onSwitch={(name) => { onSwitchProfile(name); setProfileDropdownOpen(false); }}
               onAdd={() => { setProfileDropdownOpen(false); onAddProfile(); }}
               onDelete={(name) => { onDeleteProfile(name); }}
+              onReauth={(name) => { setProfileDropdownOpen(false); onReauthProfile && onReauthProfile(name); }}
               onClose={() => setProfileDropdownOpen(false)}
               triggerRef={profileTriggerRef}
             />
@@ -2644,20 +2645,32 @@ function PubIcon({ file, size = 15 }) {
   );
 }
 
-// Generates an SVG path() clip-path that supports per-corner round (Q bezier) or bevel (straight cut).
-// Works for any rectangle (W × H). For square art use W = H = artSize.
+// Builds raw SVG path data for a rounded/beveled rectangle.
+// ox/oy = offset (for embedding inner path in parent coord space).
+// each corner: { t: 'r'|'b', s: number }
+function buildCornerPathData(W, H, corners, ox = 0, oy = 0) {
+  const { tl, tr, br, bl } = corners;
+  let d = `M ${ox + tl.s} ${oy} `;
+  if (tr.t === 'r') d += `L ${ox + W - tr.s} ${oy} Q ${ox + W} ${oy} ${ox + W} ${oy + tr.s} `;
+  else              d += `L ${ox + W - tr.s} ${oy} L ${ox + W} ${oy + tr.s} `;
+  if (br.t === 'r') d += `L ${ox + W} ${oy + H - br.s} Q ${ox + W} ${oy + H} ${ox + W - br.s} ${oy + H} `;
+  else              d += `L ${ox + W} ${oy + H - br.s} L ${ox + W - br.s} ${oy + H} `;
+  if (bl.t === 'r') d += `L ${ox + bl.s} ${oy + H} Q ${ox} ${oy + H} ${ox} ${oy + H - bl.s} `;
+  else              d += `L ${ox + bl.s} ${oy + H} L ${ox} ${oy + H - bl.s} `;
+  if (tl.t === 'r') d += `L ${ox} ${oy + tl.s} Q ${ox} ${oy} ${ox + tl.s} ${oy} Z`;
+  else              d += `L ${ox} ${oy + tl.s} L ${ox + tl.s} ${oy} Z`;
+  return d.trim();
+}
+// Full clip-path string for a single shape.
 function buildCornerPath(W, H, corners) {
-  const { tl, tr, br, bl } = corners; // each: { t: 'r'|'b', s: number }
-  let d = `M ${tl.s} 0 `;
-  if (tr.t === 'r') d += `L ${W - tr.s} 0 Q ${W} 0 ${W} ${tr.s} `;
-  else              d += `L ${W - tr.s} 0 L ${W} ${tr.s} `;
-  if (br.t === 'r') d += `L ${W} ${H - br.s} Q ${W} ${H} ${W - br.s} ${H} `;
-  else              d += `L ${W} ${H - br.s} L ${W - br.s} ${H} `;
-  if (bl.t === 'r') d += `L ${bl.s} ${H} Q 0 ${H} 0 ${H - bl.s} `;
-  else              d += `L ${bl.s} ${H} L 0 ${H - bl.s} `;
-  if (tl.t === 'r') d += `L 0 ${tl.s} Q 0 0 ${tl.s} 0 Z`;
-  else              d += `L 0 ${tl.s} L ${tl.s} 0 Z`;
-  return `path('${d.trim()}')`;
+  return `path('${buildCornerPathData(W, H, corners)}')`;
+}
+// Donut clip: outer shape minus inner area (evenodd fill-rule).
+// Lets transparent widget backgrounds show through properly — only the border strip is painted.
+function buildDonutClipPath(outerW, outerH, outerCorners, innerW, innerH, innerCorners, bw) {
+  const outer = buildCornerPathData(outerW, outerH, outerCorners);
+  const inner = buildCornerPathData(innerW, innerH, innerCorners, bw, bw);
+  return `path(evenodd, '${outer} ${inner}')`;
 }
 
 function CornerIcon({ corner }) {
@@ -3030,50 +3043,99 @@ function TypographyTab({ t, obsConfig, applyObsConfig }) {
 }
 
 // Renders the OBS widget appearance purely in React — no iframe needed.
-function OverlayWidgetPreview({ c, fillWidth = false }) {
+function OverlayWidgetPreview({ c }) {
   const toRgba = (hex, a) => {
     if (!hex || hex.length < 7) return `rgba(0,0,0,${a})`;
     const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
     return `rgba(${r},${g},${b},${a})`;
   };
-  const bw = c.border ? (c.borderWidth || 1.5) : 0;
-  // filter:drop-shadow is not clipped by clip-path (unlike box-shadow)
-  const dropShadow = c.showShadow ? `drop-shadow(0 8px 32px rgba(0,0,0,${c.shadowStrength||0.35}))` : "";
-  const glowFilter = c.border && (c.borderBlur||0) > 0 ? `drop-shadow(0 0 ${c.borderBlur}px ${c.borderColor||"#EEA8FF"})` : "";
-  const filterVal = [dropShadow, glowFilter].filter(Boolean).join(" ") || undefined;
+  const bw  = c.border ? (c.borderWidth || 1.5) : 0;
   const art = c.artSize || 56;
   const acc = c.accentColor || "#EEA8FF";
-  const txt = c.textColor || "#fff";
-  const blurVal = c.bgBlurEnabled && (c.bgBlur||0) > 0 ? `blur(${c.bgBlur}px)` : undefined;
-  // Widget corners
-  const _wc = (k) => ({ t: c[`cornerType${k}`] || "r", s: c[`radius${k}`] ?? c.borderRadius ?? 14 });
-  const estW = fillWidth ? 500 : (c.dynamicWidth ? 320 : (c.widgetWidth || 400));
-  const estH = (c.widgetHeight || 0) > 0 ? c.widgetHeight
-    : art + (c.paddingV || 12) * 2 + (c.showProgress !== false ? (c.progressHeight || 3) : 0);
-  const clipPath = buildCornerPath(estW, estH, { tl: _wc("TL"), tr: _wc("TR"), br: _wc("BR"), bl: _wc("BL") });
-  // Art corners
+  const txt = c.textColor  || "#fff";
+  const blurVal  = c.bgBlurEnabled && (c.bgBlur||0) > 0 ? `blur(${c.bgBlur}px)` : undefined;
+  const dropShadow  = c.showShadow ? `drop-shadow(0 8px 32px rgba(0,0,0,${c.shadowStrength||0.35}))` : "";
+  const glowFilter  = c.border && (c.borderBlur||0) > 0 ? `drop-shadow(0 0 ${c.borderBlur}px ${c.borderColor||"#EEA8FF"})` : "";
+  const filterVal   = [dropShadow, glowFilter].filter(Boolean).join(" ") || undefined;
+
+  // Corner helpers
+  const _wc  = (k) => ({ t: c[`cornerType${k}`] || "r", s: c[`radius${k}`] ?? c.borderRadius ?? 14 });
+  const _wci = (k) => {
+    const t = c[`cornerType${k}`] || "r";
+    const s = c[`radius${k}`] ?? c.borderRadius ?? 14;
+    return { t, s: Math.max(0, s - bw * (t === "b" ? (2 - Math.sqrt(2)) : 1)) };
+  };
   const _ac = (k) => ({ t: c[`artCornerType${k}`] || "r", s: c[`artRadius${k}`] ?? c.artRadius ?? 8 });
   const artClipPath = buildCornerPath(art, art, { tl: _ac("TL"), tr: _ac("TR"), br: _ac("BR"), bl: _ac("BL") });
+
+  // Widget dimensions — width is always known from config; height is estimated then corrected
+  const widgetW = c.dynamicWidth ? undefined : (c.widgetWidth || 400);
+  const estH    = (c.widgetHeight || 0) > 0 ? c.widgetHeight
+    : art + (c.paddingV || 12) * 2 + (c.showProgress !== false ? (c.progressHeight || 3) : 0) + 2 * bw;
+
+  // Outer clip: width is exact (from config), height estimated then fixed by useLayoutEffect
+  const outerCorners = { tl: _wc("TL"), tr: _wc("TR"), br: _wc("BR"), bl: _wc("BL") };
+  const innerCorners = { tl: _wci("TL"), tr: _wci("TR"), br: _wci("BR"), bl: _wci("BL") };
+
+  const wbRef = useRef(null);
+  const wRef  = useRef(null);
+
+  // Fix clip-path height after the DOM renders (width we already know, height from content).
+  // Direct DOM write → no state/re-render loop, synchronous before paint.
+  useLayoutEffect(() => {
+    const wb = wbRef.current; // null when c.border is false
+    const w  = wRef.current;
+    if (!w) return;
+    // WB is position:absolute;inset:0 → offsetWidth/Height == outer container size.
+    // If no border, derive outer size from content + 2*bw (bw=0, so same as content).
+    const IW = w.offsetWidth  || Math.max(1, (widgetW||320) - 2*bw);
+    const IH = w.offsetHeight || Math.max(1, estH - 2*bw);
+    const WW = wb ? (wb.offsetWidth  || IW + 2*bw) : IW;
+    const WH = wb ? (wb.offsetHeight || IH + 2*bw) : IH;
+    if (bw > 0) {
+      // Donut on WB (sibling of W, not parent) → border strip only, content not clipped
+      if (wb) wb.style.clipPath = buildDonutClipPath(WW, WH, outerCorners, IW, IH, innerCorners, bw);
+      w.style.clipPath = buildCornerPath(IW, IH, innerCorners);
+    } else {
+      if (wb) wb.style.clipPath = buildCornerPath(WW, WH, outerCorners);
+      w.style.clipPath = buildCornerPath(WW, WH, outerCorners);
+    }
+  }); // no dep-array: re-runs after every render so any config change updates the clip-paths
+
+  // Initial clip-paths from estimates (height approximate; useLayoutEffect corrects)
+  const initW  = widgetW || 320;
+  const initIW = Math.max(1, initW - 2*bw);
+  const initIH = Math.max(1, estH - 2*bw);
+  const initOuterClip = bw > 0
+    ? buildDonutClipPath(initW, estH, outerCorners, initIW, initIH, innerCorners, bw)
+    : buildCornerPath(initW, estH, outerCorners);
+  const initInnerClip = bw > 0
+    ? buildCornerPath(initIW, initIH, innerCorners)
+    : buildCornerPath(initW, estH, outerCorners);
+
   return (
-    // Level 1 — shadow wrapper: filter here, no clip-path → drop-shadow renders outside shape
-    <div style={{ filter: filterVal, display: "inline-flex", flexShrink: 0 }}>
-      {/* Level 2 — clip+border wrapper: clip-path + border-color as background */}
-      <div style={{
-        clipPath,
-        background: c.border ? (c.borderColor || "#EEA8FF") : "transparent",
-        padding: bw || undefined,
-        display: "inline-flex",
+    // Outer: filter + relative positioning so the absolute border div can inset:0
+    <div style={{ filter: filterVal, display: "inline-flex", position: "relative", flexShrink: 0 }}>
+      {/* Border layer — position:absolute;inset:0, donut clip → only the border strip is colored.
+          Being a sibling (not parent) of the content div means it can NOT clip the content. */}
+      {c.border && <div ref={wbRef} style={{
+        position: "absolute", inset: 0,
+        background: c.borderColor || "#EEA8FF",
+        clipPath: initOuterClip,
+        pointerEvents: "none",
+      }} />}
+      {/* Content layer — margin:bw creates the border gap, determines container size */}
+      <div ref={wRef} style={{
+        display: "flex", alignItems: "center",
+        gap: c.gap||12, padding: `${c.paddingV||12}px ${c.paddingH||16}px`,
+        margin: bw > 0 ? bw : undefined,
+        background: toRgba(c.bgColor||"#1a1a1a",(c.bgOpacity??90)/100),
+        width: c.dynamicWidth ? "max-content" : Math.max(0, (c.widgetWidth||400) - 2*bw),
+        backdropFilter: blurVal, WebkitBackdropFilter: blurVal,
+        position: "relative", overflow: "hidden",
+        fontFamily: c.fontFamily || "system-ui,sans-serif",
+        clipPath: initInnerClip,
       }}>
-        {/* Level 3 — inner widget: content, background, overflow */}
-        <div style={{
-          display: "flex", alignItems: "center",
-          gap: c.gap||12, padding: `${c.paddingV||12}px ${c.paddingH||16}px`,
-          background: toRgba(c.bgColor||"#1a1a1a",(c.bgOpacity??90)/100),
-          width: fillWidth ? "100%" : c.dynamicWidth ? "max-content" : Math.max(0, (c.widgetWidth||400) - 2*bw),
-          backdropFilter: blurVal, WebkitBackdropFilter: blurVal,
-          position: "relative", overflow: "hidden",
-          fontFamily: c.fontFamily || "system-ui,sans-serif",
-        }}>
         {c.showAlbumArt !== false && (
           <div style={{
             width: art, height: art,
@@ -3099,7 +3161,6 @@ function OverlayWidgetPreview({ c, fillWidth = false }) {
             <div style={{ height: "100%", width: "45%", background: acc, borderRadius: "0 2px 2px 0" }} />
           </div>
         )}
-        </div>
       </div>
     </div>
   );
@@ -3183,7 +3244,7 @@ function OverlayPreviewFloat({ config, onClose }) {
         padding: 24, display: "flex", alignItems: "center", justifyContent: "center",
         flex: 1, overflow: "hidden",
       }}>
-        <OverlayWidgetPreview c={config} fillWidth />
+        <OverlayWidgetPreview c={config} />
       </div>
     </div>,
     document.body
@@ -5030,6 +5091,7 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
   const [moreOpen, setMoreOpen] = useState(false);
   const [moreClosing, setMoreClosing] = useState(false);
   const [morePos, setMorePos] = useState({ right: 0, bottom: 0 });
+  const [morePlaylists, setMorePlaylists] = useState(null);
   const [langSubmenuOpen, setLangSubmenuOpen] = useState(false);
   const [fetchedBrowseIds, setFetchedBrowseIds] = useState({});
   const moreRef = useRef(null);
@@ -5037,7 +5099,7 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
 
   const closeMoreMenu = useCallback(() => {
     setMoreClosing(true);
-    setTimeout(() => { setMoreOpen(false); setMoreClosing(false); }, 140);
+    setTimeout(() => { setMoreOpen(false); setMoreClosing(false); setMorePlaylists(null); }, 140);
   }, []);
 
   // ── Sleep Timer ────────────────────────────────────────────────────────────
@@ -5881,6 +5943,55 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
                   transformOrigin: "bottom right",
                   zoom,
                 }}>
+                  {/* Add to Playlist */}
+                  {track && (
+                    <div style={{ position: "relative" }}
+                      onMouseEnter={() => { if (!morePlaylists) fetch(`${API}/library/playlists`).then(r => r.json()).then(d => setMorePlaylists(d.playlists || [])).catch(() => setMorePlaylists([])); }}
+                      onMouseLeave={() => setMorePlaylists(null)}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "7px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "var(--text-primary)" }}
+                        onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
+                        onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                      >
+                        <span style={{ display: "flex", alignItems: "center", gap: 10 }}><Plus size={14} />{t("addToPlaylist")}</span>
+                        <CaretDown size={10} style={{ transform: "rotate(-90deg)" }} />
+                      </div>
+                      {morePlaylists && (
+                        <div style={{ position: "absolute", left: "100%", top: 0, marginLeft: 4, background: "var(--bg-elevated)", border: "0.5px solid var(--border)", borderRadius: "var(--radius-lg)", padding: "4px", minWidth: 180, boxShadow: "0 8px 24px rgba(0,0,0,0.4)", maxHeight: 300, overflowY: "auto", zIndex: 100001 }}>
+                          {morePlaylists.map((pl, i) => (
+                            <div key={i}
+                              onClick={async () => { try { await fetch(`${API}/playlist/${pl.playlistId}/add`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ videoIds: [track.videoId], tracks: [track] }) }); } catch {} closeMoreMenu(); }}
+                              style={{ padding: "7px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t12)", color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
+                              onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
+                              onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                            >{pl.title}</div>
+                          ))}
+                          <div style={{ borderTop: "0.5px solid var(--border)", margin: "4px 0" }} />
+                          <div onClick={() => { closeMoreMenu(); setCreatePlaylistOpen(true); }}
+                            style={{ padding: "7px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t12)", color: "var(--accent)", display: "flex", alignItems: "center", gap: 8 }}
+                            onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
+                            onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                          ><Plus size={12} weight="bold" />{t("newPlaylist")}</div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Like Song */}
+                  {track && (
+                    <div
+                      onClick={() => { toggleLike(); closeMoreMenu(); }}
+                      style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: isLiked ? "var(--accent)" : "var(--text-primary)" }}
+                      onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
+                      onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                    >
+                      <Heart size={14} weight={isLiked ? "fill" : "regular"} />
+                      {isLiked ? t("unlike") : t("like")}
+                    </div>
+                  )}
+
+                  {(track) && <div style={{ height: "0.5px", background: "var(--border)", margin: "2px 8px" }} />}
+
                   {/* Stats */}
                   {songStats && (
                     <>
@@ -7520,7 +7631,7 @@ function TableRow({ track, index, isPlaying, onPlay, onOpenArtist, onOpenAlbum, 
 }
 
 // ─── Shared playlist/collection layout ────────────────────────────────────
-function PlaylistLayout({ title, thumbnail, tracks, total, loading, progress, cached, onPlay, currentTrack, isPlaying, onBack, isLiked, onOpenArtist, onOpenAlbum, isAlbum, albumArtists, albumArtistBrowseId, year, onRefresh, onTrackContextMenu, cachedSongIds, downloadingIds, premiumSongIds, onDownloadSong, onDownloadAll, onRemoveAll, hideExplicit }) {
+function PlaylistLayout({ title, thumbnail, tracks, total, loading, progress, cached, onPlay, currentTrack, isPlaying, onBack, isLiked, onOpenArtist, onOpenAlbum, isAlbum, albumArtists, albumArtistBrowseId, year, onRefresh, onTrackContextMenu, cachedSongIds, downloadingIds, premiumSongIds, onDownloadSong, onDownloadAll, onRemoveAll, hideExplicit, onToggleLike, likedIds }) {
   const accentColor = useAccentColor(thumbnail);
   const t = useLang();
   const [trackSearch, setTrackSearch] = useState("");
@@ -7845,7 +7956,7 @@ function SkeletonRow() {
   );
 }
 
-function DownloadsView({ onPlay, currentTrack, isPlaying, cachedSongIds, downloadingIds, premiumSongIds, onDownloadSong, onTrackContextMenu, hideExplicit, onOpenAlbum, onOpenArtist }) {
+function DownloadsView({ onPlay, currentTrack, isPlaying, cachedSongIds, downloadingIds, premiumSongIds, onDownloadSong, onTrackContextMenu, hideExplicit, onOpenAlbum, onOpenArtist, onToggleLike, likedIds }) {
   const t = useLang();
   const [songs, setSongs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -7919,6 +8030,8 @@ function DownloadsView({ onPlay, currentTrack, isPlaying, cachedSongIds, downloa
         premiumSongIds={premiumSongIds}
         onDownloadSong={onDownloadSong}
         hideExplicit={hideExplicit}
+        onToggleLike={onToggleLike}
+        likedIds={likedIds}
       />
     );
   }
@@ -7973,6 +8086,8 @@ function DownloadsView({ onPlay, currentTrack, isPlaying, cachedSongIds, downloa
             premiumSongIds={premiumSongIds}
             onDownloadSong={onDownloadSong}
             hideExplicit={hideExplicit}
+            onToggleLike={onToggleLike}
+            likedIds={likedIds}
           />
         </div>
       </div>
@@ -8014,7 +8129,7 @@ function DownloadsView({ onPlay, currentTrack, isPlaying, cachedSongIds, downloa
   );
 }
 
-function CollectionView({ title, thumbnail, tracks, total, loading, progress, cached, onPlay, currentTrack, isPlaying, onBack, onOpenArtist, onOpenAlbum, isAlbum, albumArtists, albumArtistBrowseId, year, onRefresh, onTrackContextMenu, cachedSongIds, downloadingIds, premiumSongIds, onDownloadSong, onDownloadAll, onRemoveAll, hideExplicit }) {
+function CollectionView({ title, thumbnail, tracks, total, loading, progress, cached, onPlay, currentTrack, isPlaying, onBack, onOpenArtist, onOpenAlbum, isAlbum, albumArtists, albumArtistBrowseId, year, onRefresh, onTrackContextMenu, cachedSongIds, downloadingIds, premiumSongIds, onDownloadSong, onDownloadAll, onRemoveAll, hideExplicit, onToggleLike, likedIds }) {
   return (
     <PlaylistLayout
       title={title} thumbnail={thumbnail} tracks={tracks} total={total}
@@ -8024,7 +8139,7 @@ function CollectionView({ title, thumbnail, tracks, total, loading, progress, ca
       isAlbum={isAlbum} albumArtists={albumArtists} albumArtistBrowseId={albumArtistBrowseId} year={year}
       onRefresh={onRefresh} onTrackContextMenu={onTrackContextMenu}
       cachedSongIds={cachedSongIds} downloadingIds={downloadingIds} premiumSongIds={premiumSongIds} onDownloadSong={onDownloadSong} onDownloadAll={onDownloadAll} onRemoveAll={onRemoveAll}
-      hideExplicit={hideExplicit}
+      hideExplicit={hideExplicit} onToggleLike={onToggleLike} likedIds={likedIds}
     />
   );
 }
@@ -8596,7 +8711,7 @@ function HistoryView({ onPlay, currentTrack, isPlaying, onOpenArtist, onOpenAlbu
   );
 }
 
-function LikedView({ onPlay, currentTrack, isPlaying, onOpenArtist, onOpenAlbum, onTrackContextMenu, cachedSongIds, downloadingIds, onDownloadSong, hideExplicit }) {
+function LikedView({ onPlay, currentTrack, isPlaying, onOpenArtist, onOpenAlbum, onTrackContextMenu, cachedSongIds, downloadingIds, onDownloadSong, hideExplicit, onToggleLike, likedIds }) {
   const [tracks, setTracks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -8638,7 +8753,7 @@ function LikedView({ onPlay, currentTrack, isPlaying, onOpenArtist, onOpenAlbum,
       onBack={null} isLiked={true} onOpenArtist={onOpenArtist} onOpenAlbum={onOpenAlbum}
       onTrackContextMenu={onTrackContextMenu}
       cachedSongIds={cachedSongIds} downloadingIds={downloadingIds} onDownloadSong={onDownloadSong}
-      hideExplicit={hideExplicit}
+      hideExplicit={hideExplicit} onToggleLike={onToggleLike} likedIds={likedIds}
     />
   );
 }
@@ -9157,7 +9272,7 @@ function LanguagePickerScreen({ currentLanguage, onConfirm }) {
   );
 }
 
-function ProfileSwitcher({ profiles, currentProfile, onSwitch, onAdd, onDelete, onClose, triggerRef }) {
+function ProfileSwitcher({ profiles, currentProfile, onSwitch, onAdd, onDelete, onReauth, onClose, triggerRef }) {
   const t = useLang();
   const [confirmName, setConfirmName] = useState(null);
   const ref = useRef(null);
@@ -9264,6 +9379,17 @@ function ProfileSwitcher({ profiles, currentProfile, onSwitch, onAdd, onDelete, 
                   onMouseLeave={e => e.currentTarget.style.color = "var(--text-muted)"}
                   >
                     <Link size={13} />
+                  </div>
+                )}
+                {p.type !== "local" && onReauth && (
+                  <div
+                    title={t("reauthSession")}
+                    onClick={e => { e.stopPropagation(); onReauth(p.name); }}
+                    style={{ padding: 3, borderRadius: 4, cursor: "pointer", color: "var(--text-muted)", transition: "color 0.15s", flexShrink: 0 }}
+                    onMouseEnter={e => e.currentTarget.style.color = "var(--accent)"}
+                    onMouseLeave={e => e.currentTarget.style.color = "var(--text-muted)"}
+                  >
+                    <ArrowClockwise size={13} />
                   </div>
                 )}
                 <div onClick={e => { e.stopPropagation(); setConfirmName(p.name); }} style={{
@@ -9561,6 +9687,7 @@ export default function App() {
   const [renameDialog, setRenameDialog] = useState(null); // { playlistId, title }
   const [deleteDialog, setDeleteDialog] = useState(null); // { playlistId, title }
   const [cachedSongIds, setCachedSongIds] = useState(new Set());
+  const [likedIds, setLikedIds] = useState(new Set());
   const [downloadingIds, setDownloadingIds] = useState(new Set());
   const [premiumSongIds, setPremiumSongIds] = useState(new Set());
   const [offlineMode, setOfflineMode] = useState(() => localStorage.getItem("kiyoshi-offline") === "true");
@@ -10435,6 +10562,49 @@ export default function App() {
     return () => { cancelled = true; };
   }, []);
 
+  // Load liked song IDs on mount
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${API}/liked/ids`)
+      .then(r => r.json())
+      .then(d => { if (!cancelled) setLikedIds(new Set(d.ids || [])); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
+  // Toggle like for a track from playlist rows
+  const handleToggleLike = useCallback(async (track) => {
+    if (!track?.videoId) return;
+    const wasLiked = likedIds.has(track.videoId);
+    const newRating = wasLiked ? "INDIFFERENT" : "LIKE";
+    setLikedIds(prev => {
+      const s = new Set(prev);
+      if (wasLiked) s.delete(track.videoId); else s.add(track.videoId);
+      return s;
+    });
+    try {
+      await fetch(`${API}/like/${track.videoId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          rating: newRating,
+          title: track.title || "",
+          artists: track.artists || "",
+          album: track.album || "",
+          thumbnail: track.thumbnail || "",
+          duration: track.duration || "",
+        }),
+      });
+    } catch {
+      // revert on error
+      setLikedIds(prev => {
+        const s = new Set(prev);
+        if (wasLiked) s.add(track.videoId); else s.delete(track.videoId);
+        return s;
+      });
+    }
+  }, [likedIds]);
+
   // Detect real network connectivity changes
   useEffect(() => {
     const onOnline  = () => {
@@ -10773,6 +10943,16 @@ export default function App() {
               try { await fetch(`${API}/auth/begin-add`, { method: "POST" }); } catch {}
               setAddingProfile(true); setShowLogin(true);
             }}
+            onReauthProfile={async (name) => {
+              try {
+                const { invoke } = await import("@tauri-apps/api/core");
+                const { listen } = await import("@tauri-apps/api/event");
+                await invoke("open_login_window", { profileName: name });
+                // One-time listener: refresh profiles when the re-auth login completes
+                const unlisten = await listen("login-complete", () => { fetchProfiles(); unlisten(); });
+                const unlistenC = await listen("login-cancelled", () => { unlistenC(); });
+              } catch (e) { console.error("reauth failed:", e); }
+            }}
             onDeleteProfile={async (name) => {
               const wasActive = profiles.find(p => p.name === name)?.active;
               await fetch(`${API}/profiles/delete`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) });
@@ -10799,12 +10979,12 @@ export default function App() {
           <div key={appKey} className="scrollable" style={{ flex: 1, overflowY: "auto" }}>
             {view === "home" && <AnimatedView key={`home-${viewRefreshKey}`}><HomeView displayName={profiles.find(p => p.active)?.displayName} onPlay={handlePlay} onOpenPlaylist={(item) => openPlaylist(item, "home")} onOpenAlbum={(item) => openAlbum(item, "home")} onOpenArtist={(item) => openArtist(item, "home")} onContextMenu={openContextMenu} onTrackContextMenu={(e, track) => setTrackContextMenu({ x: e.clientX, y: e.clientY, track })} hideExplicit={hideExplicit} /></AnimatedView>}
             {view === "search" && <AnimatedView key={`search-${viewRefreshKey}`}><SearchView query={searchQuery} onPlay={handlePlay} currentTrack={currentTrack} isPlaying={isPlaying} onOpenArtist={openArtist} onOpenAlbum={(item) => openAlbum(item, "search")} onOpenPlaylist={(item) => openPlaylist(item, "search")} onContextMenu={openContextMenu} onTrackContextMenu={(e, track) => setTrackContextMenu({ x: e.clientX, y: e.clientY, track })} hideExplicit={hideExplicit} /></AnimatedView>}
-            {view === "liked" && <AnimatedView key={`liked-${viewRefreshKey}`}><LikedView onPlay={handlePlay} currentTrack={currentTrack} isPlaying={isPlaying} onOpenArtist={openArtist} onOpenAlbum={(item) => openAlbum(item, "liked")} onTrackContextMenu={(e, track) => setTrackContextMenu({ x: e.clientX, y: e.clientY, track })} cachedSongIds={cachedSongIds} downloadingIds={downloadingIds} onDownloadSong={handleDownloadSong} hideExplicit={hideExplicit} /></AnimatedView>}
+            {view === "liked" && <AnimatedView key={`liked-${viewRefreshKey}`}><LikedView onPlay={handlePlay} currentTrack={currentTrack} isPlaying={isPlaying} onOpenArtist={openArtist} onOpenAlbum={(item) => openAlbum(item, "liked")} onTrackContextMenu={(e, track) => setTrackContextMenu({ x: e.clientX, y: e.clientY, track })} cachedSongIds={cachedSongIds} downloadingIds={downloadingIds} onDownloadSong={handleDownloadSong} hideExplicit={hideExplicit} onToggleLike={handleToggleLike} likedIds={likedIds} /></AnimatedView>}
             {view === "history" && <AnimatedView key={`history-${viewRefreshKey}`}><HistoryView onPlay={handlePlay} currentTrack={currentTrack} isPlaying={isPlaying} onOpenArtist={openArtist} onOpenAlbum={(item) => openAlbum(item, "history")} onTrackContextMenu={(e, track, extra) => setTrackContextMenu({ x: e.clientX, y: e.clientY, track, ...extra })} cachedSongIds={cachedSongIds} downloadingIds={downloadingIds} onDownloadSong={handleDownloadSong} hideExplicit={hideExplicit} /></AnimatedView>}
             {view === "library" && <AnimatedView key={`library-${viewRefreshKey}`}><LibraryView onPlay={handlePlay} currentTrack={currentTrack} isPlaying={isPlaying} onOpenPlaylist={openPlaylist} onOpenAlbum={openAlbum} onOpenArtist={openArtist} onContextMenu={openContextMenu} /></AnimatedView>}
-            {view === "collection" && collection && <AnimatedView key={`collection-${viewRefreshKey}`}><CollectionView title={collection.title} thumbnail={collection.thumbnail} tracks={collection.tracks} total={collection.total} loading={collection.loading} progress={collection.progress || 0} cached={collection.cached} onPlay={handlePlay} currentTrack={currentTrack} isPlaying={isPlaying} onBack={() => setView(collection.fromView || "library")} onOpenArtist={openArtist} onOpenAlbum={(item) => openAlbum(item, "collection")} isAlbum={collection.isAlbum} albumArtists={collection.albumArtists} albumArtistBrowseId={collection.albumArtistBrowseId} year={collection.year} onRefresh={() => { if (collection.isAlbum) openAlbum({ browseId: collection.browseId, title: collection.title, thumbnail: collection.thumbnail }, collection.fromView, true); else openPlaylist({ playlistId: collection.playlistId, title: collection.title, thumbnail: collection.thumbnail, forcedTitle: collection.forcedTitle }, collection.fromView, true); }} onTrackContextMenu={(e, track) => setTrackContextMenu({ x: e.clientX, y: e.clientY, track, playlistId: collection.isAlbum ? null : collection.playlistId })} cachedSongIds={cachedSongIds} downloadingIds={downloadingIds} premiumSongIds={premiumSongIds} onDownloadSong={handleDownloadSong} onDownloadAll={(tracks) => handleDownloadAll(tracks, { title: collection.title, thumbnail: collection.thumbnail, artists: collection.albumArtists || "" })} onRemoveAll={handleRemoveAllDownloads} hideExplicit={hideExplicit} /></AnimatedView>}
+            {view === "collection" && collection && <AnimatedView key={`collection-${viewRefreshKey}`}><CollectionView title={collection.title} thumbnail={collection.thumbnail} tracks={collection.tracks} total={collection.total} loading={collection.loading} progress={collection.progress || 0} cached={collection.cached} onPlay={handlePlay} currentTrack={currentTrack} isPlaying={isPlaying} onBack={() => setView(collection.fromView || "library")} onOpenArtist={openArtist} onOpenAlbum={(item) => openAlbum(item, "collection")} isAlbum={collection.isAlbum} albumArtists={collection.albumArtists} albumArtistBrowseId={collection.albumArtistBrowseId} year={collection.year} onRefresh={() => { if (collection.isAlbum) openAlbum({ browseId: collection.browseId, title: collection.title, thumbnail: collection.thumbnail }, collection.fromView, true); else openPlaylist({ playlistId: collection.playlistId, title: collection.title, thumbnail: collection.thumbnail, forcedTitle: collection.forcedTitle }, collection.fromView, true); }} onTrackContextMenu={(e, track) => setTrackContextMenu({ x: e.clientX, y: e.clientY, track, playlistId: collection.isAlbum ? null : collection.playlistId })} cachedSongIds={cachedSongIds} downloadingIds={downloadingIds} premiumSongIds={premiumSongIds} onDownloadSong={handleDownloadSong} onDownloadAll={(tracks) => handleDownloadAll(tracks, { title: collection.title, thumbnail: collection.thumbnail, artists: collection.albumArtists || "" })} onRemoveAll={handleRemoveAllDownloads} hideExplicit={hideExplicit} onToggleLike={handleToggleLike} likedIds={likedIds} /></AnimatedView>}
             {view === "artist" && artistView && <AnimatedView key={`artist-${viewRefreshKey}`}><ArtistView browseId={artistView.browseId} onPlay={handlePlay} currentTrack={currentTrack} isPlaying={isPlaying} onOpenAlbum={(item) => openAlbum(item, "artist")} onOpenPlaylist={(item) => openPlaylist(item, "artist")} onBack={() => setView(artistView.fromView || "library")} onContextMenu={openContextMenu} onTogglePin={togglePin} isPinned={pinnedIds.includes(artistView.browseId)} hideExplicit={hideExplicit} /></AnimatedView>}
-            {view === "downloads" && <AnimatedView key={`downloads-${viewRefreshKey}`}><DownloadsView onPlay={handlePlay} currentTrack={currentTrack} isPlaying={isPlaying} cachedSongIds={cachedSongIds} downloadingIds={downloadingIds} premiumSongIds={premiumSongIds} onDownloadSong={handleDownloadSong} onTrackContextMenu={(e, track) => setTrackContextMenu({ x: e.clientX, y: e.clientY, track })} hideExplicit={hideExplicit} onOpenAlbum={(item) => openAlbum(item, "downloads")} onOpenArtist={openArtist} /></AnimatedView>}
+            {view === "downloads" && <AnimatedView key={`downloads-${viewRefreshKey}`}><DownloadsView onPlay={handlePlay} currentTrack={currentTrack} isPlaying={isPlaying} cachedSongIds={cachedSongIds} downloadingIds={downloadingIds} premiumSongIds={premiumSongIds} onDownloadSong={handleDownloadSong} onTrackContextMenu={(e, track) => setTrackContextMenu({ x: e.clientX, y: e.clientY, track })} hideExplicit={hideExplicit} onOpenAlbum={(item) => openAlbum(item, "downloads")} onOpenArtist={openArtist} onToggleLike={handleToggleLike} likedIds={likedIds} /></AnimatedView>}
             {isOffline && view !== "downloads" && (
               <div style={{
                 position: "sticky", bottom: 0, left: 0, right: 0,
@@ -11180,6 +11360,25 @@ export default function App() {
                   </div>
                 )}
               </div>
+
+              {/* Like / Unlike */}
+              {(() => {
+                const ctxLiked = likedIds.has(trackCtxData.track.videoId);
+                return (
+                  <div
+                    onClick={async () => {
+                      await handleToggleLike(trackCtxData.track);
+                      setTrackContextMenu(null); setTrackCtxPlaylists(null);
+                    }}
+                    style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: ctxLiked ? "var(--accent)" : "var(--text-primary)" }}
+                    onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
+                    onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                  >
+                    <Heart size={14} weight={ctxLiked ? "fill" : "regular"} />
+                    {ctxLiked ? translate(language, "unlike") : translate(language, "like")}
+                  </div>
+                );
+              })()}
 
               {/* Remove from Playlist (only if viewing a user playlist) */}
               {trackCtxData.playlistId && trackCtxData.track.setVideoId && (

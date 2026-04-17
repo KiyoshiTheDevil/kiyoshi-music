@@ -420,30 +420,54 @@ def get_ytmusic():
     return _ytm
 
 def _get_ydl_cookiefile():
-    """Write the active profile's YouTube cookies as a Netscape cookies file for yt-dlp.
-    Returns the file path, or None if no authenticated profile is active."""
+    """Write YouTube cookies as a Netscape file for yt-dlp.
+
+    Merges two sources (later source wins on conflicts):
+    1. Long-lived cookies from the stored profile headers.json (SAPISID, SID, HSID …)
+    2. Live session cookies from the active ytmusicapi _session (includes freshly
+       rotated short-lived tokens like __Secure-1PSIDTS / __Secure-3PSIDTS that
+       YouTube uses for bot-detection of audio-stream requests).
+
+    Returns the file path, or None if no authenticated profile is active.
+    """
     if not _current_profile or is_local_profile(_current_profile):
         return None
     try:
+        # ── 1. Stored long-lived cookies ────────────────────────────────────────
         with open(profile_path(_current_profile)) as f:
             headers = json.load(f)
         cookie_str = headers.get("cookie", "")
-        if not cookie_str:
-            return None
-        cookie_file = os.path.join(PROFILES_DIR, f"{_current_profile}_ydl_cookies.txt")
-        lines = ["# Netscape HTTP Cookie File\n"]
+        cookie_dict = {}
         for part in cookie_str.split(";"):
             part = part.strip()
             if "=" not in part:
                 continue
             name, _, value = part.partition("=")
-            name = name.strip()
-            value = value.strip()
-            if not name:
-                continue
+            name, value = name.strip(), value.strip()
+            if name:
+                cookie_dict[name] = value
+
+        # ── 2. Live session cookies (fresh short-lived tokens) ──────────────────
+        try:
+            if _ytm is not None and hasattr(_ytm, "_session"):
+                for c in _ytm._session.cookies:
+                    domain = c.domain or ""
+                    if "youtube" in domain or not domain:
+                        cookie_dict[c.name] = c.value
+        except Exception:
+            pass
+
+        if not cookie_dict:
+            return None
+
+        # ── Write Netscape file ─────────────────────────────────────────────────
+        cookie_file = os.path.join(PROFILES_DIR, f"{_current_profile}_ydl_cookies.txt")
+        lines = ["# Netscape HTTP Cookie File\n"]
+        for name, value in cookie_dict.items():
             secure = "TRUE" if name.startswith("__Secure-") or name.startswith("__Host-") else "FALSE"
             lines.append(f".youtube.com\tTRUE\t/\t{secure}\t2147483647\t{name}\t{value}\n")
-        with open(cookie_file, "w", encoding="utf-8") as f:
+        # newline="\n" → Unix line endings, required for yt-dlp to recognise the header on Windows
+        with open(cookie_file, "w", encoding="utf-8", newline="\n") as f:
             f.writelines(lines)
         return cookie_file
     except Exception:
@@ -1262,20 +1286,24 @@ def _ydl_pick_any_audio(video_id, extra_opts=None, skip_auth=False):
 _WEB_MUSIC_OPTS = {"extractor_args": {"youtube": {"player_client": ["web_music"]}}}
 _ANDROID_OPTS   = {"extractor_args": {"youtube": {"player_client": ["android_music"], "player_skip": ["js"]}}}
 _IOS_OPTS       = {"extractor_args": {"youtube": {"player_client": ["ios"],           "player_skip": ["js"]}}}
+_TV_OPTS        = {"extractor_args": {"youtube": {"player_client": ["tv_embedded"],   "player_skip": ["js"]}}}
 _M4A_FMT = "bestaudio[ext=m4a]/bestaudio[acodec=aac]"
 
 _STREAM_ATTEMPTS = [
     # ── anonymous first (no PO-token issues), m4a/AAC only ───────────────────
     # symphonia 0.5 has no Opus decoder — WebM/Opus files would skip immediately
     (_M4A_FMT, None,            True),
+    (_M4A_FMT, _TV_OPTS,        True),   # TV client bypasses bot-detection reliably
     (_M4A_FMT, _WEB_MUSIC_OPTS, True),   # YTMusic exclusives
     (_M4A_FMT, _ANDROID_OPTS,   True),
     (_M4A_FMT, _IOS_OPTS,       True),
     # ── authenticated fallback (premium / geo-restricted content) ────────────
     (_M4A_FMT, None,            False),
+    (_M4A_FMT, _TV_OPTS,        False),
     (_M4A_FMT, _WEB_MUSIC_OPTS, False),
     (_M4A_FMT, _ANDROID_OPTS,   False),
 ]
+
 
 def _stream_url_from_info(info):
     url = info.get("url")
@@ -1315,7 +1343,7 @@ def stream_url(video_id):
     for no_auth in (False, True):
         if _hard_stop:
             break
-        for extra in (None, _ANDROID_OPTS, _IOS_OPTS):
+        for extra in (None, _ANDROID_OPTS, _IOS_OPTS, _TV_OPTS):
             try:
                 url = _ydl_pick_any_audio(video_id, extra_opts=extra, skip_auth=no_auth)
                 if url:
@@ -2968,8 +2996,8 @@ _OVERLAY_HTML = r"""<!DOCTYPE html>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{background:transparent;overflow:visible;font-family:var(--wfont);display:flex;align-items:center;justify-content:center;min-height:100vh;min-width:100vw}
-#ws{display:inline-flex;flex-shrink:0;transition:filter .3s,opacity .4s;}
-#wb{display:inline-flex;flex-shrink:0;transition:background .15s,padding .15s;}
+#ws{display:inline-flex;flex-shrink:0;position:relative;transition:filter .3s,opacity .4s;}
+#wb{position:absolute;inset:0;pointer-events:none;transition:background .15s;}
 #w{
   display:flex;align-items:center;gap:var(--wgap);
   padding:var(--wpadv) var(--wpadh);
@@ -2990,7 +3018,7 @@ body{background:transparent;overflow:visible;font-family:var(--wfont);display:fl
 #pfill{height:100%;background:var(--wacc);border-radius:0 2px 2px 0;transition:width .8s linear}
 .scroll{animation:scroll linear infinite;display:inline-block;white-space:nowrap}
 </style></head>
-<body><div id="ws"><div id="wb"><div id="w">
+<body><div id="ws"><div id="wb"></div><div id="w">
   <div id="w-blur-bg"></div>
   <div id="art-ph"><svg width="22" height="22" viewBox="0 0 24 24" fill="rgba(255,255,255,.4)"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg></div>
   <img id="art" style="display:none">
@@ -2999,7 +3027,7 @@ body{background:transparent;overflow:visible;font-family:var(--wfont);display:fl
     <div class="sub" id="sub">Waiting...</div>
   </div>
   <div id="pbar"><div id="pfill" style="width:0%"></div></div>
-</div></div></div>
+</div></div>
 <script>
 const API=location.origin;
 let cfg={},state={};
@@ -3049,18 +3077,26 @@ function applyConfig(c){
   R.style.setProperty('--wpadh',(c.paddingH||16)+'px');
   R.style.setProperty('--wgap',(c.gap||12)+'px');
   const _bw=c.border?(c.borderWidth||1.5):0;
-  WB.style.padding=_bw>0?_bw+'px':'0';
+  // #wb is position:absolute;inset:0 — border-color background, donut clip.
+  // #w is a sibling with margin:bw — determines the container size, carries the content.
+  // This separation is essential: clip-path on a parent clips children, so border and
+  // content must NOT be in a parent-child relationship.
   WB.style.background=c.border?(c.borderColor||'#EEA8FF'):'transparent';
+  W.style.margin=_bw>0?_bw+'px':'0';
   // Shadows on WS (no clip-path → drop-shadow renders outside the shape correctly)
   const _dshadow=c.showShadow?`drop-shadow(0 8px 32px rgba(0,0,0,${c.shadowStrength||0.35}))`:'';
   const _dglow=c.border&&(c.borderBlur||0)>0?`drop-shadow(0 0 ${(c.borderBlur||0)*1.5}px ${c.borderColor||'#EEA8FF'})`:'';
   WS.style.filter=[_dshadow,_dglow].filter(Boolean).join(' ')||'none';
   W.style.border='none';
   W.style.boxShadow='none';
+  // Set W width before measuring (forces layout so offsetWidth is accurate)
+  W.style.width=c.dynamicWidth?'max-content':Math.max(0,(c.widgetWidth||400)-2*_bw)+'px';
+  WS.style.display=c.dynamicWidth?'inline-flex':'flex';
   (function(){
-    // Use WB dimensions for the clip-path (outer size including border padding)
-    const WW=WB.offsetWidth||c.widgetWidth||400;
-    const WH=WB.offsetHeight||(c.artSize||56)+(c.paddingV||12)*2+(c.showProgress!==false?(c.progressHeight||3):0);
+    // WB is position:absolute;inset:0 → its offsetWidth == WS outer width
+    const WW=WB.offsetWidth||(c.widgetWidth||400);
+    // Height fallback must include 2*_bw (border padding top+bottom)
+    const WH=WB.offsetHeight||(c.artSize||56)+(c.paddingV||12)*2+(c.showProgress!==false?(c.progressHeight||3):0)+2*_bw;
     const wn={
       tl:{t:c.cornerTypeTL||'r',s:c.radiusTL??c.borderRadius??14},
       tr:{t:c.cornerTypeTR||'r',s:c.radiusTR??c.borderRadius??14},
@@ -3076,11 +3112,39 @@ function applyConfig(c){
     else d+=`L ${wn.bl.s} ${WH} L 0 ${WH-wn.bl.s} `;
     if(wn.tl.t==='r')d+=`L 0 ${wn.tl.s} Q 0 0 ${wn.tl.s} 0 Z`;
     else d+=`L 0 ${wn.tl.s} L ${wn.tl.s} 0 Z`;
-    WB.style.width=c.dynamicWidth?'max-content':(c.widgetWidth||400)+'px';
-    WB.style.clipPath=`path('${d.trim()}')`;
-    W.style.clipPath='none';
+    // Helper: build path data with optional offset (for donut inner path in WB coords)
+    const _pd=(W,H,cn,ox,oy)=>{ox=ox||0;oy=oy||0;
+      let d=`M ${ox+cn.tl.s} ${oy} `;
+      if(cn.tr.t==='r')d+=`L ${ox+W-cn.tr.s} ${oy} Q ${ox+W} ${oy} ${ox+W} ${oy+cn.tr.s} `;
+      else d+=`L ${ox+W-cn.tr.s} ${oy} L ${ox+W} ${oy+cn.tr.s} `;
+      if(cn.br.t==='r')d+=`L ${ox+W} ${oy+H-cn.br.s} Q ${ox+W} ${oy+H} ${ox+W-cn.br.s} ${oy+H} `;
+      else d+=`L ${ox+W} ${oy+H-cn.br.s} L ${ox+W-cn.br.s} ${oy+H} `;
+      if(cn.bl.t==='r')d+=`L ${ox+cn.bl.s} ${oy+H} Q ${ox} ${oy+H} ${ox} ${oy+H-cn.bl.s} `;
+      else d+=`L ${ox+cn.bl.s} ${oy+H} L ${ox} ${oy+H-cn.bl.s} `;
+      if(cn.tl.t==='r')d+=`L ${ox} ${oy+cn.tl.s} Q ${ox} ${oy} ${ox+cn.tl.s} ${oy} Z`;
+      else d+=`L ${ox} ${oy+cn.tl.s} L ${ox+cn.tl.s} ${oy} Z`;
+      return d.trim();};
+    // Inner corners (bevel inset uses bw*(2−√2) for uniform perpendicular border thickness)
+    const _bi=2-Math.sqrt(2);
+    const _wni_s=(t,r)=>Math.max(0,r-_bw*(t==='b'?_bi:1));
+    const wni={
+      tl:{t:c.cornerTypeTL||'r',s:_wni_s(c.cornerTypeTL||'r',c.radiusTL??c.borderRadius??14)},
+      tr:{t:c.cornerTypeTR||'r',s:_wni_s(c.cornerTypeTR||'r',c.radiusTR??c.borderRadius??14)},
+      br:{t:c.cornerTypeBR||'r',s:_wni_s(c.cornerTypeBR||'r',c.radiusBR??c.borderRadius??14)},
+      bl:{t:c.cornerTypeBL||'r',s:_wni_s(c.cornerTypeBL||'r',c.radiusBL??c.borderRadius??14)},
+    };
     W.style.borderRadius='0';
-    WS.style.display=c.dynamicWidth?'inline-flex':'flex';
+    if(_bw>0){
+      const IW=Math.max(1,WW-2*_bw),IH=Math.max(1,WH-2*_bw);
+      // Donut clip on WB: evenodd rule cuts out inner area so transparent backgrounds
+      // stay truly transparent (border color doesn't bleed through).
+      WB.style.clipPath=`path(evenodd,'${_pd(WW,WH,wn)} ${_pd(IW,IH,wni,_bw,_bw)}')`;
+      // Inner clip on W: clips content to inner shape
+      W.style.clipPath=`path('${_pd(IW,IH,wni)}')`;
+    }else{
+      WB.style.clipPath=`path('${d.trim()}')`;
+      W.style.clipPath='none';
+    }
   })();
   const blurBg=document.getElementById('w-blur-bg');
   if(c.bgBlurEnabled&&c.bgBlur>0){

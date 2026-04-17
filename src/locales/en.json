@@ -153,6 +153,7 @@
 
   "switchProfileTitle": "Switch Profile",
   "addAccount": "+ Add Account",
+  "reauthSession": "Renew Session",
   "removeAccountTitle": "Remove Account?",
   "removeAccountDesc": "Are you sure you want to remove this account? This action cannot be undone.",
   "removeAccountConfirm": "Remove",
