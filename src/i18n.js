@@ -17,7 +17,7 @@ const localeModules = import.meta.glob("./locales/*.json", { eager: true });
 
 const translations = {};
 for (const [path, module] of Object.entries(localeModules)) {
-  const code = path.match(/\/(\w+)\.json$/)?.[1];
+  const code = path.match(/\/([\w-]+)\.json$/)?.[1];
   if (code && code !== "languages") {
     translations[code] = module.default;
   }
