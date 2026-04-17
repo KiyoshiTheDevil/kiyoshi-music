@@ -4,6 +4,25 @@ All notable changes to Kiyoshi Music are documented here.
 
 ---
 
+## [0.9.8-beta] — 2026-04-17
+
+### New Features
+- **Like hearts in playlist rows** — Heart button next to the three-dots in all playlist views (Liked Songs, Collections/Albums, Downloads); shows per-track liked state, toggling syncs to YouTube Music instantly
+- **"Like Song" in player more-menu** — Three-dot menu in the player now includes a Like/Unlike toggle for the currently playing track
+- **"Like / Unlike" in track context menu** — Right-click context menu on any track now shows Like/Unlike with correct per-track state
+- **"Add to Playlist" in player more-menu** — Three-dot menu in the player now supports adding the current track to any playlist
+
+### Improvements
+- **App-level liked state** — `likedIds` Set loaded from `/liked/ids` on startup; all views share a single source of truth and update optimistically with automatic rollback on error
+- **OBS overlay border rendering** — Rewrote border layer as a sibling `div` with `path(evenodd)` donut clip; transparent widget backgrounds now render correctly without bleed-through
+- **OBS overlay bevel border thickness** — Corrected perpendicular distance calculation for 45° cuts (`bw × (2 − √2)`) so bevel borders match straight-edge thickness exactly
+
+### Bug Fixes
+- Fixed `isLiked`/`toggleLike` out-of-scope reference in track context menu (was referencing Player-internal state from App scope)
+- Fixed stray `onToggleLike` reference in HomeView Quick Picks rows causing a ReferenceError on startup
+
+---
+
 ## [0.9.7-beta] — 2026-04-16
 
 ### New Features
