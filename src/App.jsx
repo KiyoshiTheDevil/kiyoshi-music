@@ -64,6 +64,7 @@ import {
   Key,
   ScreencastSimple,
   CircleFill,
+  Robot,
 } from "./icons.jsx";
 
 const API = "http://localhost:9847";
@@ -4493,12 +4494,39 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                   onMouseLeave={e => { if (language !== lang.code) e.currentTarget.style.background = "var(--bg-elevated)"; }}
                   >
                     <div dangerouslySetInnerHTML={{ __html: lang.flag }} style={{ width: 48, height: 30, flexShrink: 0, borderRadius: 4, overflow: "hidden", border: "0.5px solid var(--border)" }} />
-                    <div style={{ fontSize: "var(--t13)", fontWeight: 500, color: language === lang.code ? "var(--accent)" : "var(--text-primary)" }}>{lang.label}</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: "var(--t13)", fontWeight: 500, color: language === lang.code ? "var(--accent)" : "var(--text-primary)" }}>{lang.label}</div>
+                      {lang.machineTranslated && (
+                        <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 2, display: "flex", alignItems: "center", gap: 4 }}>
+                          <Robot size={10} />
+                          {t("machineTranslated")}
+                        </div>
+                      )}
+                    </div>
                     {language === lang.code && (
-                      <Check size={14} style={{ marginLeft: "auto", color: "var(--accent)" }} />
+                      <Check size={14} style={{ marginLeft: "auto", flexShrink: 0, color: "var(--accent)" }} />
                     )}
                   </div>
                 ))}
+                <div style={{
+                  marginTop: 8, padding: "12px 16px", borderRadius: "var(--radius)",
+                  background: "var(--bg-elevated)", border: "0.5px solid var(--border)",
+                  display: "flex", alignItems: "center", gap: 12,
+                }}>
+                  <Translate size={18} style={{ flexShrink: 0, color: "var(--text-secondary)" }} />
+                  <div style={{ flex: 1, fontSize: "var(--t12)", color: "var(--text-secondary)", lineHeight: 1.4 }}>
+                    {t("contributeTranslation")}
+                  </div>
+                  <a href="https://crowdin.com/project/kiyoshi-music" target="_blank" rel="noreferrer"
+                    onClick={e => e.stopPropagation()}
+                    style={{
+                      flexShrink: 0, fontSize: "var(--t12)", fontWeight: 600,
+                      color: "var(--accent)", textDecoration: "none", whiteSpace: "nowrap",
+                    }}
+                  >
+                    Crowdin →
+                  </a>
+                </div>
               </>
             )}
 

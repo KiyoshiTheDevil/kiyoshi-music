@@ -70,6 +70,7 @@ export const Keyboard           = fa("keyboard");
 export const PaintBrushBroad    = fa("paintbrush-fine");
 export const HardDrives         = fa("hard-drive");
 export const Translate          = fa("language");
+export const Robot              = fa("robot");
 
 // ── Content ──────────────────────────────────────────────────────────────────
 export const VinylRecord        = fa("record-vinyl");

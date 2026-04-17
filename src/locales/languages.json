@@ -10,6 +10,72 @@
     "flag": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 5 3\" width=\"100%\" height=\"100%\" preserveAspectRatio=\"xMidYMid slice\"><rect width=\"5\" height=\"3\" fill=\"#000\"/><rect width=\"5\" height=\"2\" y=\"1\" fill=\"#D00\"/><rect width=\"5\" height=\"1\" y=\"2\" fill=\"#FFCE00\"/></svg>"
   },
   {
+    "code": "es",
+    "label": "Español",
+    "machineTranslated": true,
+    "flag": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 3 2\" width=\"100%\" height=\"100%\" preserveAspectRatio=\"xMidYMid slice\"><rect width=\"3\" height=\"2\" fill=\"#c60b1e\"/><rect width=\"3\" height=\"1\" y=\"0.5\" fill=\"#ffc400\"/></svg>"
+  },
+  {
+    "code": "fr",
+    "label": "Français",
+    "machineTranslated": true,
+    "flag": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 3 2\" width=\"100%\" height=\"100%\" preserveAspectRatio=\"xMidYMid slice\"><rect width=\"3\" height=\"2\" fill=\"#ED2939\"/><rect width=\"2\" height=\"2\" fill=\"#fff\"/><rect width=\"1\" height=\"2\" fill=\"#002395\"/></svg>"
+  },
+  {
+    "code": "nl",
+    "label": "Nederlands",
+    "machineTranslated": true,
+    "flag": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 3 2\" width=\"100%\" height=\"100%\" preserveAspectRatio=\"xMidYMid slice\"><rect width=\"3\" height=\"2\" fill=\"#21468B\"/><rect width=\"3\" height=\"1.33\" fill=\"#fff\"/><rect width=\"3\" height=\"0.67\" fill=\"#AE1C28\"/></svg>"
+  },
+  {
+    "code": "it",
+    "label": "Italiano",
+    "machineTranslated": true,
+    "flag": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 3 2\" width=\"100%\" height=\"100%\" preserveAspectRatio=\"xMidYMid slice\"><rect width=\"3\" height=\"2\" fill=\"#CE2B37\"/><rect width=\"2\" height=\"2\" fill=\"#fff\"/><rect width=\"1\" height=\"2\" fill=\"#009246\"/></svg>"
+  },
+  {
+    "code": "pl",
+    "label": "Polski",
+    "machineTranslated": true,
+    "flag": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 8 5\" width=\"100%\" height=\"100%\" preserveAspectRatio=\"xMidYMid slice\"><rect width=\"8\" height=\"5\" fill=\"#DC143C\"/><rect width=\"8\" height=\"2.5\" fill=\"#fff\"/></svg>"
+  },
+  {
+    "code": "pt",
+    "label": "Português",
+    "machineTranslated": true,
+    "flag": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 3 2\" width=\"100%\" height=\"100%\" preserveAspectRatio=\"xMidYMid slice\"><rect width=\"3\" height=\"2\" fill=\"#D52B1E\"/><rect width=\"1.2\" height=\"2\" fill=\"#006600\"/></svg>"
+  },
+  {
+    "code": "sv",
+    "label": "Svenska",
+    "machineTranslated": true,
+    "flag": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 16 10\" width=\"100%\" height=\"100%\" preserveAspectRatio=\"xMidYMid slice\"><rect width=\"16\" height=\"10\" fill=\"#006AA7\"/><rect x=\"5\" width=\"2\" height=\"10\" fill=\"#FECC02\"/><rect y=\"4\" width=\"16\" height=\"2\" fill=\"#FECC02\"/></svg>"
+  },
+  {
+    "code": "cs",
+    "label": "Čeština",
+    "machineTranslated": true,
+    "flag": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 2 1\" width=\"100%\" height=\"100%\" preserveAspectRatio=\"xMidYMid slice\"><rect width=\"2\" height=\"1\" fill=\"#D7141A\"/><rect width=\"2\" height=\"0.5\" fill=\"#fff\"/><polygon points=\"0,0 0.75,0.5 0,1\" fill=\"#11457E\"/></svg>"
+  },
+  {
+    "code": "uk",
+    "label": "Українська",
+    "machineTranslated": true,
+    "flag": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 2 1\" width=\"100%\" height=\"100%\" preserveAspectRatio=\"xMidYMid slice\"><rect width=\"2\" height=\"1\" fill=\"#FFD700\"/><rect width=\"2\" height=\"0.5\" fill=\"#005BBB\"/></svg>"
+  },
+  {
+    "code": "ja",
+    "label": "日本語",
+    "machineTranslated": true,
+    "flag": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 3 2\" width=\"100%\" height=\"100%\" preserveAspectRatio=\"xMidYMid slice\"><rect width=\"3\" height=\"2\" fill=\"#fff\"/><circle cx=\"1.5\" cy=\"1\" r=\"0.6\" fill=\"#BC002D\"/></svg>"
+  },
+  {
+    "code": "ko",
+    "label": "한국어",
+    "machineTranslated": true,
+    "flag": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 3 2\" width=\"100%\" height=\"100%\" preserveAspectRatio=\"xMidYMid slice\"><rect width=\"3\" height=\"2\" fill=\"#fff\"/><circle cx=\"1.5\" cy=\"1\" r=\"0.45\" fill=\"#003DA5\"/><path d=\"M1.5,0.55 A0.45,0.45 0 0,1 1.5,1.45\" fill=\"#C60C30\"/><path d=\"M1.5,0.55 A0.45,0.45 0 0,0 1.5,1.45\" fill=\"#003DA5\"/></svg>"
+  },
+  {
     "code": "tok",
     "label": "toki pona",
     "flag": "<img src='/toki pona logo.svg' style='width:100%;height:100%;object-fit:cover;display:block;' />"

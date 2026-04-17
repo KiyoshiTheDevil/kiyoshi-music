@@ -256,6 +256,7 @@
   "savedToDownloads": "Im Downloads-Ordner gespeichert",
 
   "allSongs": "Alle Songs",
+  "xOfY": "von",
   "totalDuration": "Gesamtdauer",
   "searchInPlaylist": "In Playlist suchen…",
 
@@ -424,5 +425,8 @@
   "overlayLocalSearch": "Fonts suchen…",
   "overlayLocalNoResults": "Keine Fonts gefunden",
   "overlayLocalUnavailable": "Lokale Fonts nicht verfügbar",
-  "overlayLocalUnavailableDesc": "Dein Browser unterstützt die Local Font Access API nicht oder die Berechtigung wurde verweigert."
+  "overlayLocalUnavailableDesc": "Dein Browser unterstützt die Local Font Access API nicht oder die Berechtigung wurde verweigert.",
+
+  "machineTranslated": "Maschinell übersetzt",
+  "contributeTranslation": "Hilf mit, diese Übersetzung auf Crowdin zu verbessern"
 }
