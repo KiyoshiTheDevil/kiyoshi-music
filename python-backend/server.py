@@ -2968,7 +2968,8 @@ _OVERLAY_HTML = r"""<!DOCTYPE html>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{background:transparent;overflow:visible;font-family:var(--wfont);display:flex;align-items:center;justify-content:center;min-height:100vh;min-width:100vw}
-#wb{display:inline-flex;flex-shrink:0;transition:background .15s,padding .15s,filter .3s,opacity .4s;}
+#ws{display:inline-flex;flex-shrink:0;transition:filter .3s,opacity .4s;}
+#wb{display:inline-flex;flex-shrink:0;transition:background .15s,padding .15s;}
 #w{
   display:flex;align-items:center;gap:var(--wgap);
   padding:var(--wpadv) var(--wpadh);
@@ -2976,7 +2977,7 @@ body{background:transparent;overflow:visible;font-family:var(--wfont);display:fl
   width:100%;
   min-height:var(--wheight);
   position:relative;overflow:hidden;
-  transition:background .3s,opacity .4s;
+  transition:background .3s;
 }
 #art{width:var(--wart);height:var(--wart);border-radius:var(--wart-rtl) var(--wart-rtr) var(--wart-rbr) var(--wart-rbl);object-fit:cover;flex-shrink:0;transition:opacity .3s}
 #art-ph{width:var(--wart);height:var(--wart);border-radius:var(--wart-rtl) var(--wart-rtr) var(--wart-rbr) var(--wart-rbl);background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;flex-shrink:0}
@@ -2989,7 +2990,7 @@ body{background:transparent;overflow:visible;font-family:var(--wfont);display:fl
 #pfill{height:100%;background:var(--wacc);border-radius:0 2px 2px 0;transition:width .8s linear}
 .scroll{animation:scroll linear infinite;display:inline-block;white-space:nowrap}
 </style></head>
-<body><div id="wb"><div id="w">
+<body><div id="ws"><div id="wb"><div id="w">
   <div id="w-blur-bg"></div>
   <div id="art-ph"><svg width="22" height="22" viewBox="0 0 24 24" fill="rgba(255,255,255,.4)"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg></div>
   <img id="art" style="display:none">
@@ -2998,7 +2999,7 @@ body{background:transparent;overflow:visible;font-family:var(--wfont);display:fl
     <div class="sub" id="sub">Waiting...</div>
   </div>
   <div id="pbar"><div id="pfill" style="width:0%"></div></div>
-</div></div>
+</div></div></div>
 <script>
 const API=location.origin;
 let cfg={},state={};
@@ -3019,6 +3020,7 @@ function applyConfig(c){
   R.style.setProperty('--wtfs',(c.titleFontSize||14)+'px');
   R.style.setProperty('--wasfs',(c.artistFontSize||12)+'px');
   R.style.setProperty('--wfont',c.fontFamily||'system-ui,sans-serif');
+  const WS=document.getElementById('ws');
   const WB=document.getElementById('wb');
   R.style.setProperty('--wheight',(c.widgetHeight||0)>0?(c.widgetHeight+'px'):'0px');
   R.style.setProperty('--wart',(c.artSize||56)+'px');
@@ -3049,14 +3051,16 @@ function applyConfig(c){
   const _bw=c.border?(c.borderWidth||1.5):0;
   WB.style.padding=_bw>0?_bw+'px':'0';
   WB.style.background=c.border?(c.borderColor||'#EEA8FF'):'transparent';
+  // Shadows on WS (no clip-path → drop-shadow renders outside the shape correctly)
   const _dshadow=c.showShadow?`drop-shadow(0 8px 32px rgba(0,0,0,${c.shadowStrength||0.35}))`:'';
-  const _dglow=c.border&&(c.borderBlur||0)>0?`drop-shadow(0 0 ${c.borderBlur}px ${c.borderColor||'#EEA8FF'})`:'';
-  WB.style.filter=[_dshadow,_dglow].filter(Boolean).join(' ')||'none';
+  const _dglow=c.border&&(c.borderBlur||0)>0?`drop-shadow(0 0 ${(c.borderBlur||0)*1.5}px ${c.borderColor||'#EEA8FF'})`:'';
+  WS.style.filter=[_dshadow,_dglow].filter(Boolean).join(' ')||'none';
   W.style.border='none';
   W.style.boxShadow='none';
   (function(){
-    const WW=W.offsetWidth||c.widgetWidth||400;
-    const WH=W.offsetHeight||(c.artSize||56)+(c.paddingV||12)*2+(c.showProgress!==false?(c.progressHeight||3):0);
+    // Use WB dimensions for the clip-path (outer size including border padding)
+    const WW=WB.offsetWidth||c.widgetWidth||400;
+    const WH=WB.offsetHeight||(c.artSize||56)+(c.paddingV||12)*2+(c.showProgress!==false?(c.progressHeight||3):0);
     const wn={
       tl:{t:c.cornerTypeTL||'r',s:c.radiusTL??c.borderRadius??14},
       tr:{t:c.cornerTypeTR||'r',s:c.radiusTR??c.borderRadius??14},
@@ -3076,6 +3080,7 @@ function applyConfig(c){
     WB.style.clipPath=`path('${d.trim()}')`;
     W.style.clipPath='none';
     W.style.borderRadius='0';
+    WS.style.display=c.dynamicWidth?'inline-flex':'flex';
   })();
   const blurBg=document.getElementById('w-blur-bg');
   if(c.bgBlurEnabled&&c.bgBlur>0){
@@ -3111,11 +3116,11 @@ function renderSub(){
 }
 
 function applyAutoHide(){
-  const WB=document.getElementById('wb');
+  const WS=document.getElementById('ws');
   if(cfg.autoHide){
-    WB.style.opacity=(state.isPlaying&&state.title)?'1':'0';
+    WS.style.opacity=(state.isPlaying&&state.title)?'1':'0';
   }else{
-    WB.style.opacity='1';
+    WS.style.opacity='1';
   }
 }
 

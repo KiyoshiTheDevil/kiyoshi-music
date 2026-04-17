@@ -3055,25 +3055,25 @@ function OverlayWidgetPreview({ c, fillWidth = false }) {
   const _ac = (k) => ({ t: c[`artCornerType${k}`] || "r", s: c[`artRadius${k}`] ?? c.artRadius ?? 8 });
   const artClipPath = buildCornerPath(art, art, { tl: _ac("TL"), tr: _ac("TR"), br: _ac("BR"), bl: _ac("BL") });
   return (
-    // Wrapper: clip-path + border-as-background (padding = border width) + drop-shadow filter
-    <div style={{
-      clipPath,
-      background: c.border ? (c.borderColor || "#EEA8FF") : "transparent",
-      padding: bw || undefined,
-      display: "inline-flex",
-      flexShrink: 0,
-      filter: filterVal,
-    }}>
-      {/* Inner widget: content, background, overflow — no clip-path needed (parent clips) */}
+    // Level 1 — shadow wrapper: filter here, no clip-path → drop-shadow renders outside shape
+    <div style={{ filter: filterVal, display: "inline-flex", flexShrink: 0 }}>
+      {/* Level 2 — clip+border wrapper: clip-path + border-color as background */}
       <div style={{
-        display: "flex", alignItems: "center",
-        gap: c.gap||12, padding: `${c.paddingV||12}px ${c.paddingH||16}px`,
-        background: toRgba(c.bgColor||"#1a1a1a",(c.bgOpacity??90)/100),
-        width: fillWidth ? "100%" : c.dynamicWidth ? "max-content" : c.widgetWidth||400,
-        backdropFilter: blurVal, WebkitBackdropFilter: blurVal,
-        position: "relative", overflow: "hidden",
-        fontFamily: c.fontFamily || "system-ui,sans-serif",
+        clipPath,
+        background: c.border ? (c.borderColor || "#EEA8FF") : "transparent",
+        padding: bw || undefined,
+        display: "inline-flex",
       }}>
+        {/* Level 3 — inner widget: content, background, overflow */}
+        <div style={{
+          display: "flex", alignItems: "center",
+          gap: c.gap||12, padding: `${c.paddingV||12}px ${c.paddingH||16}px`,
+          background: toRgba(c.bgColor||"#1a1a1a",(c.bgOpacity??90)/100),
+          width: fillWidth ? "100%" : c.dynamicWidth ? "max-content" : Math.max(0, (c.widgetWidth||400) - 2*bw),
+          backdropFilter: blurVal, WebkitBackdropFilter: blurVal,
+          position: "relative", overflow: "hidden",
+          fontFamily: c.fontFamily || "system-ui,sans-serif",
+        }}>
         {c.showAlbumArt !== false && (
           <div style={{
             width: art, height: art,
@@ -3099,6 +3099,7 @@ function OverlayWidgetPreview({ c, fillWidth = false }) {
             <div style={{ height: "100%", width: "45%", background: acc, borderRadius: "0 2px 2px 0" }} />
           </div>
         )}
+        </div>
       </div>
     </div>
   );
