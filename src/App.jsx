@@ -4565,15 +4565,15 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                   <div style={{ flex: 1, fontSize: "var(--t12)", color: "var(--text-secondary)", lineHeight: 1.4 }}>
                     {t("contributeTranslation")}
                   </div>
-                  <a href="https://crowdin.com/project/kiyoshi-music" target="_blank" rel="noreferrer"
-                    onClick={e => e.stopPropagation()}
+                  <span
+                    onClick={e => { e.stopPropagation(); openUrl("https://crowdin.com/project/kiyoshi-music").catch(console.error); }}
                     style={{
                       flexShrink: 0, fontSize: "var(--t12)", fontWeight: 600,
-                      color: "var(--accent)", textDecoration: "none", whiteSpace: "nowrap",
+                      color: "var(--accent)", cursor: "pointer", whiteSpace: "nowrap",
                     }}
                   >
                     Crowdin →
-                  </a>
+                  </span>
                 </div>
               </>
             )}
