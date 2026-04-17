@@ -328,6 +328,7 @@
                 </div>
               </div>
             </div>
+            ${latest.body ? `<div class="release-notes" style="border-top: 0.5px solid var(--border); padding: 24px 32px;">${parseNotes(latest.body)}</div>` : ''}
             ${renderDownloads(latest.assets, true)}
           </div>`;
 
