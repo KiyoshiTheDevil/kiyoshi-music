@@ -258,32 +258,34 @@ body.dyslexia .btn-download {
   align-items: center;
   gap: 10px;
   padding: 14px 28px;
-  background: var(--accent);
-  color: #1a0020;
+  background: rgba(224, 64, 251, 0.18);
+  color: var(--accent);
   font-family: 'Stack Sans Notch', system-ui, sans-serif;
   font-size: 18px;
   letter-spacing: 0.01em;
   line-height: 1;
   white-space: nowrap;
-  transition: background 0.15s;
+  border-radius: 10px;
+  transition: background 0.2s;
 }
-.btn-hero-primary:hover { background: #ea6afc; }
+.btn-hero-primary:hover { background: rgba(224, 64, 251, 0.28); }
 
 .btn-hero-ghost {
   display: inline-flex;
   align-items: center;
   gap: 10px;
   padding: 14px 28px;
-  background: var(--bg-surface);
+  background: rgba(255, 255, 255, 0.05);
   color: var(--text-secondary);
   font-family: 'Stack Sans Notch', system-ui, sans-serif;
   font-size: 18px;
   letter-spacing: 0.01em;
   line-height: 1;
   white-space: nowrap;
-  transition: background 0.15s, color 0.15s;
+  border-radius: 10px;
+  transition: background 0.2s, color 0.2s;
 }
-.btn-hero-ghost:hover { background: var(--bg-elevated); color: var(--text-primary); }
+.btn-hero-ghost:hover { background: rgba(255, 255, 255, 0.09); color: var(--text-primary); }
 
 .hero-note {
   font-size: 12px;
@@ -297,7 +299,7 @@ body.dyslexia .btn-download {
 .highlights {
   max-width: 1000px;
   margin: 0 auto;
-  padding: 0 24px 88px;
+  padding: 0 24px 8px;
 }
 
 .highlights-stack {
@@ -309,38 +311,44 @@ body.dyslexia .btn-download {
 /* ── Showcase cards ── */
 .showcase-card {
   background: var(--bg-surface);
+  border-radius: 14px;
   overflow: hidden;
   position: relative;
+  transition: background 0.2s;
 }
+.showcase-card:hover { background: var(--bg-elevated); }
 
 .showcase-header {
   display: flex;
   align-items: center;
-  background: rgba(224, 64, 251, 0.12);
+  gap: 16px;
+  background: rgba(224, 64, 251, 0.18);
+  padding: 14px 20px;
 }
 
 .showcase-icon {
-  width: 110px;
-  min-width: 110px;
-  height: 64px;
+  width: 72px;
+  height: 52px;
+  min-width: 72px;
   background: var(--accent);
   color: #1a0020;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 26px;
+  font-size: 22px;
   flex-shrink: 0;
+  border-radius: 10px;
 }
 
 .showcase-title {
   font-family: 'Stack Sans Notch', system-ui, sans-serif;
-  font-size: clamp(20px, 2.2vw, 30px);
+  font-size: clamp(20px, 2.2vw, 28px);
   color: var(--accent);
   letter-spacing: 0.01em;
   line-height: 1.1;
-  padding: 0 24px;
   display: flex;
   align-items: center;
+  gap: 10px;
 }
 
 .showcase-desc {
@@ -383,7 +391,7 @@ body.dyslexia .btn-download {
 .features {
   max-width: 1000px;
   margin: 0 auto;
-  padding: 0 24px 88px;
+  padding: 0 24px 88px 24px;
 }
 
 .features-grid {
