@@ -63,8 +63,12 @@ fn main() {
         env::set_var("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
         // Disable DMABuf renderer — avoids driver-level render failures
         env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
-        // Disable WebKit sandbox — required in AppImage (user namespaces not available)
-        env::set_var("WEBKIT_FORCE_SANDBOX", "0");
+        // Disable WebKit2GTK sandbox — AppImage FUSE mounts conflict with
+        // the user-namespace sandbox; this is the correct env var name
+        env::set_var("WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS", "1");
+        // Force software OpenGL — prevents GPU driver crashes on headless/
+        // minimal installs that lack proper Mesa/DRI support
+        env::set_var("LIBGL_ALWAYS_SOFTWARE", "1");
         // On Wayland: force X11/XWayland backend for better WebKitGTK compatibility
         if env::var("WAYLAND_DISPLAY").is_ok() && env::var("GDK_BACKEND").is_err() {
             env::set_var("GDK_BACKEND", "x11");
