@@ -223,7 +223,11 @@ jobs:
 
           SIG_CONTENT=""
           if [ -n "$SIG_URL" ] && [ "$SIG_URL" != "null" ]; then
-            SIG_CONTENT=$(curl -fsSL "$SIG_URL")
+            for sig_attempt in 1 2 3 4 5; do
+              SIG_CONTENT=$(curl -fsSL "$SIG_URL" 2>/dev/null) && break
+              echo "SIG download failed (attempt $sig_attempt/5) — waiting 10s..."
+              sleep 10
+            done
           fi
 
           # Extract the changelog section for this version from CHANGELOG.md
