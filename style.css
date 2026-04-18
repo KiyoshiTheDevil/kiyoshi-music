@@ -165,31 +165,13 @@ body.dyslexia .highlight-bar {
   gap: 22px;
 }
 
-/* Glow orb behind title */
-.hero::before {
-  content: '';
-  position: absolute;
-  top: 80px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 600px;
-  height: 300px;
-  background: radial-gradient(ellipse at center, var(--accent-glow) 0%, transparent 70%);
-  pointer-events: none;
-  z-index: 0;
-}
-
-.hero > * { position: relative; z-index: 1; }
 
 .hero h1 {
   font-size: clamp(42px, 7vw, 76px);
   font-weight: 700;
   letter-spacing: 0.01em;
   line-height: 1.05;
-  background: linear-gradient(160deg, #fff 40%, rgba(224, 64, 251, 0.7) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: var(--text-primary);
 }
 
 .hero-badge {
@@ -307,46 +289,80 @@ body.dyslexia .highlight-bar {
 .highlights-stack {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
+/* ── Showcase cards ── */
 .showcase-card {
   background: var(--bg-surface);
   overflow: hidden;
+  position: relative;
 }
 
 .showcase-header {
   display: flex;
   align-items: center;
+  background: rgba(224, 64, 251, 0.12);
 }
 
 .showcase-icon {
-  width: 80px;
-  height: 80px;
-  min-width: 80px;
+  width: 110px;
+  min-width: 110px;
+  height: 64px;
   background: var(--accent);
   color: #1a0020;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 28px;
+  font-size: 26px;
   flex-shrink: 0;
 }
 
 .showcase-title {
   font-family: 'Stack Sans Notch', system-ui, sans-serif;
-  font-size: clamp(24px, 3.5vw, 38px);
+  font-size: clamp(20px, 2.2vw, 30px);
   color: var(--accent);
   letter-spacing: 0.01em;
-  line-height: 1;
-  padding: 0 28px;
+  line-height: 1.1;
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
 }
 
 .showcase-desc {
   font-size: 15px;
-  color: var(--text-secondary);
-  line-height: 1.6;
-  padding: 16px 28px 20px calc(80px + 28px);
+  color: var(--text-primary);
+  line-height: 1.65;
+  padding: 18px 24px 28px;
+}
+
+.beta-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  background: rgba(224, 64, 251, 0.15);
+  color: var(--accent);
+  font-family: 'MiSans Latin', system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-radius: 4px;
+  vertical-align: middle;
+  margin-left: 8px;
+  position: relative;
+  top: -2px;
+}
+
+.showcase-watermark {
+  position: absolute;
+  bottom: -8px;
+  right: 12px;
+  font-size: 96px;
+  color: var(--accent);
+  opacity: 0.07;
+  pointer-events: none;
+  line-height: 1;
 }
 
 /* ── Feature Grid ── */
@@ -358,7 +374,7 @@ body.dyslexia .highlight-bar {
 
 .features-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 8px;
 }
 
