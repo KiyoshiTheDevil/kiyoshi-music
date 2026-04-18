@@ -1,11 +1,11 @@
 {
-  "version": "v0.9.9-beta",
-  "pub_date": "2026-04-18T05:29:19Z",
-  "notes": "### New Features\n- **Contributors in About tab** — Four contributors listed with social link buttons (Twitch, YouTube, Bluesky, Webpage) per card; brand icons via Font Awesome\n### Improvements\n- **OBS Overlay font picker** — Refresh button next to the local fonts search field; icon spins while reloading\n- **Backend stability** — Overlay server thread now catches unexpected exceptions instead of dying silently; completed download/export status entries cleaned up from memory after 5 minutes\n### Bug Fixes\n- **Linux AppImage white window** — Server startup moved off the main thread; the Tauri event loop is no longer blocked during server startup, fixing the blank window on launch\n- **Linux WebKit compatibility** — Added `WEBKIT_FORCE_SANDBOX=0` (required in AppImage) and automatic `GDK_BACKEND=x11` on Wayland for better WebKitGTK rendering\n---",
+  "version": "v0.9.10-beta",
+  "pub_date": "2026-04-18T06:00:25Z",
+  "notes": "### Bug Fixes\n- **Linux AppImage white window (2nd attempt)** — Added `WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1` (correct env var for WebKit2GTK sandbox) and `LIBGL_ALWAYS_SOFTWARE=1` (software OpenGL fallback); window now starts hidden (`visible: false`) and is shown once React has mounted, so the splash screen appears instead of a blank white frame\n- **Discord button localisation** — \"Listen on YouTube Music\" button text is now passed from the frontend and follows the app language setting\n---",
   "platforms": {
     "windows-x86_64": {
-      "url": "https://github.com/KiyoshiTheDevil/kiyoshi-music/releases/download/v0.9.9-beta/Kiyoshi.Music_0.9.9-beta_x64-setup.exe",
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTb3ErUzRRK3lrL3FRaFI3MUM0SzdLQkgyWGZCN1p2RFBnS0UyRUhCZmZkRFhuZFg4NWJUczdYM2FmY3kzUjRVdXVZK3JBd0lyazJUWGcwMUYwMXA5aXR4bElsSUdjVlFJPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc2NDkwMDk3CWZpbGU6S2l5b3NoaSBNdXNpY18wLjkuOS1iZXRhX3g2NC1zZXR1cC5leGUKYlZPc3VJZmtZOGxJeDN1TTlPYWlmS2ZteW1JREhoeVF2b2V0WGpieHpFdjVvOTE5Y2FBNncycHN1UUFPVEdNSE9pR1FKdmQzdUpPZzNWemJwQlVjQWc9PQo="
+      "url": "https://github.com/KiyoshiTheDevil/kiyoshi-music/releases/download/v0.9.10-beta/Kiyoshi.Music_0.9.10-beta_x64-setup.exe",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTb3ErUzRRK3lrL3NyQ3c0OEdMNi9tSCt6OUYxWGZaWVFGb2VlVVE5WXh0d2JDV1pmNkdiSDdNU1RGUWhXamJ4ZFZIYTU0dU5kZUQrV2ZlTGRwTjJ1SDA3STRydGZuWUFzPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc2NDkxOTU3CWZpbGU6S2l5b3NoaSBNdXNpY18wLjkuMTAtYmV0YV94NjQtc2V0dXAuZXhlCkhJN2t1RzdHbzF5WFI2WHgvcU1TeHpmeC9EalVnV2c5bnZSa21tTjdXRFpWd25PMkRIclNPYlZTQTNkZjZxRDYxR1BYaFJmV0lWWm94NWYxRDJiQUR3PT0K"
     }
   }
 }
