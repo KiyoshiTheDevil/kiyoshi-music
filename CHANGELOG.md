@@ -4,6 +4,24 @@ All notable changes to Kiyoshi Music are documented here.
 
 ---
 
+## [0.9.13-beta] — 2026-04-18
+
+### New Features
+- **Clickable multi-artist links** — Tracks with multiple artists now show each artist as a separate clickable link in the player bar, queue, expanded player and OBS overlay; clicking navigates directly to that artist's page
+- **Scroll Speed preview** — Animated preview box in the OBS Overlay settings (between "Scroll Long Titles" and the speed slider) shows exactly how fast the title will scroll at the current setting
+
+### Improvements
+- **Contributor profile images** — KiyoshiTheDevil, Grains Of Art and LMary52 now display their real profile pictures in the About tab
+- **New Teto artwork** — Updated illustration (Teto_Drinking_Boba) with correct aspect ratio, positioned so she appears to stand on the player bar
+- **Additional social links** — Grains Of Art: Linktree; LMary52: TikTok
+
+### Bug Fixes
+- **Context menu submenu direction** — "Add to Playlist" submenu now opens to the left when there is not enough space on the right, preventing it from going off-screen
+- **OBS overlay stays open on artist click** — Clicking an artist name in the compact player bar no longer closes the OBS overlay
+- **Discord Rich Presence** — Rich Presence activity now updates reliably again; fixed regression introduced in v0.9.10-beta
+
+---
+
 ## [0.9.12-beta] — 2026-04-18
 
 ### Bug Fixes
