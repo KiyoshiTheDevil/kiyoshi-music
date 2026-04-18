@@ -147,13 +147,21 @@ body.dyslexia p,
 body.dyslexia li,
 body.dyslexia .hero-sub,
 body.dyslexia .hero-note,
-body.dyslexia .changelog-col li {
+body.dyslexia .showcase-desc,
+body.dyslexia .release-date,
+body.dyslexia .footer-sub,
+body.dyslexia .nav-link {
   font-family: 'OpenDyslexic', system-ui, sans-serif;
 }
 body.dyslexia h1,
 body.dyslexia h2,
 body.dyslexia h3,
-body.dyslexia .highlight-bar {
+body.dyslexia .showcase-title,
+body.dyslexia .latest-name,
+body.dyslexia .release-name,
+body.dyslexia .btn-hero-primary,
+body.dyslexia .btn-hero-ghost,
+body.dyslexia .btn-download {
   font-family: 'OpenDyslexic', system-ui, sans-serif;
   letter-spacing: 0.05em;
 }
