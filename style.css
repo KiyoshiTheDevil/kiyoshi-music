@@ -80,7 +80,6 @@ header {
   z-index: 10;
   background: rgba(13, 13, 13, 0.8);
   backdrop-filter: blur(16px);
-  border-bottom: 0.5px solid var(--border);
 }
 
 nav {
@@ -258,6 +257,38 @@ body.dyslexia .highlight-bar {
   color: var(--text-primary);
 }
 
+.btn-hero-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 28px;
+  background: var(--accent);
+  color: #1a0020;
+  font-family: 'Stack Sans Notch', system-ui, sans-serif;
+  font-size: 18px;
+  letter-spacing: 0.01em;
+  line-height: 1;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+.btn-hero-primary:hover { background: #ea6afc; }
+
+.btn-hero-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 28px;
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  font-family: 'Stack Sans Notch', system-ui, sans-serif;
+  font-size: 18px;
+  letter-spacing: 0.01em;
+  line-height: 1;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s;
+}
+.btn-hero-ghost:hover { background: var(--bg-elevated); color: var(--text-primary); }
+
 .hero-note {
   font-size: 12px;
   color: var(--text-muted);
@@ -358,7 +389,6 @@ body.dyslexia .highlight-bar {
 /* ── Footer ── */
 footer {
   margin-top: auto;
-  border-top: 0.5px solid var(--border);
   padding: 32px 24px 24px;
   display: flex;
   flex-direction: column;

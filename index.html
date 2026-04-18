@@ -32,14 +32,14 @@
 
     <!-- Hero -->
     <section class="hero">
-      <h1>YouTube Music,<br>the way it should be.</h1>
-      <div class="hero-badge">Alpha 9.2</div>
-      <p class="hero-sub">Kiyoshi Music is a desktop client for YouTube Music with synced lyrics, deep customization, and a built-in OBS overlay.</p>
+      <h1>Just enjoy!</h1>
+      <div class="hero-badge" id="hero-version">…</div>
+      <p class="hero-sub">A desktop client for YouTube Music with synced lyrics, deep customization, and a built-in OBS overlay.</p>
       <div class="hero-actions">
-        <a href="https://github.com/KiyoshiTheDevil/kiyoshi-music/releases/download/Alpha/Kiyoshi.Music.Setup.-.Alpha.9_2.exe" class="btn-primary">
+        <a href="/download" id="btn-win-download" class="btn-hero-primary">
           <i class="fa-brands fa-windows"></i> Download for Windows
         </a>
-        <a href="https://github.com/KiyoshiTheDevil/kiyoshi-music/releases" class="btn-ghost" target="_blank" rel="noopener">
+        <a href="/download" class="btn-hero-ghost">
           All Releases
         </a>
       </div>
@@ -145,22 +145,22 @@
     <p class="footer-sub">Kiyoshi Music is not affiliated with YouTube or Google.</p>
   </footer>
 
-  <script>
-    const btn = document.getElementById('dyslexiaToggle');
-    const STORAGE_KEY = 'kiyoshi-dyslexia';
+  <script type="module">
+    import { initA11y, fetchReleases } from './js/releases.js';
 
-    function applyFont(enabled) {
-      document.body.classList.toggle('dyslexia', enabled);
-      btn.classList.toggle('active', enabled);
+    initA11y();
+
+    async function initHero() {
+      try {
+        const releases = await fetchReleases();
+        const latest = releases[0];
+        document.getElementById('hero-version').textContent = (latest.name || latest.tag_name).replace(/kiyoshi music\s*/i, '').trim();
+        const win = latest.assets.find(a => a.name.toLowerCase().endsWith('.exe'));
+        if (win) document.getElementById('btn-win-download').href = win.browser_download_url;
+      } catch {}
     }
 
-    applyFont(localStorage.getItem(STORAGE_KEY) === '1');
-
-    btn.addEventListener('click', () => {
-      const enabled = !document.body.classList.contains('dyslexia');
-      localStorage.setItem(STORAGE_KEY, enabled ? '1' : '0');
-      applyFont(enabled);
-    });
+    initHero();
   </script>
 </body>
 </html>
