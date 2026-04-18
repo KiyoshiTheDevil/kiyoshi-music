@@ -59,23 +59,29 @@ fn update_tray_labels(app: tauri::AppHandle, show_label: String, quit_label: Str
 fn main() {
     #[cfg(target_os = "linux")]
     {
-        // Disable GPU compositing — prevents blank/white window on many distros
+        // Disable GPU compositing — most reliable fix for blank/white window
+        // across distros (Arch, Ubuntu, SteamOS, etc.)
         env::set_var("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
         // Disable DMABuf renderer — avoids driver-level render failures
+        // especially on AMD GPUs (Steam Deck / SteamOS)
         env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
         // Disable WebKit2GTK sandbox — AppImage FUSE mounts conflict with
-        // the user-namespace sandbox; this is the correct env var name
+        // the user-namespace sandbox required by the WebKit process
         env::set_var("WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS", "1");
-        // Force software OpenGL — prevents GPU driver crashes on headless/
-        // minimal installs that lack proper Mesa/DRI support
-        env::set_var("LIBGL_ALWAYS_SOFTWARE", "1");
-        // On Wayland: force X11/XWayland backend for better WebKitGTK compatibility
-        if env::var("WAYLAND_DISPLAY").is_ok() && env::var("GDK_BACKEND").is_err() {
-            env::set_var("GDK_BACKEND", "x11");
-        }
+        // Do NOT force GDK_BACKEND=x11 — on Wayland (KDE Plasma / SteamOS)
+        // WebKitGTK works better with the native Wayland backend.
+        // Do NOT force LIBGL_ALWAYS_SOFTWARE — harmful on AMD GPUs.
     }
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            // A second instance was started — focus the existing window instead
+            if let Some(win) = app.get_webview_window("main") {
+                let _ = win.show();
+                let _ = win.unminimize();
+                let _ = win.set_focus();
+            }
+        }))
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())

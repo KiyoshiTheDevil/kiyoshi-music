@@ -103,10 +103,10 @@ const _MAX_FRONTEND_LOGS = 500;
 })();
 
 // ─── App Version ─────────────────────────────────────────────────────────────
-const APP_VERSION = "0.9.10-beta";
+const APP_VERSION = "0.9.12-beta";
 
 // ─── Update Checker (GitHub Releases) ───────────────────────────────────────
-const APP_TAG = "v0.9.10-beta";
+const APP_TAG = "v0.9.12-beta";
 const GITHUB_RELEASES_API = "https://api.github.com/repos/KiyoshiTheDevil/kiyoshi-music/releases?per_page=1";
 
 function isNewerVersion(latest, current) {
@@ -9393,14 +9393,17 @@ function LanguagePickerScreen({ currentLanguage, onConfirm }) {
       position: "fixed", inset: 0, background: "var(--bg-base)",
       display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000,
       animation: "fadeIn 0.3s ease",
+      overflowY: "auto", padding: "20px 0",
     }}>
       <div style={{
         width: 420, background: "var(--bg-surface)", borderRadius: 16,
         border: "0.5px solid var(--border)", padding: "36px",
         boxShadow: "0 32px 80px rgba(0,0,0,0.6)",
+        display: "flex", flexDirection: "column",
+        maxHeight: "calc(100vh - 40px)",
       }}>
         {/* Logo */}
-        <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 20, flexShrink: 0 }}>
           <svg width="48" height="48" viewBox="0 0 32 32" fill="none">
             <path d="M0 16C0 7.16344 7.16344 0 16 0C24.8366 0 32 7.16344 32 16C32 24.8366 24.8366 32 16 32H6.4C2.86538 32 0 29.1346 0 25.6V16Z" fill="url(#lp_g)"/>
             <path d="M16 5C22.0751 5 27 9.92487 27 16C27 22.0751 22.0751 27 16 27H8.7998C6.70128 26.9999 5.00011 25.2987 5 23.2002V16C5 9.92487 9.92487 5 16 5Z" stroke="white" strokeWidth="2" style={{mixBlendMode:"overlay"}}/>
@@ -9410,13 +9413,13 @@ function LanguagePickerScreen({ currentLanguage, onConfirm }) {
           </svg>
         </div>
 
-        <div style={{ fontSize: "var(--t20)", fontWeight: 700, textAlign: "center", marginBottom: 6 }}>Kiyoshi Music</div>
-        <div style={{ fontSize: "var(--t13)", color: "var(--text-muted)", textAlign: "center", marginBottom: 28 }}>
+        <div style={{ fontSize: "var(--t20)", fontWeight: 700, textAlign: "center", marginBottom: 6, flexShrink: 0 }}>Kiyoshi Music</div>
+        <div style={{ fontSize: "var(--t13)", color: "var(--text-muted)", textAlign: "center", marginBottom: 28, flexShrink: 0 }}>
           {confirmLabel}
         </div>
 
-        {/* Language cards */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 24 }}>
+        {/* Language cards — scrollable wenn zu viele für den Viewport */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 24, overflowY: "auto", minHeight: 0 }}>
           {LANGUAGES.map(lang => (
             <div
               key={lang.code}
@@ -9427,6 +9430,7 @@ function LanguagePickerScreen({ currentLanguage, onConfirm }) {
                 background: selected === lang.code ? "rgba(224,64,251,0.08)" : "var(--bg-elevated)",
                 border: `0.5px solid ${selected === lang.code ? "var(--accent)" : "transparent"}`,
                 transition: "background 0.15s, border-color 0.15s",
+                flexShrink: 0,
               }}
               onMouseEnter={e => { if (selected !== lang.code) e.currentTarget.style.background = "var(--bg-hover)"; }}
               onMouseLeave={e => { if (selected !== lang.code) e.currentTarget.style.background = "var(--bg-elevated)"; }}
@@ -9448,7 +9452,7 @@ function LanguagePickerScreen({ currentLanguage, onConfirm }) {
         <button
           onClick={() => onConfirm(selected)}
           style={{
-            width: "100%", padding: "12px", border: "none",
+            width: "100%", padding: "12px", border: "none", flexShrink: 0,
             borderRadius: 10, color: "#fff", background: "var(--accent)",
             fontSize: "var(--t13)", fontWeight: 600, cursor: "pointer", fontFamily: "var(--font)",
           }}
@@ -9854,11 +9858,6 @@ export default function App() {
   );
 
   useEffect(() => {
-    // On Linux the window starts hidden (visible: false in tauri.conf.json)
-    // to avoid a white flash while WebKit initialises. Show it now that
-    // React has mounted and the splash screen is ready to render.
-    appWindow.show().catch(() => {});
-
     const fadeTimer = setTimeout(() => setSplashFading(true), 1700);
     const hideTimer = setTimeout(() => setShowSplash(false), 2150);
     return () => { clearTimeout(fadeTimer); clearTimeout(hideTimer); };
