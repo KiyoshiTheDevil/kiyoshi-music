@@ -429,5 +429,14 @@
   "overlayLocalUnavailableDesc": "Dein Browser unterstützt die Local Font Access API nicht oder die Berechtigung wurde verweigert.",
 
   "machineTranslated": "Maschinell übersetzt",
-  "contributeTranslation": "Hilf mit, diese Übersetzung auf Crowdin zu verbessern"
+  "contributeTranslation": "Hilf mit, diese Übersetzung auf Crowdin zu verbessern",
+
+  "about": "Über",
+  "aboutDesc": "Ein freier, schnörkelloser YouTube Music-Client für den Desktop — gebaut mit Tauri, React und einer Menge Kaffee.",
+  "contributors": "Mitwirkende",
+  "contributorRoleDev": "Designer & Projektleitung",
+  "contributorRoleAlphaTesterArtist": "Alpha Tester & Artist",
+  "contributorRoleAlphaTester": "Alpha Tester",
+  "contributorRoleTranslator": "Übersetzer für Toki Pona",
+  "tools": "Tools"
 }

@@ -429,5 +429,14 @@
   "overlayLocalUnavailableDesc": "Your browser doesn't support the Local Font Access API or permission was denied.",
 
   "machineTranslated": "Machine translated",
-  "contributeTranslation": "Help improve this translation on Crowdin"
+  "contributeTranslation": "Help improve this translation on Crowdin",
+
+  "about": "About",
+  "aboutDesc": "A free, no-nonsense YouTube Music client for the desktop — built with Tauri, React, and a lot of coffee.",
+  "contributors": "Contributors",
+  "contributorRoleDev": "Designer & Project Lead",
+  "contributorRoleAlphaTesterArtist": "Alpha Tester & Artist",
+  "contributorRoleAlphaTester": "Alpha Tester",
+  "contributorRoleTranslator": "Translator for Toki Pona",
+  "tools": "Tools"
 }

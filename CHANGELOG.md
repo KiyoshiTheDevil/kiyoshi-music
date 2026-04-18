@@ -4,6 +4,21 @@ All notable changes to Kiyoshi Music are documented here.
 
 ---
 
+## [0.9.9-beta] — 2026-04-18
+
+### New Features
+- **Contributors in About tab** — Four contributors listed with social link buttons (Twitch, YouTube, Bluesky, Webpage) per card; brand icons via Font Awesome
+
+### Improvements
+- **OBS Overlay font picker** — Refresh button next to the local fonts search field; icon spins while reloading
+- **Backend stability** — Overlay server thread now catches unexpected exceptions instead of dying silently; completed download/export status entries cleaned up from memory after 5 minutes
+
+### Bug Fixes
+- **Linux AppImage white window** — Server startup moved off the main thread; the Tauri event loop is no longer blocked during server startup, fixing the blank window on launch
+- **Linux WebKit compatibility** — Added `WEBKIT_FORCE_SANDBOX=0` (required in AppImage) and automatic `GDK_BACKEND=x11` on Wayland for better WebKitGTK rendering
+
+---
+
 ## [0.9.8-beta] — 2026-04-17
 
 ### New Features

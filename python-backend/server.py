@@ -78,6 +78,13 @@ _adding_account = False
 _download_status = {}  # video_id -> "downloading" | "done" | "error"
 _download_queue  = {}  # video_id -> {title, artists, thumbnail, status, progress (0-1)}
 
+def _schedule_cleanup(d, key, delay=300):
+    """Remove *key* from dict *d* after *delay* seconds (default 5 min)."""
+    def _do():
+        time.sleep(delay)
+        d.pop(key, None)
+    threading.Thread(target=_do, daemon=True).start()
+
 # Cache feature flags (can be toggled at runtime via /cache/settings)
 _cache_enabled = {"playlists": True, "albums": True, "images": True, "songs": True, "lyrics": True}
 
@@ -2307,12 +2314,16 @@ def _download_song_bg(video_id, meta):
         if video_id in _download_queue:
             _download_queue[video_id]["status"] = "done"
             _download_queue[video_id]["progress"] = 1.0
+        _schedule_cleanup(_download_status, video_id)
+        _schedule_cleanup(_download_queue, video_id)
     except Exception as e:
         _download_status[video_id] = "error"
         if video_id in _download_queue:
             _download_queue[video_id]["status"] = "error"
             if "Music Premium" in str(e):
                 _download_queue[video_id]["error_type"] = "premium_only"
+        _schedule_cleanup(_download_status, video_id)
+        _schedule_cleanup(_download_queue, video_id)
         _logging.error(f"[download] {video_id}: {type(e).__name__}: {e}")
 
 
@@ -2652,6 +2663,7 @@ def _export_audio_bg(video_id, output_path, fmt="opus", meta=None):
             if meta and os.path.exists(output_path):
                 _embed_metadata(output_path, meta, "opus")
             _export_status[video_id] = "done"
+            _schedule_cleanup(_export_status, video_id)
             try:
                 shutil.rmtree(tmp_dir)
             except Exception:
@@ -2662,6 +2674,7 @@ def _export_audio_bg(video_id, output_path, fmt="opus", meta=None):
         ffmpeg_dir = _find_ffmpeg()
         if ffmpeg_dir is False:
             _export_status[video_id] = "error"
+            _schedule_cleanup(_export_status, video_id)
             print(f"MP3 export error: ffmpeg not found")
             return
 
@@ -2705,12 +2718,14 @@ def _export_audio_bg(video_id, output_path, fmt="opus", meta=None):
         if meta and os.path.exists(output_path):
             _embed_metadata(output_path, meta, "mp3")
         _export_status[video_id] = "done"
+        _schedule_cleanup(_export_status, video_id)
         try:
             shutil.rmtree(tmp_dir)
         except Exception:
             pass
     except Exception as e:
         _export_status[video_id] = "error"
+        _schedule_cleanup(_export_status, video_id)
         print(f"Audio export error for {video_id}: {e}")
 
 
@@ -3321,7 +3336,12 @@ def _ov_start(port: int) -> bool:
     try:
         srv = _make_wsgi_server("0.0.0.0", port, _ov_app)
         _ov_server_obj = srv
-        t = threading.Thread(target=srv.serve_forever, daemon=True, name="kiyoshi-overlay")
+        def _serve_safe():
+            try:
+                srv.serve_forever()
+            except Exception as e:
+                _logging.error(f"[Overlay] Server thread died unexpectedly: {e}")
+        t = threading.Thread(target=_serve_safe, daemon=True, name="kiyoshi-overlay")
         t.start()
         _ov_server_thread = t
         return True

@@ -26,6 +26,19 @@ function fa(name, alwaysSolid = false) {
   };
 }
 
+function fab(name) {
+  return function FaBrandIcon({ size, className = "", style, ...rest }) {
+    return (
+      <i
+        className={`fa-brands fa-${name}${className ? " " + className : ""}`}
+        style={{ ...(size ? { fontSize: size } : {}), ...style }}
+        aria-hidden="true"
+        {...rest}
+      />
+    );
+  };
+}
+
 // ── Window controls ──────────────────────────────────────────────────────────
 export const Minus              = fa("minus");
 export const X                  = fa("xmark");
@@ -131,3 +144,10 @@ export const Lock               = fa("lock");
 export const LockOpen           = fa("lock-open");
 export const ScreencastSimple   = fa("tv");
 export const CircleFill         = fa("circle", true);
+export const Info               = fa("circle-info");
+export const Star               = fa("star", true);
+
+// ── Brand icons ───────────────────────────────────────────────────────────────
+export const BrandTwitch        = fab("twitch");
+export const BrandYoutube       = fab("youtube");
+export const BrandBluesky       = fab("bluesky");
