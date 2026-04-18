@@ -4,6 +4,14 @@ All notable changes to Kiyoshi Music are documented here.
 
 ---
 
+## [0.9.10-beta] — 2026-04-18
+
+### Bug Fixes
+- **Linux AppImage white window (2nd attempt)** — Added `WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1` (correct env var for WebKit2GTK sandbox) and `LIBGL_ALWAYS_SOFTWARE=1` (software OpenGL fallback); window now starts hidden (`visible: false`) and is shown once React has mounted, so the splash screen appears instead of a blank white frame
+- **Discord button localisation** — "Listen on YouTube Music" button text is now passed from the frontend and follows the app language setting
+
+---
+
 ## [0.9.9-beta] — 2026-04-18
 
 ### New Features

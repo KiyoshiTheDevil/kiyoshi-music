@@ -26,6 +26,7 @@ pub fn update_discord_rpc(
     elapsed: f64,
     video_id: String,
     paused: bool,
+    button_label: Option<String>,
 ) -> Result<(), String> {
     let mut guard = state.0.lock().map_err(|e| e.to_string())?;
 
@@ -44,7 +45,8 @@ pub fn update_discord_rpc(
     let assets = activity::Assets::new()
         .large_image(&thumbnail)
         .large_text(&album);
-    let button = activity::Button::new("Auf YouTube Music anhören", &yt_url);
+    let label = button_label.as_deref().unwrap_or("Listen on YouTube Music");
+    let button = activity::Button::new(label, &yt_url);
 
     let paused_state = format!("{} · ⏸", artist);
     let state_str = if paused { &paused_state } else { &artist };

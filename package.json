@@ -1,6 +1,6 @@
 {
   "name": "kiyoshi-music",
-  "version": "0.9.9-beta",
+  "version": "0.9.10-beta",
   "private": true,
   "scripts": {
     "dev": "vite",

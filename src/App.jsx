@@ -103,10 +103,10 @@ const _MAX_FRONTEND_LOGS = 500;
 })();
 
 // ─── App Version ─────────────────────────────────────────────────────────────
-const APP_VERSION = "0.9.9-beta";
+const APP_VERSION = "0.9.10-beta";
 
 // ─── Update Checker (GitHub Releases) ───────────────────────────────────────
-const APP_TAG = "v0.9.9-beta";
+const APP_TAG = "v0.9.10-beta";
 const GITHUB_RELEASES_API = "https://api.github.com/repos/KiyoshiTheDevil/kiyoshi-music/releases?per_page=1";
 
 function isNewerVersion(latest, current) {
@@ -9854,6 +9854,11 @@ export default function App() {
   );
 
   useEffect(() => {
+    // On Linux the window starts hidden (visible: false in tauri.conf.json)
+    // to avoid a white flash while WebKit initialises. Show it now that
+    // React has mounted and the splash screen is ready to render.
+    appWindow.show().catch(() => {});
+
     const fadeTimer = setTimeout(() => setSplashFading(true), 1700);
     const hideTimer = setTimeout(() => setShowSplash(false), 2150);
     return () => { clearTimeout(fadeTimer); clearTimeout(hideTimer); };
@@ -10326,6 +10331,7 @@ export default function App() {
           elapsed: a?.currentTime || 0,
           videoId: currentTrack.videoId || "",
           paused: !isPlaying,
+          buttonLabel: t("discordButton"),
         }).catch(() => {});
       } catch {}
     };
