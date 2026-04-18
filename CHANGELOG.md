@@ -4,6 +4,24 @@ All notable changes to Kiyoshi Music are documented here.
 
 ---
 
+## [0.9.12-beta] — 2026-04-18
+
+### Bug Fixes
+- **Linux AppImage white window (3rd attempt)** — Added `'unsafe-inline'` to `script-src` in Tauri CSP (WebKitGTK enforces CSP strictly; missing `'unsafe-inline'` can block Tauri's init scripts); unified CSP between `tauri.conf.json` and `index.html` meta tag; added dark `#0d0d0d` body background as HTML-level fallback so the window is never white even if React hasn't mounted yet
+- **Reverted `visible: false`** — Made things worse because `appWindow.show()` was never called when JS failed to run
+
+---
+
+## [0.9.11-beta] — 2026-04-18
+
+### New Features
+- **Single Instance** — Launching the app a second time now focuses the existing window instead of creating a new process and tray icon
+
+### Bug Fixes
+- **Language picker button cut off** — On small viewports or high-DPI displays the language list is now scrollable and the Confirm button always stays visible at the bottom
+
+---
+
 ## [0.9.10-beta] — 2026-04-18
 
 ### Bug Fixes
