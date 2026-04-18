@@ -71,6 +71,7 @@ import {
   BrandTwitch,
   BrandYoutube,
   BrandBluesky,
+  BrandTiktok,
 } from "./icons.jsx";
 
 const API = "http://localhost:9847";
@@ -626,6 +627,44 @@ function formatDuration(str) {
   return str;
 }
 
+/**
+ * Renders artist names as individual clickable spans (supports arrays of artist objects).
+ * Falls back to a single span using track.artistBrowseId when artists is a plain string.
+ */
+function ArtistLinks({ track, onOpenArtist, onBeforeNavigate, style }) {
+  const base = { cursor: "pointer", transition: "color 0.15s", ...style };
+  const hover   = e => { e.currentTarget.style.color = "var(--accent)"; };
+  const unhover = e => { e.currentTarget.style.color = ""; };
+
+  // Prefer artistLinks from backend (has individual browseIds per artist)
+  const links = track?.artistLinks;
+  if (Array.isArray(links) && links.length > 0) {
+    return links.map((a, i) => (
+      <React.Fragment key={i}>
+        {i > 0 && ", "}
+        {a.browseId && onOpenArtist
+          ? <span
+              onClick={e => { e.stopPropagation(); onBeforeNavigate?.(); onOpenArtist({ browseId: a.browseId, artist: a.name }); }}
+              style={base} onMouseEnter={hover} onMouseLeave={unhover}
+            >{a.name}</span>
+          : a.name}
+      </React.Fragment>
+    ));
+  }
+
+  // Fallback: single artistBrowseId (old data / SQLite cache)
+  const artists = track?.artists;
+  if (track?.artistBrowseId && onOpenArtist) {
+    return (
+      <span
+        onClick={e => { e.stopPropagation(); onBeforeNavigate?.(); onOpenArtist({ browseId: track.artistBrowseId, artist: artists }); }}
+        style={base} onMouseEnter={hover} onMouseLeave={unhover}
+      >{artists}</span>
+    );
+  }
+  return artists ?? null;
+}
+
 /** Returns {left, top} clamped so the menu (w×h px) stays within the viewport. */
 function clampMenu(x, y, w = 220, h = 320) {
   const vw = window.innerWidth;
@@ -689,14 +728,7 @@ function TrackRow({ track, isPlaying, onPlay, onOpenArtist, onContextMenu }) {
           {track.isExplicit && <ExplicitBadge />}
         </div>
         <div style={{ fontSize: "var(--t12)", color: "var(--text-secondary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-          {onOpenArtist && track.artistBrowseId ? (
-            <span
-              onClick={e => { e.stopPropagation(); onOpenArtist({ browseId: track.artistBrowseId, artist: track.artists }); }}
-              style={{ cursor: "pointer", transition: anim ? "color 0.15s" : "none" }}
-              onMouseEnter={e => e.currentTarget.style.color = "var(--accent)"}
-              onMouseLeave={e => e.currentTarget.style.color = "var(--text-secondary)"}
-            >{track.artists}</span>
-          ) : track.artists}
+          <ArtistLinks track={track} onOpenArtist={onOpenArtist} />
           {track.album ? ` · ${track.album}` : ""}
         </div>
       </div>
@@ -1162,14 +1194,14 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
       {/* 🎵 Easter Egg: Kasane Teto */}
       {tetoVisible && createPortal(
         <img
-          src="/teto.gif"
+          src="/Teto_Drinking_Boba.png"
           alt="Kasane Teto"
           style={{
             position: "fixed",
             bottom: 72,
             right: 0,
-            width: 180,
-            height: 180,
+            width: "auto",
+            height: 256,
             pointerEvents: "none",
             zIndex: 9500,
             animation: tetoLeaving
@@ -3629,8 +3661,39 @@ function OverlayTab({ t, obsEnabled, obsPort, obsPortInput, setObsPortInput, obs
           <OvlToggleRow label={t("overlayAutoHide")} desc={t("overlayAutoHideDesc")} icon={<Eye size={15} />} value={obsConfig.autoHide} onChange={v => applyObsConfig({ autoHide: v })} />
           <OvlToggleRow label={t("overlayScrollTitle")} desc={t("overlayScrollTitleDesc")} icon={<TextSize size={15} />} value={obsConfig.scrollTitle} onChange={v => applyObsConfig({ scrollTitle: v })} />
           {obsConfig.scrollTitle && (
-            <OvlSliderRow label={t("overlayScrollSpeed")} icon={<Sliders size={15} />} value={obsConfig.scrollSpeed ?? 80} min={10} max={200} step={10} unit="px/s"
-              onChange={v => applyObsConfig({ scrollSpeed: v })} />
+            <>
+              {/* ── Scroll Preview ── */}
+              {/* left:100% starts the text just off the right edge.
+                  translateX(calc(-100% - 1100px)) guarantees it's fully off the left edge
+                  with extra gap before the text reappears from the right → no visible jump on loop. */}
+              <style>{`@keyframes kiyoshi-scroll-prev { from { transform: translateX(0); } to { transform: translateX(calc(-100% - 1100px)); } }`}</style>
+              <div style={{
+                margin: "2px 0 6px",
+                borderRadius: 8,
+                overflow: "hidden",
+                position: "relative",
+                height: 52,
+                background: "rgba(255,255,255,0.04)",
+                border: "1px solid rgba(255,255,255,0.07)",
+              }}>
+                <span style={{
+                  position: "absolute",
+                  left: "100%",
+                  top: 0,
+                  lineHeight: "52px",
+                  whiteSpace: "nowrap",
+                  fontSize: 18,
+                  color: "var(--text-secondary)",
+                  animation: `kiyoshi-scroll-prev ${(600 / (obsConfig.scrollSpeed ?? 80)).toFixed(2)}s linear infinite`,
+                  pointerEvents: "none",
+                  userSelect: "none",
+                }}>
+                  Kiyoshi Music — Now Playing · Scroll Speed Preview · Long Title Example
+                </span>
+              </div>
+              <OvlSliderRow label={t("overlayScrollSpeed")} icon={<Sliders size={15} />} value={obsConfig.scrollSpeed ?? 80} min={10} max={200} step={10} unit="px/s"
+                onChange={v => applyObsConfig({ scrollSpeed: v })} />
+            </>
           )}
         </>
       )}
@@ -4882,8 +4945,9 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                 <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 28 }}>
                   {[
                     {
-                      name: "KiyoshiTheDevil",
+                      name: "Kiyoshi The Devil",
                       role: t("contributorRoleDev"),
+                      avatar: "KiyoshiTheDevil_ProfileImage.png",
                       links: [
                         { icon: <BrandTwitch size={13} />, url: "https://twitch.tv/kiyoshi_the_devil" },
                         { icon: <BrandYoutube size={13} />, url: "https://www.youtube.com/@kiyoshi_the_devil" },
@@ -4891,19 +4955,23 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                       ],
                     },
                     {
-                      name: "PairyDise",
+                      name: "Grains Of Art",
                       role: t("contributorRoleAlphaTesterArtist"),
+                      avatar: "GrainsOfArt_ProfileImage.png",
                       links: [
                         { icon: <BrandTwitch size={13} />, url: "https://www.twitch.tv/greekgeekgames" },
                         { icon: <BrandYoutube size={13} />, url: "https://www.youtube.com/@GrainsOfArt" },
+                        { icon: <Link size={13} />, url: "https://linktr.ee/GrainsOfArt" },
                       ],
                     },
                     {
                       name: "LMary52",
                       role: t("contributorRoleAlphaTester"),
+                      avatar: "LMary52_ProfileImage.png",
                       links: [
                         { icon: <BrandTwitch size={13} />, url: "https://www.twitch.tv/lmary52" },
                         { icon: <BrandYoutube size={13} />, url: "https://www.youtube.com/@LMary52" },
+                        { icon: <BrandTiktok size={13} />, url: "https://www.tiktok.com/@lmary52" },
                         { icon: <BrandBluesky size={13} />, url: "https://bsky.app/profile/lmary52.bsky.social" },
                       ],
                     },
@@ -4920,14 +4988,25 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                       padding: "12px 16px", borderRadius: 10,
                       background: "var(--bg-elevated)",
                     }}>
-                      <div style={{
-                        width: 36, height: 36, borderRadius: "50%", flexShrink: 0,
-                        background: "linear-gradient(135deg, var(--accent), #FF008C)",
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        fontSize: "var(--t13)", fontWeight: 700, color: "#fff",
-                      }}>
-                        {c.name[0].toUpperCase()}
-                      </div>
+                      {c.avatar ? (
+                        <img
+                          src={`/${c.avatar}`}
+                          alt={c.name}
+                          style={{
+                            width: 36, height: 36, borderRadius: "50%", flexShrink: 0,
+                            objectFit: "cover",
+                          }}
+                        />
+                      ) : (
+                        <div style={{
+                          width: 36, height: 36, borderRadius: "50%", flexShrink: 0,
+                          background: "linear-gradient(135deg, var(--accent), #FF008C)",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          fontSize: "var(--t13)", fontWeight: 700, color: "#fff",
+                        }}>
+                          {c.name[0].toUpperCase()}
+                        </div>
+                      )}
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: "var(--t13)", fontWeight: 600 }}>{c.name}</div>
                         <div style={{ fontSize: "var(--t11)", color: "var(--text-muted)", marginTop: 2 }}>{c.role}</div>
@@ -5852,14 +5931,11 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
               {track?.isExplicit && <ExplicitBadge />}
             </div>
             <div style={{ fontSize: "var(--t11)", color: "var(--text-secondary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-              {track?.artistBrowseId && onOpenArtist
-                ? <span
-                    onClick={e => { e.stopPropagation(); onOpenArtist({ browseId: track.artistBrowseId, artist: track.artists }); }}
-                    style={{ cursor: "pointer", transition: "color 0.15s" }}
-                    onMouseEnter={e => e.currentTarget.style.color = "var(--accent)"}
-                    onMouseLeave={e => e.currentTarget.style.color = "var(--text-secondary)"}
-                  >{track.artists}</span>
-                : track?.artists}
+              <ArtistLinks
+                track={track}
+                onOpenArtist={onOpenArtist}
+                onBeforeNavigate={() => { if (expanded) onExpandToggle(); }}
+              />
             </div>
             <div style={{ fontSize: "var(--t10)", color: "var(--text-muted)", marginTop: 2 }}>
               {track ? `${fmt(progress)} / ${fmt(duration)}` : ""}
@@ -6145,7 +6221,7 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
                         <CaretDown size={10} style={{ transform: "rotate(-90deg)" }} />
                       </div>
                       {morePlaylists && (
-                        <div style={{ position: "absolute", left: "100%", top: 0, marginLeft: 4, background: "var(--bg-elevated)", border: "0.5px solid var(--border)", borderRadius: "var(--radius-lg)", padding: "4px", minWidth: 180, boxShadow: "0 8px 24px rgba(0,0,0,0.4)", maxHeight: 300, overflowY: "auto", zIndex: 100001 }}>
+                        <div style={{ position: "absolute", right: "100%", marginRight: 4, top: 0, background: "var(--bg-elevated)", border: "0.5px solid var(--border)", borderRadius: "var(--radius-lg)", padding: "4px", minWidth: 180, boxShadow: "0 8px 24px rgba(0,0,0,0.4)", maxHeight: 300, overflowY: "auto", zIndex: 100001 }}>
                           {morePlaylists.map((pl, i) => (
                             <div key={i}
                               onClick={async () => { try { await fetch(`${API}/playlist/${pl.playlistId}/add`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ videoIds: [track.videoId], tracks: [track] }) }); } catch {} closeMoreMenu(); }}
@@ -7773,13 +7849,9 @@ function TableRow({ track, index, isPlaying, onPlay, onOpenArtist, onOpenAlbum, 
         </div>
       </div>
       {/* Artist */}
-      <div
-        onClick={e => { if (track.artistBrowseId && onOpenArtist) { e.stopPropagation(); onOpenArtist({ browseId: track.artistBrowseId, artist: track.artists }); }}}
-        style={{ ...linkStyle, cursor: track.artistBrowseId && onOpenArtist ? "pointer" : "default" }}
-        onMouseEnter={e => { if (track.artistBrowseId && onOpenArtist) e.currentTarget.style.color = "var(--text-primary)"; }}
-        onMouseLeave={e => e.currentTarget.style.color = "var(--text-secondary)"}
-      >
-        {track.artists || "—"}
+      <div style={linkStyle}>
+        <ArtistLinks track={track} onOpenArtist={onOpenArtist} />
+        {(!track.artists || (Array.isArray(track.artists) && track.artists.length === 0)) && "—"}
       </div>
       {/* Album */}
       {!isAlbum && (
@@ -8884,7 +8956,9 @@ function HistoryView({ onPlay, currentTrack, isPlaying, onOpenArtist, onOpenAlbu
                     <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>{track.title}</span>
                     {track.isExplicit && <ExplicitBadge />}
                   </div>
-                  <div style={{ fontSize: "var(--t11)", color: "var(--text-muted)", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{track.artists}</div>
+                  <div style={{ fontSize: "var(--t11)", color: "var(--text-muted)", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    <ArtistLinks track={track} onOpenArtist={onOpenArtist} />
+                  </div>
                 </div>
                 {/* Time ago */}
                 <div style={{ fontSize: "var(--t11)", color: "var(--text-muted)", flexShrink: 0 }}>{timeAgo(track.playedAt, t)}</div>
@@ -10321,16 +10395,18 @@ export default function App() {
         const dur = a?.duration;
         // Skip update if audio metadata hasn't loaded yet
         if (!dur || isNaN(dur)) return;
+        const artistStr = Array.isArray(currentTrack.artists)
+          ? currentTrack.artists.map(a => a?.name || a).join(", ")
+          : (currentTrack.artists || "");
         invoke("update_discord_rpc", {
           title: currentTrack.title || "",
-          artist: currentTrack.artists || "",
+          artist: artistStr,
           album: currentTrack.album || "",
           thumbnail: currentTrack.thumbnail || "",
           duration: dur,
           elapsed: a?.currentTime || 0,
           videoId: currentTrack.videoId || "",
           paused: !isPlaying,
-          buttonLabel: t("discordButton"),
         }).catch(() => {});
       } catch {}
     };
@@ -11531,10 +11607,14 @@ export default function App() {
                   </span>
                   <CaretDown size={10} style={{ transform: "rotate(-90deg)" }} />
                 </div>
-                {/* Submenu */}
-                {trackCtxPlaylists && (
+                {/* Submenu — öffnet zur linken Seite wenn das Menü nahe am rechten Rand ist */}
+                {trackCtxPlaylists && (() => {
+                  const openLeft = (trackCtxData.x / uiZoom) + 420 > window.innerWidth;
+                  return (
                   <div style={{
-                    position: "absolute", left: "100%", top: 0, marginLeft: 4,
+                    position: "absolute",
+                    ...(openLeft ? { right: "100%", marginRight: 4 } : { left: "100%", marginLeft: 4 }),
+                    top: 0,
                     background: "var(--bg-elevated)", border: "0.5px solid var(--border)",
                     borderRadius: "var(--radius-lg)", padding: "4px", minWidth: 180,
                     boxShadow: "0 8px 24px rgba(0,0,0,0.4)", maxHeight: 300, overflowY: "auto",
@@ -11568,7 +11648,8 @@ export default function App() {
                       {translate(language, "newPlaylist")}
                     </div>
                   </div>
-                )}
+                  );
+                })()}
               </div>
 
               {/* Like / Unlike */}
@@ -11646,17 +11727,35 @@ export default function App() {
                   {translate(language, "goToAlbum")}
                 </div>
               )}
-              {trackCtxData.track.artistBrowseId && (
-                <div
-                  onClick={() => { const t = trackCtxData.track; setTrackContextMenu(null); setTrackCtxPlaylists(null); openArtist({ browseId: t.artistBrowseId }, view); }}
-                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "var(--text-primary)" }}
-                  onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
-                  onMouseLeave={e => e.currentTarget.style.background = "transparent"}
-                >
-                  <Microphone size={14} />
-                  {translate(language, "goToArtist")}
-                </div>
-              )}
+              {/* Go to Artist — one entry per artist when artists is an array */}
+              {Array.isArray(trackCtxData.track.artists)
+                ? trackCtxData.track.artists.filter(a => a?.browseId || a?.id).map((a, i) => {
+                    const browseId = a.browseId || a.id;
+                    const name = a.name || "";
+                    return (
+                      <div key={i}
+                        onClick={() => { setTrackContextMenu(null); setTrackCtxPlaylists(null); openArtist({ browseId, artist: name }, view); }}
+                        style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "var(--text-primary)" }}
+                        onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
+                        onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                      >
+                        <Microphone size={14} />
+                        {translate(language, "goToArtist")}{name ? `: ${name}` : ""}
+                      </div>
+                    );
+                  })
+                : trackCtxData.track.artistBrowseId && (
+                  <div
+                    onClick={() => { const t = trackCtxData.track; setTrackContextMenu(null); setTrackCtxPlaylists(null); openArtist({ browseId: t.artistBrowseId }, view); }}
+                    style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "var(--text-primary)" }}
+                    onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
+                    onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                  >
+                    <Microphone size={14} />
+                    {translate(language, "goToArtist")}
+                  </div>
+                )
+              }
 
               {/* Download / Remove download */}
               {cachedSongIds.has(trackCtxData.track.videoId) ? (

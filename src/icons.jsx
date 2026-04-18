@@ -151,3 +151,4 @@ export const Star               = fa("star", true);
 export const BrandTwitch        = fab("twitch");
 export const BrandYoutube       = fab("youtube");
 export const BrandBluesky       = fab("bluesky");
+export const BrandTiktok        = fab("tiktok");

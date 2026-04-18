@@ -85,6 +85,14 @@ def _schedule_cleanup(d, key, delay=300):
         d.pop(key, None)
     threading.Thread(target=_do, daemon=True).start()
 
+def _artist_links(artist_list):
+    """Return [{name, browseId}, ...] for all artists that have a name."""
+    return [
+        {"name": a.get("name", ""), "browseId": a.get("id") or a.get("browseId") or ""}
+        for a in (artist_list or [])
+        if a.get("name")
+    ]
+
 # Cache feature flags (can be toggled at runtime via /cache/settings)
 _cache_enabled = {"playlists": True, "albums": True, "images": True, "songs": True, "lyrics": True}
 
@@ -1233,6 +1241,7 @@ def liked_songs():
                 "title": t.get("title", ""),
                 "artists": artists,
                 "artistBrowseId": artist_browse_id,
+                "artistLinks": _artist_links(artist_list),
                 "album": album.get("name", "") if album else "",
                 "albumBrowseId": (album.get("id") or "") if album else "",
                 "duration": t.get("duration", ""),
@@ -1661,6 +1670,7 @@ def stream_playlist(playlist_id):
                     "title": t.get("title", ""),
                     "artists": artists,
                     "artistBrowseId": artist_browse_id,
+                    "artistLinks": _artist_links(artist_list),
                     "album": album.get("name", ""),
                     "albumBrowseId": (album.get("id") or ""),
                     "duration": t.get("duration", ""),
@@ -1780,6 +1790,7 @@ def get_playlist(playlist_id):
                     "title": t.get("title", ""),
                     "artists": artists,
                     "artistBrowseId": artist_browse_id,
+                    "artistLinks": _artist_links(artist_list),
                     "album": album.get("name", ""),
                     "albumBrowseId": (album.get("id") or ""),
                     "duration": t.get("duration", ""),
@@ -1805,6 +1816,7 @@ def get_playlist(playlist_id):
                 "title": t.get("title", ""),
                 "artists": artists,
                 "artistBrowseId": artist_browse_id,
+                "artistLinks": _artist_links(artist_list),
                 "album": album.get("name", ""),
                 "albumBrowseId": (album.get("id") or ""),
                 "duration": t.get("duration", ""),
@@ -1846,6 +1858,7 @@ def get_album(browse_id):
                 "title": t.get("title", ""),
                 "artists": artists,
                 "artistBrowseId": artist_browse_id,
+                "artistLinks": _artist_links(track_artists or album_artists),
                 "album": album.get("title", ""),
                 "duration": t.get("duration", ""),
                 "thumbnail": thumbnail,
@@ -1960,6 +1973,7 @@ def search():
                     "title": t.get("title", ""),
                     "artists": artists,
                     "artistBrowseId": artist_browse_id,
+                    "artistLinks": _artist_links(artist_list),
                     "album": album.get("name", ""),
                     "albumBrowseId": (album.get("id") or ""),
                     "duration": t.get("duration", ""),
@@ -2014,6 +2028,7 @@ def get_home():
                         "title": item.get("title", ""),
                         "artists": artists,
                         "artistBrowseId": artist_browse_id,
+                        "artistLinks": _artist_links(artist_list),
                         "album": album.get("name", ""),
                         "albumBrowseId": (album.get("id") or ""),
                         "duration": item.get("duration", ""),
