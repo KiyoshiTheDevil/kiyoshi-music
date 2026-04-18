@@ -307,38 +307,47 @@ body.dyslexia .highlight-bar {
 .highlights-stack {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
 
-.highlight-bar {
+.showcase-card {
+  background: var(--bg-surface);
+  overflow: hidden;
+}
+
+.showcase-header {
+  display: flex;
+  align-items: center;
+}
+
+.showcase-icon {
+  width: 80px;
+  height: 80px;
+  min-width: 80px;
   background: var(--accent);
   color: #1a0020;
   display: flex;
   align-items: center;
-  gap: 24px;
-  padding: 20px 32px;
-  border-radius: 0;
-  font-family: 'Stack Sans Notch', 'Inter', system-ui, sans-serif;
-  font-size: clamp(28px, 4vw, 44px);
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  line-height: 1;
-  cursor: default;
-  transition: gap 0.2s;
-}
-
-.highlight-bar:hover {
-  gap: 32px;
-}
-
-.highlight-bar i {
-  font-size: clamp(28px, 4vw, 44px);
+  justify-content: center;
+  font-size: 28px;
   flex-shrink: 0;
 }
 
-.highlight-bar--1 { width: 100%; }
-.highlight-bar--2 { width: 82%; }
-.highlight-bar--3 { width: 66%; }
+.showcase-title {
+  font-family: 'Stack Sans Notch', system-ui, sans-serif;
+  font-size: clamp(24px, 3.5vw, 38px);
+  color: var(--accent);
+  letter-spacing: 0.01em;
+  line-height: 1;
+  padding: 0 28px;
+}
+
+.showcase-desc {
+  font-size: 15px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  padding: 16px 28px 20px calc(80px + 28px);
+}
 
 /* ── Feature Grid ── */
 .features {
