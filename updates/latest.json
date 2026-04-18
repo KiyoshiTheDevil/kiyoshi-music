@@ -1,11 +1,11 @@
 {
-  "version": "v0.9.12-beta",
-  "pub_date": "2026-04-18T06:31:44Z",
-  "notes": "### Bug Fixes\n- **Linux AppImage white window (3rd attempt)** — Added `'unsafe-inline'` to `script-src` in Tauri CSP (WebKitGTK enforces CSP strictly; missing `'unsafe-inline'` can block Tauri's init scripts); unified CSP between `tauri.conf.json` and `index.html` meta tag; added dark `#0d0d0d` body background as HTML-level fallback so the window is never white even if React hasn't mounted yet\n- **Reverted `visible: false`** — Made things worse because `appWindow.show()` was never called when JS failed to run\n---",
+  "version": "v0.9.13-beta",
+  "pub_date": "2026-04-18T09:32:10Z",
+  "notes": "",
   "platforms": {
     "windows-x86_64": {
-      "url": "https://github.com/KiyoshiTheDevil/kiyoshi-music/releases/download/v0.9.12-beta/Kiyoshi.Music_0.9.12-beta_x64-setup.exe",
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTb3ErUzRRK3lrL3NCYkVrZ2dFaFpYN2tIMUU0OTFJcVV0d1N6RHZ1WEQ2cGlOM2tUWjg3S05XK2lvOHpxc1VoVSs3K2czU25JaTQvS2g1VmUvWkxzZ1JnZ2t4aWJaSEE4PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc2NDkzODQ3CWZpbGU6S2l5b3NoaSBNdXNpY18wLjkuMTItYmV0YV94NjQtc2V0dXAuZXhlCmluaG5pcXd3bmg5ZkJQeFp4OE9iY3QyVEthanFHNUxNK1dvNHNtWmFTVER3REJDYy9pU3pzUnlsSXozcUlZR3ZjRkRRRHJlSldaV3A3YlVYZXJWYkNBPT0K"
+      "url": "https://github.com/KiyoshiTheDevil/kiyoshi-music/releases/download/v0.9.13-beta/Kiyoshi.Music_0.9.13-beta_x64-setup.exe",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTb3ErUzRRK3lrL3Bta0ZCUWJ2ZndIMVY0S1paTzlhSGRXNUhVeDUybEdxeGNmYXhDaGJQWEhoK0xxY0lZRjFFdk1OY1N0eVdBK0JMKys1YXBIa3hQQ1FwbnNyTUxtclFjPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc2NTA0MTQwCWZpbGU6S2l5b3NoaSBNdXNpY18wLjkuMTMtYmV0YV94NjQtc2V0dXAuZXhlCkRKK3hOQ2xaOUJJM0ozeTFRNXlKbTIwWGpOVTJkMUxIQjR0Ryt4WXVUblNwbzJIbkhSLzQraDBUdnY0MTdaS2c0ZkhMa09BRERxZ0UyK2dUSXpubUFRPT0K"
     }
   }
 }
