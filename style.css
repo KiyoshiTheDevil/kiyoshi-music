@@ -121,10 +121,16 @@ nav {
   border-radius: 6px;
   color: var(--text-muted);
   cursor: pointer;
-  font-size: 14px;
-  padding: 4px 8px;
+  padding: 5px 10px;
   line-height: 1;
   transition: color 0.15s, border-color 0.15s;
+}
+
+.a11y-label {
+  font-family: 'OpenDyslexic', system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1;
 }
 .nav-a11y-btn:hover {
   color: var(--text-secondary);
