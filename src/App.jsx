@@ -66,6 +66,11 @@ import {
   CircleFill,
   Robot,
   Eyedropper,
+  Info,
+  Star,
+  BrandTwitch,
+  BrandYoutube,
+  BrandBluesky,
 } from "./icons.jsx";
 
 const API = "http://localhost:9847";
@@ -98,10 +103,10 @@ const _MAX_FRONTEND_LOGS = 500;
 })();
 
 // ─── App Version ─────────────────────────────────────────────────────────────
-const APP_VERSION = "0.9.8-beta";
+const APP_VERSION = "0.9.9-beta";
 
 // ─── Update Checker (GitHub Releases) ───────────────────────────────────────
-const APP_TAG = "v0.9.7-beta";
+const APP_TAG = "v0.9.9-beta";
 const GITHUB_RELEASES_API = "https://api.github.com/repos/KiyoshiTheDevil/kiyoshi-music/releases?per_page=1";
 
 function isNewerVersion(latest, current) {
@@ -1134,21 +1139,23 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
           >
             <Gear size={16} />
           </div>
-          <div
-            onMouseEnter={e => {
-              const r = e.currentTarget.getBoundingClientRect();
-              setTooltip({ text: isActuallyOffline ? t("offlineBanner") : t("offlineComingSoon"), x: r.right + 10, y: r.top + r.height / 2 });
-            }}
-            onMouseLeave={() => setTooltip(null)}
-            style={{
-              width: 36, height: 36, borderRadius: "var(--radius)", cursor: "default",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              color: isActuallyOffline ? "#f0b429" : "var(--text-muted)",
-              opacity: isActuallyOffline ? 1 : 0.45, transition: "all 0.15s",
-            }}
-          >
-            {(offlineMode || isActuallyOffline) ? <WifiX size={16} /> : <WifiHigh size={16} />}
-          </div>
+          {(offlineMode || isActuallyOffline) && (
+            <div
+              onMouseEnter={e => {
+                const r = e.currentTarget.getBoundingClientRect();
+                setTooltip({ text: isActuallyOffline ? t("offlineBanner") : t("offlineComingSoon"), x: r.right + 10, y: r.top + r.height / 2 });
+              }}
+              onMouseLeave={() => setTooltip(null)}
+              style={{
+                width: 36, height: 36, borderRadius: "var(--radius)", cursor: "default",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                color: isActuallyOffline ? "#f0b429" : "var(--text-muted)",
+                opacity: isActuallyOffline ? 1 : 0.45, transition: "all 0.15s",
+              }}
+            >
+              <WifiX size={16} />
+            </div>
+          )}
           </div>
         </div>
       )}
@@ -1345,47 +1352,51 @@ function ColorPickerPopover({ value, onChange, onClose, anchorRef, inline = fals
       {/* Preview + Hex input + Eyedropper */}
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <div style={{ width: 28, height: 28, borderRadius: 6, background: currentHex, flexShrink: 0, border: "0.5px solid rgba(255,255,255,0.12)" }} />
-        <input
-          value={hexInput}
-          onChange={e => {
-            const raw = e.target.value;
-            setHexInput(raw);
-            if (/^#[0-9a-fA-F]{6}$/.test(raw)) {
-              const { h: nh, s: ns, v: nv } = hexToHsv(raw);
-              setHue(nh); setSat(ns); setVal(nv);
-              onChange(raw);
-            }
-          }}
-          style={{
-            flex: 1, background: "var(--bg-main)", border: "0.5px solid var(--border)",
-            borderRadius: 6, padding: "5px 8px", fontSize: "var(--t12)", fontFamily: "monospace",
-            color: "var(--text-primary)", outline: "none",
-          }}
-          spellCheck={false}
-        />
-        {window.EyeDropper && (
-          <Tooltip text="Farbpipette">
-            <button
-              onClick={async () => {
-                try {
-                  const dropper = new window.EyeDropper();
-                  const { sRGBHex } = await dropper.open();
-                  const { h: nh, s: ns, v: nv } = hexToHsv(sRGBHex);
-                  setHue(nh); setSat(ns); setVal(nv); setHexInput(sRGBHex);
-                  onChange(sRGBHex);
-                } catch {}
-              }}
-              style={{
-                flexShrink: 0, width: 28, height: 28, borderRadius: 6,
-                background: "var(--bg-main)", border: "0.5px solid var(--border)",
-                color: "var(--text-secondary)", cursor: "pointer",
-                display: "flex", alignItems: "center", justifyContent: "center",
-              }}
-            >
-              <Eyedropper size={13} />
-            </button>
-          </Tooltip>
-        )}
+        <div style={{ flex: 1, position: "relative" }}>
+          <input
+            value={hexInput}
+            onChange={e => {
+              const raw = e.target.value;
+              setHexInput(raw);
+              if (/^#[0-9a-fA-F]{6}$/.test(raw)) {
+                const { h: nh, s: ns, v: nv } = hexToHsv(raw);
+                setHue(nh); setSat(ns); setVal(nv);
+                onChange(raw);
+              }
+            }}
+            style={{
+              width: "100%", boxSizing: "border-box",
+              background: "var(--bg-main)", border: "0.5px solid var(--border)",
+              borderRadius: 6, padding: window.EyeDropper ? "5px 28px 5px 8px" : "5px 8px",
+              fontSize: "var(--t12)", fontFamily: "monospace",
+              color: "var(--text-primary)", outline: "none",
+            }}
+            spellCheck={false}
+          />
+          {window.EyeDropper && (
+            <Tooltip text="Farbpipette">
+              <button
+                onClick={async () => {
+                  try {
+                    const dropper = new window.EyeDropper();
+                    const { sRGBHex } = await dropper.open();
+                    const { h: nh, s: ns, v: nv } = hexToHsv(sRGBHex);
+                    setHue(nh); setSat(ns); setVal(nv); setHexInput(sRGBHex);
+                    onChange(sRGBHex);
+                  } catch {}
+                }}
+                style={{
+                  position: "absolute", right: 4, top: "50%", transform: "translateY(-50%)",
+                  background: "none", border: "none", padding: 2,
+                  color: "var(--text-muted)", cursor: "pointer",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                }}
+              >
+                <Eyedropper size={13} />
+              </button>
+            </Tooltip>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -1983,7 +1994,7 @@ function LyricsProviderList({ providers, onChange }) {
             display: "flex", alignItems: "center", gap: 10,
             padding: "10px 12px", borderRadius: "var(--radius)",
             background: "var(--bg-elevated)",
-            border: `0.5px solid ${dragOver === i ? "var(--accent)" : "var(--border)"}`,
+            border: dragOver === i ? "0.5px solid var(--accent)" : "0.5px solid transparent",
             borderTop: dragOver === i ? "2px solid var(--accent)" : undefined,
             transition: "border-color 0.1s",
           }}
@@ -2549,47 +2560,51 @@ function ColorPicker({ value, onChange }) {
           {/* Swatch + hex input + eyedropper */}
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <div style={{ width: 36, height: 36, borderRadius: 8, background: currentHex, border: "0.5px solid rgba(255,255,255,0.15)", flexShrink: 0 }} />
-            <input
-              value={hexInput}
-              onChange={e => {
-                setHexInput(e.target.value);
-                if (/^#[0-9a-fA-F]{6}$/.test(e.target.value)) {
-                  setHsv(_hexToHsv(e.target.value));
-                  onChange(e.target.value);
-                }
-              }}
-              onKeyDown={e => { if (e.key === "Enter" || e.key === "Escape") setOpen(false); }}
-              style={{
-                flex: 1, padding: "7px 10px", borderRadius: 8,
-                background: "var(--bg-elevated)", border: "0.5px solid rgba(255,255,255,0.12)",
-                color: "var(--text-primary)", fontSize: "var(--t13)", fontFamily: "monospace",
-                outline: "none", letterSpacing: "0.04em",
-              }}
-            />
-            {window.EyeDropper && (
-              <button
-                title="Farbpipette"
-                onClick={async () => {
-                  try {
-                    setOpen(false);
-                    await new Promise(r => setTimeout(r, 80));
-                    const dropper = new window.EyeDropper();
-                    const { sRGBHex } = await dropper.open();
-                    setHsv(_hexToHsv(sRGBHex));
-                    setHexInput(sRGBHex);
-                    onChange(sRGBHex);
-                  } catch {}
+            <div style={{ flex: 1, position: "relative" }}>
+              <input
+                value={hexInput}
+                onChange={e => {
+                  setHexInput(e.target.value);
+                  if (/^#[0-9a-fA-F]{6}$/.test(e.target.value)) {
+                    setHsv(_hexToHsv(e.target.value));
+                    onChange(e.target.value);
+                  }
                 }}
+                onKeyDown={e => { if (e.key === "Enter" || e.key === "Escape") setOpen(false); }}
                 style={{
-                  flexShrink: 0, width: 36, height: 36, borderRadius: 8,
+                  width: "100%", boxSizing: "border-box",
+                  padding: window.EyeDropper ? "7px 32px 7px 10px" : "7px 10px",
+                  borderRadius: 8,
                   background: "var(--bg-elevated)", border: "0.5px solid rgba(255,255,255,0.12)",
-                  color: "var(--text-secondary)", cursor: "pointer",
-                  display: "flex", alignItems: "center", justifyContent: "center",
+                  color: "var(--text-primary)", fontSize: "var(--t13)", fontFamily: "monospace",
+                  outline: "none", letterSpacing: "0.04em",
                 }}
-              >
-                <Eyedropper size={15} />
-              </button>
-            )}
+              />
+              {window.EyeDropper && (
+                <button
+                  title="Farbpipette"
+                  onClick={async () => {
+                    try {
+                      setOpen(false);
+                      await new Promise(r => setTimeout(r, 80));
+                      const dropper = new window.EyeDropper();
+                      const { sRGBHex } = await dropper.open();
+                      setHsv(_hexToHsv(sRGBHex));
+                      setHexInput(sRGBHex);
+                      onChange(sRGBHex);
+                    } catch {}
+                  }}
+                  style={{
+                    position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)",
+                    background: "none", border: "none", padding: 2,
+                    color: "var(--text-muted)", cursor: "pointer",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                  }}
+                >
+                  <Eyedropper size={15} />
+                </button>
+              )}
+            </div>
           </div>
         </div>,
         document.body
@@ -3005,17 +3020,35 @@ function TypographyTab({ t, obsConfig, applyObsConfig }) {
             </div>
           ) : (
             <>
-              <input
-                type="text" value={localSearch}
-                onChange={e => setLocalSearch(e.target.value)}
-                placeholder={t("overlayLocalSearch")}
-                style={{
-                  width: "100%", padding: "8px 12px", borderRadius: "var(--radius)", marginBottom: 8,
-                  background: "var(--bg-elevated)", border: "0.5px solid var(--border)",
-                  color: "var(--text-primary)", fontSize: "var(--t13)", fontFamily: "var(--font)",
-                  outline: "none",
-                }}
-              />
+              <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+                <input
+                  type="text" value={localSearch}
+                  onChange={e => setLocalSearch(e.target.value)}
+                  placeholder={t("overlayLocalSearch")}
+                  style={{
+                    flex: 1, padding: "8px 12px", borderRadius: "var(--radius)",
+                    background: "var(--bg-elevated)", border: "0.5px solid var(--border)",
+                    color: "var(--text-primary)", fontSize: "var(--t13)", fontFamily: "var(--font)",
+                    outline: "none",
+                  }}
+                />
+                <button
+                  onClick={() => { setLocalFonts(null); loadLocalFonts(); }}
+                  disabled={localLoading}
+                  title={t("refresh")}
+                  style={{
+                    flexShrink: 0, padding: "0 10px", borderRadius: "var(--radius)",
+                    background: "var(--bg-elevated)", border: "0.5px solid var(--border)",
+                    color: "var(--text-muted)", cursor: localLoading ? "default" : "pointer",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    transition: "color 0.15s",
+                  }}
+                  onMouseEnter={e => { if (!localLoading) e.currentTarget.style.color = "var(--accent)"; }}
+                  onMouseLeave={e => e.currentTarget.style.color = "var(--text-muted)"}
+                >
+                  <ArrowsClockwise size={14} style={{ animation: localLoading ? "spin2 1s linear infinite" : "none" }} />
+                </button>
+              </div>
               <div style={{ maxHeight: 260, overflowY: "auto", display: "flex", flexDirection: "column", gap: 3, paddingRight: 2 }}>
                 {filteredLocal.length === 0 ? (
                   <div style={{ padding: "20px 0", textAlign: "center", color: "var(--text-muted)", fontSize: "var(--t13)" }}>{t("overlayLocalNoResults")}</div>
@@ -3879,6 +3912,7 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
     { id: "sicherheit", label: t("security"),   iconEl: <Lock size={18} /> },
     { id: "overlay",    label: t("overlay"),     iconEl: <ScreencastSimple size={18} />, badge: "Beta" },
     { id: "update",     label: t("update"),      iconEl: <ArrowsClockwise size={18} /> },
+    { id: "about",      label: t("about"),       iconEl: <Info size={18} /> },
     ...(debugUnlocked ? [{ id: "debug", label: t("debug"), iconEl: <Bug size={18} /> }] : []),
   ];
 
@@ -4124,7 +4158,7 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                   marginLeft: "auto", flexShrink: 0,
                   fontSize: 9, fontWeight: 700, letterSpacing: "0.06em",
                   padding: "2px 6px", borderRadius: 4,
-                  background: "#e8640c", color: "#fff",
+                  background: "var(--accent)", color: "#fff",
                   textTransform: "uppercase",
                 }}>{item.badge}</span>
               )}
@@ -4182,7 +4216,7 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                 <span style={{
                   fontSize: 10, fontWeight: 700, letterSpacing: "0.06em",
                   padding: "3px 8px", borderRadius: 5,
-                  background: "#e8640c", color: "#fff",
+                  background: "var(--accent)", color: "#fff",
                   textTransform: "uppercase",
                 }}>{navItems.find(i => i.id === tab)?.badge}</span>
               )}
@@ -4314,10 +4348,10 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                 <SettingRow label={t("autoplay")} description={t("autoplayDesc")} icon={<PlayCircle />}>
                   <Toggle value={autoplay} onChange={onAutoplayChange} />
                 </SettingRow>
-                <SettingRow label={t("crossfade")} description={`${t("crossfadeDesc")}: ${crossfade}s`} icon={<Sliders />}>
+                <SettingRow label={<span style={{ display: "flex", alignItems: "center", gap: 6 }}>{t("crossfade")}<span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.04em", background: "var(--accent)", color: "#fff", padding: "2px 5px", borderRadius: 4, lineHeight: 1.4 }}>Beta</span></span>} description={`${t("crossfadeDesc")}: ${crossfade}s`} icon={<Sliders />}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <Slider min={0} max={12} step={1} value={crossfade} onChange={onCrossfadeChange} width={120} />
-                    <span style={{ fontSize: "var(--t12)", color: "var(--text-muted)", width: 28 }}>{crossfade}s</span>
+                    <span style={{ fontSize: "var(--t12)", color: "var(--text-secondary)", width: 28 }}>{crossfade}s</span>
                   </div>
                 </SettingRow>
                 <SettingRow label={t("closeTray")} description={t("closeTrayDesc")} icon={<X />}>
@@ -4338,13 +4372,13 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                 <SettingRow label={t("fontSize")} description={`${t("fontSizeDesc")}: ${lyricsFontSize}px`} icon={<TextSize />}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <Slider min={18} max={52} step={2} value={lyricsFontSize} onChange={onLyricsFontSizeChange} width={120} />
-                    <span style={{ fontSize: "var(--t12)", color: "var(--text-muted)", width: 36 }}>{lyricsFontSize}px</span>
+                    <span style={{ fontSize: "var(--t12)", color: "var(--text-secondary)", width: 36 }}>{lyricsFontSize}px</span>
                   </div>
                 </SettingRow>
                 <SettingRow label={t("translationFontSize")} description={`${t("fontSizeDesc")}: ${lyricsTranslationFontSize}px`} icon={<Translate />}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <Slider min={12} max={40} step={2} value={lyricsTranslationFontSize} onChange={onLyricsTranslationFontSizeChange} width={120} />
-                    <span style={{ fontSize: "var(--t12)", color: "var(--text-muted)", width: 36 }}>{lyricsTranslationFontSize}px</span>
+                    <span style={{ fontSize: "var(--t12)", color: "var(--text-secondary)", width: 36 }}>{lyricsTranslationFontSize}px</span>
                   </div>
                 </SettingRow>
                 <SettingRow label={t("showRomaji")} description={t("romajiLyrics")} icon={<Globe />}>
@@ -4356,7 +4390,7 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                 <SettingRow label={t("romajiFontSize")} description={`${t("fontSizeDesc")}: ${lyricsRomajiFontSize}px`} icon={<TextSize />}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <Slider min={12} max={40} step={2} value={lyricsRomajiFontSize} onChange={onLyricsRomajiFontSizeChange} width={120} />
-                    <span style={{ fontSize: "var(--t12)", color: "var(--text-muted)", width: 36 }}>{lyricsRomajiFontSize}px</span>
+                    <span style={{ fontSize: "var(--t12)", color: "var(--text-secondary)", width: 36 }}>{lyricsRomajiFontSize}px</span>
                   </div>
                 </SettingRow>
                 <SectionLabel>{t("lyricsProviders")}</SectionLabel>
@@ -4384,7 +4418,7 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                     <div key={f.id} onClick={() => onAppFontChange(f.id)} style={{
                       display: "flex", alignItems: "center", justifyContent: "space-between",
                       padding: "12px 16px", borderRadius: 10, cursor: "pointer",
-                      border: appFont === f.id ? "1.5px solid var(--accent)" : "1.5px solid var(--border)",
+                      border: appFont === f.id ? "1.5px solid var(--accent)" : "1.5px solid transparent",
                       background: appFont === f.id ? "var(--accent-dim)" : "var(--bg-elevated)",
                       transition: "border-color 0.15s, background 0.15s",
                     }}
@@ -4607,7 +4641,7 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                     display: "flex", alignItems: "center", gap: 14,
                     padding: "12px 16px", borderRadius: "var(--radius)", cursor: "pointer",
                     background: language === lang.code ? "rgba(224,64,251,0.08)" : "var(--bg-elevated)",
-                    border: `0.5px solid ${language === lang.code ? "var(--accent)" : "var(--border)"}`,
+                    border: `0.5px solid ${language === lang.code ? "var(--accent)" : "transparent"}`,
                     marginBottom: 8, transition: "all 0.15s",
                   }}
                   onMouseEnter={e => { if (language !== lang.code) e.currentTarget.style.background = "var(--bg-hover)"; }}
@@ -4804,6 +4838,160 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                   <ArrowClockwise size={14} style={checkingUpdate ? { animation: "spin2 0.8s linear infinite" } : undefined} />
                   {checkingUpdate ? t("checking") : t("checkForUpdates")}
                 </button>
+              </>
+            )}
+
+            {tab === "about" && (
+              <>
+                {/* Logo + App Info */}
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", padding: "8px 0 28px" }}>
+                  <svg width="64" height="64" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginBottom: 16 }}>
+                    <path d="M0 16C0 7.16344 7.16344 0 16 0C24.8366 0 32 7.16344 32 16C32 24.8366 24.8366 32 16 32H6.4C2.86538 32 0 29.1346 0 25.6V16Z" fill="url(#about_g)"/>
+                    <path d="M16 5C22.0751 5 27 9.92487 27 16C27 22.0751 22.0751 27 16 27H8.7998C6.70128 26.9999 5.00011 25.2987 5 23.2002V16C5 9.92487 9.92487 5 16 5Z" stroke="white" strokeWidth="2" style={{mixBlendMode:"overlay"}}/>
+                    <path d="M16.5547 11.5C16.6656 11.5 16.7695 11.5552 16.8311 11.6475L18.2139 13.7227C18.3258 13.8906 18.3258 14.1094 18.2139 14.2773L16.8311 16.3525C16.7695 16.4448 16.6656 16.5 16.5547 16.5C16.2895 16.5 16.1312 16.2041 16.2783 15.9834L17.252 14.5234C17.4631 14.2067 17.4631 13.7933 17.252 13.4766L16.2783 12.0166C16.1312 11.7959 16.2895 11.5 16.5547 11.5Z" stroke="white" style={{mixBlendMode:"overlay"}}/>
+                    <rect x="20.5" y="11.5" width="1" height="5" rx="0.5" stroke="white" style={{mixBlendMode:"overlay"}}/>
+                    <defs><linearGradient id="about_g" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse"><stop stopColor="#EEA8FF"/><stop offset="1" stopColor="#FF008C"/></linearGradient></defs>
+                  </svg>
+                  <div style={{ fontSize: "var(--t22)", fontWeight: 700, marginBottom: 4 }}>Kiyoshi Music</div>
+                  <div style={{ fontSize: "var(--t13)", color: "var(--text-muted)", marginBottom: 12 }}>v{APP_VERSION}</div>
+                  <div style={{ fontSize: "var(--t13)", color: "var(--text-secondary)", maxWidth: 420, lineHeight: 1.6, marginBottom: 20 }}>
+                    {t("aboutDesc")}
+                  </div>
+                  <div style={{ display: "flex", gap: 10 }}>
+                    <button onClick={() => openUrl("https://github.com/KiyoshiTheDevil/kiyoshi-music")} style={{
+                      display: "flex", alignItems: "center", gap: 7,
+                      padding: "7px 16px", borderRadius: "var(--radius)", cursor: "pointer",
+                      background: "var(--bg-elevated)", border: "0.5px solid var(--border)",
+                      color: "var(--text-primary)", fontSize: "var(--t13)", fontFamily: "var(--font)",
+                      transition: "all 0.15s",
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.borderColor = "var(--accent)"}
+                    onMouseLeave={e => e.currentTarget.style.borderColor = "var(--border)"}
+                    >
+                      <Globe size={14} />
+                      GitHub
+                    </button>
+                  </div>
+                </div>
+
+                {/* Contributors */}
+                <div style={{ height: "0.5px", background: "var(--border)", marginBottom: 24 }} />
+                <div style={{ fontSize: "var(--t11)", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 14 }}>
+                  {t("contributors")}
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 28 }}>
+                  {[
+                    {
+                      name: "KiyoshiTheDevil",
+                      role: t("contributorRoleDev"),
+                      links: [
+                        { icon: <BrandTwitch size={13} />, url: "https://twitch.tv/kiyoshi_the_devil" },
+                        { icon: <BrandYoutube size={13} />, url: "https://www.youtube.com/@kiyoshi_the_devil" },
+                        { icon: <BrandBluesky size={13} />, url: "https://bsky.app/profile/kiyoshi-the-devil.bsky.social" },
+                      ],
+                    },
+                    {
+                      name: "PairyDise",
+                      role: t("contributorRoleAlphaTesterArtist"),
+                      links: [
+                        { icon: <BrandTwitch size={13} />, url: "https://www.twitch.tv/greekgeekgames" },
+                        { icon: <BrandYoutube size={13} />, url: "https://www.youtube.com/@GrainsOfArt" },
+                      ],
+                    },
+                    {
+                      name: "LMary52",
+                      role: t("contributorRoleAlphaTester"),
+                      links: [
+                        { icon: <BrandTwitch size={13} />, url: "https://www.twitch.tv/lmary52" },
+                        { icon: <BrandYoutube size={13} />, url: "https://www.youtube.com/@LMary52" },
+                        { icon: <BrandBluesky size={13} />, url: "https://bsky.app/profile/lmary52.bsky.social" },
+                      ],
+                    },
+                    {
+                      name: "Selili",
+                      role: t("contributorRoleTranslator"),
+                      links: [
+                        { icon: <Globe size={13} />, url: "https://selilipona.github.io" },
+                      ],
+                    },
+                  ].map(c => (
+                    <div key={c.name} style={{
+                      display: "flex", alignItems: "center", gap: 14,
+                      padding: "12px 16px", borderRadius: 10,
+                      background: "var(--bg-elevated)",
+                    }}>
+                      <div style={{
+                        width: 36, height: 36, borderRadius: "50%", flexShrink: 0,
+                        background: "linear-gradient(135deg, var(--accent), #FF008C)",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        fontSize: "var(--t13)", fontWeight: 700, color: "#fff",
+                      }}>
+                        {c.name[0].toUpperCase()}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: "var(--t13)", fontWeight: 600 }}>{c.name}</div>
+                        <div style={{ fontSize: "var(--t11)", color: "var(--text-muted)", marginTop: 2 }}>{c.role}</div>
+                      </div>
+                      <div style={{ display: "flex", gap: 2, flexShrink: 0 }}>
+                        {c.links.map((l, i) => (
+                          <button key={i} onClick={() => openUrl(l.url)} style={{
+                            background: "none", border: "none",
+                            color: "var(--text-muted)", cursor: "pointer", padding: 6,
+                            display: "flex", alignItems: "center", transition: "color 0.15s",
+                            borderRadius: 6,
+                          }}
+                          onMouseEnter={e => e.currentTarget.style.color = "var(--accent)"}
+                          onMouseLeave={e => e.currentTarget.style.color = "var(--text-muted)"}
+                          >
+                            {l.icon}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Tools */}
+                <div style={{ fontSize: "var(--t11)", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>
+                  {t("tools")}
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                  {[
+                    { name: "Claude",       link: "https://claude.ai" },
+                    { name: "Figma",        link: "https://figma.com" },
+                    { name: "Font Awesome", link: "https://fontawesome.com" },
+                  ].map(tool => (
+                    <button key={tool.name} onClick={() => openUrl(tool.link)} style={{
+                      background: "none", border: "none", padding: "4px 0",
+                      fontSize: "var(--t13)", color: "var(--text-secondary)",
+                      fontFamily: "var(--font)", cursor: "pointer", textAlign: "left",
+                      transition: "color 0.15s", width: "fit-content",
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.color = "var(--accent)"}
+                    onMouseLeave={e => e.currentTarget.style.color = "var(--text-secondary)"}
+                    >
+                      {tool.name}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Legal */}
+                <div style={{ marginTop: 28, paddingTop: 20, borderTop: "0.5px solid var(--border)", display: "flex", justifyContent: "center", gap: 6, alignItems: "center" }}>
+                  <span style={{ fontSize: "var(--t11)", color: "var(--text-muted)" }}>
+                    © {new Date().getFullYear()} KiyoshiTheDevil ·
+                  </span>
+                  <button onClick={() => openUrl("https://github.com/KiyoshiTheDevil/kiyoshi-music/blob/master/LICENSE")}
+                    style={{
+                      background: "none", border: "none", padding: 0, cursor: "pointer",
+                      fontSize: "var(--t11)", color: "var(--text-muted)", fontFamily: "var(--font)",
+                      transition: "color 0.15s",
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.color = "var(--accent)"}
+                    onMouseLeave={e => e.currentTarget.style.color = "var(--text-muted)"}
+                  >
+                    GNU General Public License v3.0
+                  </button>
+                </div>
               </>
             )}
 
@@ -9237,7 +9425,7 @@ function LanguagePickerScreen({ currentLanguage, onConfirm }) {
                 display: "flex", alignItems: "center", gap: 14,
                 padding: "14px 16px", borderRadius: 10, cursor: "pointer",
                 background: selected === lang.code ? "rgba(224,64,251,0.08)" : "var(--bg-elevated)",
-                border: `0.5px solid ${selected === lang.code ? "var(--accent)" : "var(--border)"}`,
+                border: `0.5px solid ${selected === lang.code ? "var(--accent)" : "transparent"}`,
                 transition: "background 0.15s, border-color 0.15s",
               }}
               onMouseEnter={e => { if (selected !== lang.code) e.currentTarget.style.background = "var(--bg-hover)"; }}
@@ -10571,6 +10759,23 @@ export default function App() {
       .catch(() => {});
     return () => { cancelled = true; };
   }, []);
+
+  // Auto-start OBS overlay server on mount if it was enabled in last session
+  useEffect(() => {
+    if (!obsEnabled) return;
+    let cancelled = false;
+    const start = (attempt = 0) => {
+      fetch(`${API}/overlay/server/start`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ port: obsPort }),
+      }).catch(() => {
+        if (!cancelled && attempt < 15) setTimeout(() => start(attempt + 1), 1500);
+      });
+    };
+    start();
+    return () => { cancelled = true; };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Toggle like for a track from playlist rows
   const handleToggleLike = useCallback(async (track) => {

@@ -102,26 +102,34 @@ pub fn start_server(app: &tauri::AppHandle) {
         .unwrap_or_else(|| std::path::PathBuf::from("."));
     let server_exe = exe_dir.join(server_bin);
 
+    if !server_exe.exists() {
+        eprintln!("[server] Binary not found at: {}", server_exe.display());
+        return;
+    }
+
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
         const CREATE_NO_WINDOW: u32 = 0x08000000;
-        if let Ok(child) = std::process::Command::new(&server_exe)
+        match std::process::Command::new(&server_exe)
             .creation_flags(CREATE_NO_WINDOW)
             .spawn()
         {
-            *app.state::<ServerProcess>().0.lock().unwrap() = Some(child);
+            Ok(child) => { *app.state::<ServerProcess>().0.lock().unwrap() = Some(child); }
+            Err(e) => { eprintln!("[server] Failed to spawn {}: {}", server_exe.display(), e); return; }
         }
     }
     #[cfg(not(windows))]
     {
-        if let Ok(child) = std::process::Command::new(&server_exe).spawn() {
-            *app.state::<ServerProcess>().0.lock().unwrap() = Some(child);
+        match std::process::Command::new(&server_exe).spawn() {
+            Ok(child) => { *app.state::<ServerProcess>().0.lock().unwrap() = Some(child); }
+            Err(e) => { eprintln!("[server] Failed to spawn {}: {}", server_exe.display(), e); return; }
         }
     }
 
-    wait_for_server(10000);
-    std::thread::sleep(std::time::Duration::from_millis(500));
+    // Wait for the server to accept connections (runs on a background thread,
+    // so blocking here does NOT freeze the UI).
+    wait_for_server(15000);
 }
 
 pub fn stop_server(app_handle: &tauri::AppHandle) {

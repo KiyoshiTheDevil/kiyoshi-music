@@ -59,8 +59,16 @@ fn update_tray_labels(app: tauri::AppHandle, show_label: String, quit_label: Str
 fn main() {
     #[cfg(target_os = "linux")]
     {
+        // Disable GPU compositing — prevents blank/white window on many distros
         env::set_var("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
+        // Disable DMABuf renderer — avoids driver-level render failures
         env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+        // Disable WebKit sandbox — required in AppImage (user namespaces not available)
+        env::set_var("WEBKIT_FORCE_SANDBOX", "0");
+        // On Wayland: force X11/XWayland backend for better WebKitGTK compatibility
+        if env::var("WAYLAND_DISPLAY").is_ok() && env::var("GDK_BACKEND").is_err() {
+            env::set_var("GDK_BACKEND", "x11");
+        }
     }
 
     tauri::Builder::default()
@@ -120,9 +128,15 @@ fn main() {
 
             #[cfg(not(debug_assertions))]
             {
-                let mut none: Option<std::process::Child> = None;
-                server::kill_existing_server(&mut none);
-                server::start_server(app.handle());
+                // Spawn server startup on a background thread so the main event loop
+                // is never blocked — a blocked setup() freezes WebKit rendering and
+                // produces a white window, especially noticeable on Linux AppImage.
+                let handle = app.handle().clone();
+                std::thread::spawn(move || {
+                    let mut none: Option<std::process::Child> = None;
+                    server::kill_existing_server(&mut none);
+                    server::start_server(&handle);
+                });
             }
             Ok(())
         })
