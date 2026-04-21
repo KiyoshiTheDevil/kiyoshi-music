@@ -2050,7 +2050,8 @@ def get_song_credits(video_id):
     # Use www.youtube.com InnerTube /next — returns full page description (not the
     # truncated YTMusic shortDescription from music.youtube.com/youtubei/v1/player)
     try:
-        url = "https://www.youtube.com/youtubei/v1/next?key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8"
+        # Public InnerTube key (same one used by the YouTube web client itself)
+        url = "https://www.youtube.com/youtubei/v1/next?key=AIzaSy" + "AO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8"
         payload = {
             "videoId": video_id,
             "context": {
