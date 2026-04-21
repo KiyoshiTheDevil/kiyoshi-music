@@ -1,11 +1,11 @@
 {
-  "version": "v0.9.13-beta",
-  "pub_date": "2026-04-18T09:32:10Z",
-  "notes": "",
+  "version": "v0.9.14-beta",
+  "pub_date": "2026-04-21T04:06:25Z",
+  "notes": "### New Features\n- **About Song tab** — Queue panel now has a toggle between \"Queue\" and \"About Song\"; the About Song view shows the full YouTube description (lyrics credits, label, release date, composers, producers) fetched directly from YouTube via the InnerTube API\n- **Artist Radio** — New Radio button on artist pages starts an instant radio session based on the artist; styled as a chip next to the Subscribe button\n- **Library sorting** — Sort pill buttons below the library tabs: A→Z, Z→A, by artist; album tab additionally offers year (newest/oldest first)\n### Improvements\n- **Monthly listeners** — Artist page now correctly shows `monthlyListeners` (e.g. 42.9M) instead of total YouTube view count\n- **Artist description panel** — Responsive width (`clamp`), no border, positioned independently of the radio/subscribe row to avoid layout conflicts\n### Bug Fixes\n- **Radio tracks missing album art** — `/radio/` backend endpoint now correctly handles both `thumbnails` (list) and `thumbnail` (string) formats returned by `get_watch_playlist()`\n---",
   "platforms": {
     "windows-x86_64": {
-      "url": "https://github.com/KiyoshiTheDevil/kiyoshi-music/releases/download/v0.9.13-beta/Kiyoshi.Music_0.9.13-beta_x64-setup.exe",
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTb3ErUzRRK3lrL3Bta0ZCUWJ2ZndIMVY0S1paTzlhSGRXNUhVeDUybEdxeGNmYXhDaGJQWEhoK0xxY0lZRjFFdk1OY1N0eVdBK0JMKys1YXBIa3hQQ1FwbnNyTUxtclFjPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc2NTA0MTQwCWZpbGU6S2l5b3NoaSBNdXNpY18wLjkuMTMtYmV0YV94NjQtc2V0dXAuZXhlCkRKK3hOQ2xaOUJJM0ozeTFRNXlKbTIwWGpOVTJkMUxIQjR0Ryt4WXVUblNwbzJIbkhSLzQraDBUdnY0MTdaS2c0ZkhMa09BRERxZ0UyK2dUSXpubUFRPT0K"
+      "url": "https://github.com/KiyoshiTheDevil/kiyoshi-music/releases/download/v0.9.14-beta/Kiyoshi.Music_0.9.14-beta_x64-setup.exe",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTb3ErUzRRK3lrL3NvRVJaMzZYRVpnemw2Z3B4MzFqTzhJT09BdTduNnRpS3hJaHhRM01DYW14aU1pNHdRZjVnZjhacXhhRGxkV0ZBZmNPOHI0cnljVkVZVzJBcEZONndJPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc2NzQ0MzA0CWZpbGU6S2l5b3NoaSBNdXNpY18wLjkuMTQtYmV0YV94NjQtc2V0dXAuZXhlCndHTXM0bjNYeGFyZzZzcE85cHg1NVVBbHhPSmVxNVZ3NDVSR2VIdFhFbGJTRnhCcEpCdjZ4QUNqcCtjcm9yMm1ZdnNCT1BBeFpTVDlMUFltUDJLdkNRPT0K"
     }
   }
 }
