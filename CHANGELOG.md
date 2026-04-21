@@ -4,6 +4,22 @@ All notable changes to Kiyoshi Music are documented here.
 
 ---
 
+## [0.9.14-beta] — 2026-04-21
+
+### New Features
+- **About Song tab** — Queue panel now has a toggle between "Queue" and "About Song"; the About Song view shows the full YouTube description (lyrics credits, label, release date, composers, producers) fetched directly from YouTube via the InnerTube API
+- **Artist Radio** — New Radio button on artist pages starts an instant radio session based on the artist; styled as a chip next to the Subscribe button
+- **Library sorting** — Sort pill buttons below the library tabs: A→Z, Z→A, by artist; album tab additionally offers year (newest/oldest first)
+
+### Improvements
+- **Monthly listeners** — Artist page now correctly shows `monthlyListeners` (e.g. 42.9M) instead of total YouTube view count
+- **Artist description panel** — Responsive width (`clamp`), no border, positioned independently of the radio/subscribe row to avoid layout conflicts
+
+### Bug Fixes
+- **Radio tracks missing album art** — `/radio/` backend endpoint now correctly handles both `thumbnails` (list) and `thumbnail` (string) formats returned by `get_watch_playlist()`
+
+---
+
 ## [0.9.13-beta] — 2026-04-18
 
 ### New Features
