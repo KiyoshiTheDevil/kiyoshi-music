@@ -10,17 +10,14 @@
   "search": "Search...",
   "pinned": "Pinned",
   "recentlyOpened": "Recently Opened",
-
   "goodMorning": "Good Morning",
   "goodDay": "Good Day",
   "goodAfternoon": "Good Afternoon",
   "goodEvening": "Good Evening",
   "goodNight": "Good Night",
-
   "selectSong": "Select a song",
   "loading": "Loading...",
   "loadingDots": "Loading…",
-
   "playlist": "Playlist",
   "album": "Album",
   "artist": "Artist",
@@ -34,12 +31,10 @@
   "likedTracks": "Tracks",
   "fetchingSongs": "Fetching songs…",
   "noPlaylists": "No playlists found.",
-
   "colTitle": "Title",
   "colArtist": "Artist",
   "colAlbum": "Album",
   "colDuration": "Duration",
-
   "searchPrompt": "Type something and press Enter.",
   "searchResultsFor": "Search results for",
   "noResults": "No results found.",
@@ -47,31 +42,35 @@
   "filterArtists": "Artists",
   "filterAlbums": "Albums",
   "filterPlaylists": "Playlists",
-
+  "sortDefault": "Default",
+  "sortAlphaAZ": "A → Z",
+  "sortAlphaZA": "Z → A",
+  "sortByArtist": "By artist",
+  "sortByYearDesc": "Year (newest first)",
+  "sortByYearAsc": "Year (oldest first)",
   "queue": "Queue",
+  "aboutSong": "About song",
+  "credits": "Credits",
+  "noCredits": "No credits available",
   "nowPlaying": "Now Playing",
   "upNext": "Up Next",
   "previouslyPlayed": "Previously Played",
   "emptyQueue": "No songs in queue",
   "clearQueue": "Clear",
-
   "pin": "Pin",
   "unpin": "Unpin",
   "open": "Open",
   "removeFromRecent": "Remove from history",
-
   "appSettings": "App Settings",
   "settings": "Settings",
   "close": "Close",
   "quit": "Quit app",
   "selectLanguage": "Select Language",
-
   "appearance": "Appearance",
   "playback": "Playback",
   "lyrics": "Lyrics",
   "shortcuts": "Shortcuts",
   "language": "Language",
-
   "theme": "Theme",
   "themeDark": "Dark",
   "themeOled": "OLED",
@@ -89,7 +88,6 @@
   "appFontDyslexicDesc": "Reading-friendly font for people with dyslexia",
   "ambientVisualizer": "Ambient Visualizer",
   "ambientVisualizerDesc": "Subtle colour effect in the background of the lyrics overlay and cover view",
-
   "downloadQueue": "Download Queue",
   "sleepTimer": "Sleep Timer",
   "cancelSleepTimer": "Cancel timer",
@@ -102,14 +100,12 @@
   "closeTrayDesc": "Minimize to system tray instead of quitting when closing the window",
   "discordRpc": "Discord Rich Presence",
   "discordRpcDesc": "Show current song in your Discord profile",
-
   "fontSize": "Font Size",
   "fontSizeDesc": "Current size",
   "translationFontSize": "Translation Font Size",
   "romajiFontSize": "Romaji Font Size",
   "lyricsProviders": "Lyrics Providers",
   "lyricsProvidersDesc": "Order and activation of providers. Enabled providers are tried in order.",
-
   "cache": "Cache",
   "cacheAlbums": "Albums",
   "cachePlaylists": "Playlists",
@@ -122,7 +118,6 @@
   "cacheEmpty": "Empty",
   "cacheFiles": "files",
   "cacheEntries": "entries",
-
   "keySpace": "Space",
   "keyEsc": "Esc",
   "keyEnter": "Enter",
@@ -140,7 +135,11 @@
   "scSeekForward": "Seek 5 seconds forward",
   "scZoomIn": "Increase zoom",
   "scZoomOut": "Decrease zoom",
-
+  "scRecording": "Press a key...",
+  "scRecordBtn": "Rebind",
+  "scCancelRecord": "Cancel",
+  "scResetShortcut": "Reset",
+  "scResetAll": "Reset all",
   "welcome": "Welcome",
   "loginDesc": "Connect your YouTube Music account to use your library.",
   "loginButton": "🔑 Sign in to YouTube Music",
@@ -150,31 +149,25 @@
   "cancel": "Cancel",
   "loginSuccess": "Login successful!",
   "loginSuccessHint": "Loading the app…",
-
   "switchProfileTitle": "Switch Profile",
   "addAccount": "+ Add Account",
   "reauthSession": "Renew Session",
   "removeAccountTitle": "Remove Account?",
   "removeAccountDesc": "Are you sure you want to remove this account? This action cannot be undone.",
   "removeAccountConfirm": "Remove",
-
   "expand": "Expand",
   "noProfile": "No Profile",
   "switchProfile": "Switch Profile",
-
   "lyricsLoading": "Loading lyrics…",
   "noLyrics": "No lyrics available",
   "noLyricsHint": "Create your own lyrics with one of these tools:",
   "createLyrics": "Create Lyrics",
-
   "noSuggestions": "No suggestions available.",
   "loadingLikedSongs": "Loading Liked Songs…",
-
   "queueTooltip": "Queue",
   "lyricsTooltip": "Lyrics",
   "fullscreenTooltip": "Fullscreen",
   "single": "Single",
-
   "newPlaylist": "New Playlist",
   "createPlaylist": "Create Playlist",
   "playlistTitle": "Title",
@@ -192,7 +185,6 @@
   "playlistCreated": "Playlist created",
   "trackAdded": "Song added",
   "trackRemoved": "Song removed",
-
   "removeDownload": "Remove Download",
   "premiumOnly": "Only available for YouTube Music Premium members",
   "download": "Download",
@@ -201,7 +193,6 @@
   "downloadAll": "Download All",
   "cacheSongs": "Songs",
   "offlineAvailable": "Available offline",
-
   "goToAlbum": "Go to Album",
   "goToArtist": "Go to Artist",
   "scrollToTop": "Scroll to top",
@@ -218,7 +209,6 @@
   "removeCustomLyrics": "Remove Imported Lyrics",
   "customLyricsActive": "Custom Lyrics Active",
   "lyricsSource": "Lyrics Source",
-
   "storage": "Storage",
   "storageDownloads": "Downloads",
   "storageCache": "Cache",
@@ -240,10 +230,9 @@
   "noPathSet": "Not set",
   "songsCount": "Songs",
   "storageUsed": "Storage used",
-
   "update": "Update",
   "updateAvailable": "Update available",
-  "upToDate": "Kiyoshi Music is up to date",
+  "upToDate": "You're already on the latest version.",
   "currentVersion": "Current version",
   "latestVersion": "Latest version",
   "changelog": "Changelog",
@@ -255,33 +244,26 @@
   "downloadFailed": "Download failed",
   "installNow": "Install Now",
   "savedToDownloads": "Saved to Downloads folder",
-
   "totalDuration": "Total Duration",
   "searchInPlaylist": "Search in playlist…",
   "xOfY": "of",
   "allSongs": "All Songs",
-
   "hideExplicit": "Hide Explicit Content",
   "hideExplicitDesc": "Songs with the \"E\" badge will be hidden",
-
   "uiZoom": "Zoom",
   "uiZoomDesc": "User interface scaling",
-
   "like": "Add to Liked Songs",
   "unlike": "Remove from Liked Songs",
-
   "shuffle": "Shuffle",
   "repeat": "Repeat",
   "repeatAll": "Repeat All",
   "repeatOne": "Repeat One",
   "mute": "Mute",
   "unmute": "Unmute",
-
   "copyLyrics": "Copy Lyrics",
   "saveLrc": "Save as .lrc",
   "lyricsCopied": "Lyrics copied to clipboard!",
   "lrcSaved": "LRC saved!",
-
   "errorLoading": "Error loading",
   "backendHint": "Is the Python backend running?",
   "localProfile": "Local Profile",
@@ -298,12 +280,10 @@
   "benefitRecommendations": "Personalized recommendations",
   "benefitPlaylists": "Import your YouTube playlists",
   "benefitSync": "Cross-device synchronization",
-
   "goOffline": "Go Offline",
   "goOnline": "Go Online",
   "offlineBanner": "Offline Mode — only downloaded songs are available",
   "offlineComingSoon": "Offline mode coming soon",
-
   "debug": "Debug",
   "debugSysInfo": "System Info",
   "debugNoLogs": "No log entries yet.",
@@ -313,7 +293,6 @@
   "copied": "Copied!",
   "trayShow": "Show Kiyoshi Music",
   "trayQuit": "Quit",
-  "upToDate": "You're already on the latest version.",
   "updateCheckFailed": "Update check failed.",
   "security": "Security",
   "pinProtection": "Access Protection",
@@ -333,7 +312,6 @@
   "pinEmergencyReset": "Reset Protection",
   "pinEmergencyConfirmText": "Are you sure? Protection will be disabled and cannot be recovered.",
   "pinEmergencyConfirm": "Yes, reset",
-
   "pinTypeLabel": "Protection Type",
   "pinTypeDesc": "Choose between a numeric PIN (keypad) or a text password",
   "pinTypePin": "PIN",
@@ -342,7 +320,6 @@
   "pinLengthDesc": "Number of digits required to unlock",
   "pinDigits": "digits",
   "pinSubmit": "Confirm",
-
   "overlay": "OBS Overlay",
   "overlayGeneral": "General",
   "overlayAppearance": "Appearance",
@@ -366,7 +343,7 @@
   "overlayBgOpacity": "Background Opacity",
   "overlayAccentColor": "Accent Color",
   "overlayTextColor": "Text Color",
-  "overlayRadius": "Corner Radius",
+  "overlayRadius": "Radius",
   "overlayShowShadow": "Drop Shadow",
   "overlayShadowStrength": "Shadow Strength",
   "overlayBgBlurEnabled": "Album Art Background",
@@ -400,7 +377,6 @@
   "overlayCorner_uniform": "Uniform",
   "overlayCorner_individual": "Individual",
   "overlayCorner_beveled": "Beveled",
-  "overlayRadius": "Radius",
   "overlayCornerTL": "Top Left",
   "overlayCornerTR": "Top Right",
   "overlayCornerBR": "Bottom Right",
@@ -427,10 +403,8 @@
   "overlayLocalNoResults": "No fonts found",
   "overlayLocalUnavailable": "Local fonts not available",
   "overlayLocalUnavailableDesc": "Your browser doesn't support the Local Font Access API or permission was denied.",
-
   "machineTranslated": "Machine translated",
   "contributeTranslation": "Help improve this translation on Crowdin",
-
   "about": "About",
   "aboutDesc": "A free, no-nonsense YouTube Music client for the desktop — built with Tauri, React, and a lot of coffee.",
   "contributors": "Contributors",
@@ -439,5 +413,20 @@
   "contributorRoleAlphaTester": "Alpha Tester",
   "contributorRoleTranslator": "Translator for Toki Pona",
   "tools": "Tools",
-  "discordButton": "Listen on YouTube Music"
+  "songSelected": "song selected",
+  "songsSelected": "songs selected",
+  "likeAll": "Like all",
+  "removeSelected": "Remove",
+  "showMore": "Show more",
+  "showLess": "Show less",
+  "cancel": "Cancel",
+  "addToPlaylist": "Add to playlist",
+  "subscribers": "subscribers",
+  "monthlyListeners": "monthly listeners",
+  "startRadio": "Start radio",
+  "videos": "Videos",
+  "relatedArtists": "Fans might also like",
+  "subscribe": "Subscribe",
+  "subscribed": "Subscribed",
+  "unsubscribe": "Unsubscribe"
 }

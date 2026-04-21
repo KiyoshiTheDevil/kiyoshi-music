@@ -12,6 +12,7 @@ import {
   MagnifyingGlass, Gear, Palette, PlayCircle, Microphone,
   VinylRecord, MusicNote, Playlist, ImageSquare,
   DotsSixVertical,
+  GripLines,
   Shuffle, SkipBack, SkipForward, Repeat, RepeatOnce,
   SpeakerX, SpeakerLow, SpeakerHigh,
   Queue, ChatText,
@@ -46,6 +47,8 @@ import {
   HardDrives,
   ArrowsClockwise,
   Crown,
+  UserPlus,
+  UserCheck,
   WifiHigh,
   WifiX,
   Bug,
@@ -56,6 +59,7 @@ import {
   Tag,
   CircleHalf,
   WaveformLines,
+  Radio,
   Sparkles,
   ShareNodes,
   Globe,
@@ -104,10 +108,10 @@ const _MAX_FRONTEND_LOGS = 500;
 })();
 
 // ─── App Version ─────────────────────────────────────────────────────────────
-const APP_VERSION = "0.9.12-beta";
+const APP_VERSION = "0.9.14-beta";
 
 // ─── Update Checker (GitHub Releases) ───────────────────────────────────────
-const APP_TAG = "v0.9.12-beta";
+const APP_TAG = "v0.9.14-beta";
 const GITHUB_RELEASES_API = "https://api.github.com/repos/KiyoshiTheDevil/kiyoshi-music/releases?per_page=1";
 
 function isNewerVersion(latest, current) {
@@ -157,11 +161,71 @@ const useZoom = () => useContext(ZoomContext);
 const FontScaleContext = createContext(1);
 const useFontScale = () => useContext(FontScaleContext);
 
+// ── Shortcut helpers ────────────────────────────────────────────────────────
+/** Serialize a keydown event to a storable shortcut string, e.g. "Ctrl+Equal" or "Space" */
+function serializeShortcut(e) {
+  const mods = [];
+  if (e.ctrlKey)  mods.push("Ctrl");
+  if (e.shiftKey) mods.push("Shift");
+  if (e.altKey)   mods.push("Alt");
+  return mods.length > 0 ? [...mods, e.code].join("+") : e.code;
+}
+
+/** Match a stored shortcut string against a keydown event.
+ *  Single-key shortcuts (no "+") match by code only (backwards-compatible).
+ *  Compound shortcuts ("Ctrl+Equal") match code + specified modifiers. */
+function matchShortcut(stored, e) {
+  if (!stored) return false;
+  if (!stored.includes("+")) return e.code === stored;
+  const parts = stored.split("+");
+  const code  = parts[parts.length - 1];
+  const mods  = new Set(parts.slice(0, -1));
+  // Only check the modifiers that are explicitly listed; shiftKey not checked strictly
+  // so that Ctrl+= (no shift) and Ctrl++ (shift) both match "Ctrl+Equal" on any layout.
+  return e.code === code && e.ctrlKey === mods.has("Ctrl") && e.altKey === mods.has("Alt");
+}
+
 // Stepped values for the zoom and font-size sliders
 const ZOOM_STEPS      = [0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5];
 const ZOOM_LABELS     = ["80%", "90%", "100%", "110%", "120%", "130%", "140%", "150%"];
 const FONT_STEPS      = [0.85, 0.93, 1.0, 1.10, 1.20, 1.35, 1.50];
 const FONT_LABELS     = FONT_STEPS.map(s => `${Math.round(13 * s)}px`);
+
+const DEFAULT_SHORTCUTS = {
+  playPause:   "Space",
+  nextTrack:   "ArrowRight",
+  prevTrack:   "ArrowLeft",
+  volUp:       "ArrowUp",
+  volDown:     "ArrowDown",
+  fullscreen:  "KeyF",
+  mute:        "KeyM",
+  lyrics:      "KeyL",
+  seekBack:    "Comma",
+  seekForward: "Period",
+  zoomIn:      "Ctrl+Equal",
+  zoomOut:     "Ctrl+Minus",
+};
+
+const CODE_DISPLAY_FALLBACK = {
+  Space:"Space", ArrowRight:"→", ArrowLeft:"←", ArrowUp:"↑", ArrowDown:"↓",
+  Escape:"Esc",
+  KeyA:"A",KeyB:"B",KeyC:"C",KeyD:"D",KeyE:"E",KeyF:"F",KeyG:"G",KeyH:"H",
+  KeyI:"I",KeyJ:"J",KeyK:"K",KeyL:"L",KeyM:"M",KeyN:"N",KeyO:"O",KeyP:"P",
+  KeyQ:"Q",KeyR:"R",KeyS:"S",KeyT:"T",KeyU:"U",KeyV:"V",KeyW:"W",KeyX:"X",
+  KeyY:"Y",KeyZ:"Z",
+  Digit0:"0",Digit1:"1",Digit2:"2",Digit3:"3",Digit4:"4",
+  Digit5:"5",Digit6:"6",Digit7:"7",Digit8:"8",Digit9:"9",
+  Equal:"=",Minus:"-",BracketLeft:"[",BracketRight:"]",
+  Semicolon:";",Quote:"'",Backquote:"`",Backslash:"\\",
+  Comma:",",Period:".",Slash:"/",
+  NumpadAdd:"Num+",NumpadSubtract:"Num-",NumpadMultiply:"Num*",
+  NumpadDivide:"Num/",NumpadDecimal:"Num.",
+  Numpad0:"Num0",Numpad1:"Num1",Numpad2:"Num2",Numpad3:"Num3",Numpad4:"Num4",
+  Numpad5:"Num5",Numpad6:"Num6",Numpad7:"Num7",Numpad8:"Num8",Numpad9:"Num9",
+  F1:"F1",F2:"F2",F3:"F3",F4:"F4",F5:"F5",F6:"F6",
+  F7:"F7",F8:"F8",F9:"F9",F10:"F10",F11:"F11",F12:"F12",
+  Backspace:"⌫",Tab:"Tab",Enter:"↵",
+};
 
 // Spring physics: returns a CSS transition string
 function spring(prop, opts = {}) {
@@ -623,7 +687,7 @@ function TitleBar() {
 }
 
 function formatDuration(str) {
-  if (!str) return "—";
+  if (!str) return "";
   return str;
 }
 
@@ -741,6 +805,80 @@ function TrackRow({ track, isPlaying, onPlay, onOpenArtist, onContextMenu }) {
 
 const SIDEBAR_EXPANDED = 240;
 const SIDEBAR_COLLAPSED = 56;
+
+// ─── Playlist Picker Dropdown ────────────────────────────────────────────────
+// Self-contained search state so it resets fresh on every mount.
+function PlaylistPickerDropdown({ playlists, onPick, onNewPlaylist, style, containerProps }) {
+  const [q, setQ] = useState("");
+  const inputRef = useRef(null);
+  const t = useLang();
+  const filtered = playlists.filter(pl => pl.title?.toLowerCase().includes(q.toLowerCase()));
+
+  useEffect(() => {
+    // tiny delay so the element is in the DOM before focus
+    const id = setTimeout(() => inputRef.current?.focus(), 30);
+    return () => clearTimeout(id);
+  }, []);
+
+  return (
+    <div style={style} {...containerProps}>
+      {/* Search input */}
+      <div style={{ padding: "4px 4px 2px" }}>
+        <div style={{
+          display: "flex", alignItems: "center", gap: 6,
+          background: "rgba(0,0,0,0.2)", borderRadius: 6, padding: "5px 8px",
+        }}>
+          <MagnifyingGlass size={12} style={{ color: "var(--text-muted)", flexShrink: 0 }} />
+          <input
+            ref={inputRef}
+            value={q}
+            onChange={e => setQ(e.target.value)}
+            onClick={e => e.stopPropagation()}
+            onKeyDown={e => e.stopPropagation()}
+            placeholder={t("search")}
+            style={{
+              background: "none", border: "none", outline: "none",
+              color: "var(--text-primary)", fontSize: "var(--t12)",
+              width: "100%", fontFamily: "var(--font)",
+            }}
+          />
+          {q && (
+            <div
+              onClick={e => { e.stopPropagation(); setQ(""); inputRef.current?.focus(); }}
+              style={{ cursor: "pointer", color: "var(--text-muted)", fontSize: 10, lineHeight: 1 }}
+            >✕</div>
+          )}
+        </div>
+      </div>
+
+      {/* New Playlist */}
+      <div
+        onClick={e => { e.stopPropagation(); onNewPlaylist(); }}
+        style={{ padding: "7px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t12)", color: "var(--accent)", display: "flex", alignItems: "center", gap: 8 }}
+        onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
+        onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+      >
+        <Plus size={12} weight="bold" />
+        {t("newPlaylist")}
+      </div>
+
+      <div style={{ borderTop: "0.5px solid var(--border)", margin: "4px 0" }} />
+
+      {/* Filtered list */}
+      {filtered.length === 0
+        ? <div style={{ padding: "6px 12px", fontSize: "var(--t11)", color: "var(--text-muted)" }}>{t("noPlaylists")}</div>
+        : filtered.map((pl, i) => (
+          <div key={i}
+            onClick={e => { e.stopPropagation(); onPick(pl); }}
+            style={{ padding: "7px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t12)", color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
+            onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
+            onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+          >{pl.title}</div>
+        ))
+      }
+    </div>
+  );
+}
 
 function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenSettings, onOpenUpdateTab, onOpenOverlaySettings, onCloseOverlay, onOpenPlaylist, onOpenAlbum, onOpenArtist, onAddRecent, onContextMenu, currentProfileData, onOpenProfileSwitcher, profiles, onSwitchProfile, onAddProfile, onDeleteProfile, onReauthProfile, onCreatePlaylist, updateInfo, offlineMode, isActuallyOffline, onToggleOffline, onRefreshView, obsEnabled }) {
   const [query, setQuery] = useState("");
@@ -971,9 +1109,9 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
       ))}
 
 
-      {/* Playlist section */}
+      {/* Playlist section — flex:1 so it fills remaining space until the bottom section */}
       {!collapsed && (pinnedPlaylists.length > 0 || recentPlaylists.length > 0) && (
-        <div style={{ overflowY: "auto", maxHeight: 240, margin: "4px 0" }}>
+        <div style={{ overflowY: "auto", flex: 1, minHeight: 0, margin: "4px 0" }}>
           {pinnedPlaylists.length > 0 && (
             <>
               <div style={{ fontSize: "var(--t10)", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", padding: "6px 20px 4px" }}>{t("pinned")}</div>
@@ -1853,8 +1991,8 @@ function CreatePlaylistModal({ onClose, onCreated, t }) {
 
   return (
     <>
-      <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 9000 }} />
-      <div style={{ position: "fixed", inset: 0, zIndex: 9001, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
+      <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 10000 }} />
+      <div style={{ position: "fixed", inset: 0, zIndex: 10001, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
       <div style={{
         pointerEvents: "auto",
         background: "var(--bg-elevated)", borderRadius: 12, overflow: "hidden", width: 660,
@@ -3708,7 +3846,8 @@ function OverlayTab({ t, obsEnabled, obsPort, obsPortInput, setObsPortInput, obs
 
 function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, animations, onAnimationsChange, lyricsFontSize, onLyricsFontSizeChange, lyricsTranslationFontSize, onLyricsTranslationFontSizeChange, lyricsRomajiFontSize, onLyricsRomajiFontSizeChange, lyricsProviders, onLyricsProvidersChange, autoplay, onAutoplayChange, crossfade, onCrossfadeChange, closeTray, onCloseTrayChange, discordRpc, onDiscordRpcChange, language, onLanguageChange, updateInfo, onCheckUpdate, updateDownloading, updateDownloadProgress, updateDownloaded, onDownloadUpdate, onInstallUpdate, onCancelDownload, initialTab, onTabOpened, hideExplicit, onHideExplicitChange, uiZoom, onUiZoomChange, appFontScale, onFontScaleChange, showRomaji, onToggleRomaji, showAgentTags, onToggleAgentTags, highContrast, onToggleHighContrast, appFont, onAppFontChange, ambientVisualizer, onToggleAmbientVisualizer,
   obsEnabled, obsPort, obsPortInput, setObsPortInput, obsConfig, obsSubTab, setObsSubTab, toggleObs, applyObsConfig, onObsPortSave, OVERLAY_PRESETS, DEFAULT_OVERLAY_CONFIG,
-  obsProfiles, onSaveProfile, onLoadProfile, onDeleteProfile, onExportProfile, onImportProfiles, onResetConfig }) {
+  obsProfiles, onSaveProfile, onLoadProfile, onDeleteProfile, onExportProfile, onImportProfiles, onResetConfig,
+  customShortcuts, shortcutLabels, recordingShortcut, setRecordingShortcut, getShortcutLabel, resetShortcut }) {
   const anim = useAnimations();
   const t = useLang();
   const [tab, setTab] = useState(initialTab || "darstellung");
@@ -3979,21 +4118,6 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
     ...(debugUnlocked ? [{ id: "debug", label: t("debug"), iconEl: <Bug size={18} /> }] : []),
   ];
 
-  const shortcuts = [
-    { key: t("keySpace"),            action: t("scPlayPause") },
-    { key: "→",                      action: t("scNext") },
-    { key: "←",                      action: t("scPrev") },
-    { key: "↑",                      action: t("scVolUp") },
-    { key: "↓",                      action: t("scVolDown") },
-    { key: "F",                      action: t("scFullscreen") },
-    { key: t("keyEsc"),              action: t("scClose") },
-    { key: "M",                      action: t("scMute") },
-    { key: "L",                      action: t("scToggleLyrics") },
-    { key: ",",                      action: t("scSeekBack") },
-    { key: ".",                      action: t("scSeekForward") },
-    { key: `Ctrl + +`,               action: t("scZoomIn") },
-    { key: `Ctrl + −`,               action: t("scZoomOut") },
-  ];
 
   const SectionLabel = SettingsSectionLabel;
 
@@ -4499,30 +4623,87 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
               </>
             )}
 
-            {tab === "shortcuts" && (
-              <>
-                <SectionLabel>{t("shortcuts")}</SectionLabel>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4 }}>
-                  {shortcuts.map((s, i) => {
-                    const segments = s.key.split(" + ");
-                    return (
-                      <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", borderRadius: "var(--radius)", background: "var(--bg-elevated)" }}>
-                        <span style={{ fontSize: "var(--t13)", color: "var(--text-secondary)" }}>{s.action}</span>
-                        <span style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0, marginLeft: 8 }}>
-                          {segments.map((seg, si) => (
-                            <span key={si} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                              {si > 0 && <span style={{ fontSize: "var(--t11)", color: "var(--text-muted)" }}>+</span>}
-                              <kbd style={{ background: "var(--bg-surface)", border: "0.5px solid var(--border)", borderRadius: 6, padding: "3px 9px", fontSize: "var(--t12)", fontFamily: "monospace", color: "var(--text-primary)", boxShadow: "0 1px 0 var(--border)" }}>{seg}</kbd>
-                            </span>
-                          ))}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-                <div style={{ fontSize: "var(--t11)", color: "var(--text-muted)", marginTop: 16 }}>{t("shortcutsNote")}</div>
-              </>
-            )}
+            {tab === "shortcuts" && (() => {
+              const SHORTCUT_ACTIONS = [
+                { id: "playPause",   label: t("scPlayPause") },
+                { id: "nextTrack",   label: t("scNext") },
+                { id: "prevTrack",   label: t("scPrev") },
+                { id: "volUp",       label: t("scVolUp") },
+                { id: "volDown",     label: t("scVolDown") },
+                { id: "fullscreen",  label: t("scFullscreen") },
+                { id: "mute",        label: t("scMute") },
+                { id: "lyrics",      label: t("scToggleLyrics") },
+                { id: "seekBack",    label: t("scSeekBack") },
+                { id: "seekForward", label: t("scSeekForward") },
+                { id: "zoomIn",      label: t("scZoomIn") },
+                { id: "zoomOut",     label: t("scZoomOut") },
+              ];
+              // Find conflict: which action uses the given code (excluding the one being checked)
+              const conflictFor = (code, excludeId) =>
+                SHORTCUT_ACTIONS.find(a => a.id !== excludeId && customShortcuts[a.id] === code)?.label;
+
+              return (
+                <>
+                  <SectionLabel>{t("shortcuts")}</SectionLabel>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                    {SHORTCUT_ACTIONS.map(({ id, label, fixed }) => {
+                      const code = customShortcuts[id];
+                      const isRecording = recordingShortcut === id;
+                      const displayKey = getShortcutLabel(code);
+                      const conflict = !isRecording && conflictFor(code, id);
+                      return (
+                        <div key={id} style={{
+                          display: "flex", alignItems: "center", justifyContent: "space-between",
+                          padding: "10px 14px", borderRadius: "var(--radius)",
+                          background: "var(--bg-elevated)",
+                          border: isRecording ? "1px solid var(--accent)" : conflict ? "1px solid rgba(255,100,100,0.4)" : "1px solid transparent",
+                          transition: "border-color 0.15s",
+                        }}>
+                          <span style={{ fontSize: "var(--t13)", color: "var(--text-secondary)" }}>{label}</span>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0, marginLeft: 8 }}>
+                            {isRecording ? (
+                              <span style={{ fontSize: "var(--t12)", color: "var(--accent)", fontStyle: "italic", minWidth: 100, textAlign: "right" }}>{t("scRecording")}</span>
+                            ) : (
+                              <kbd style={{ background: "var(--bg-surface)", border: "0.5px solid var(--border)", borderRadius: 7, padding: "5px 13px", fontSize: "var(--t14)", fontFamily: "inherit", fontWeight: 600, color: conflict ? "rgba(255,130,130,1)" : "var(--text-primary)", boxShadow: "0 2px 0 var(--border)", whiteSpace: "nowrap" }}>{displayKey}</kbd>
+                            )}
+                            {!fixed && (
+                              <button
+                                onClick={() => setRecordingShortcut(isRecording ? null : id)}
+                                title={isRecording ? t("scCancelRecord") : t("scRecordBtn")}
+                                style={{ background: isRecording ? "var(--accent)" : "var(--bg-surface)", border: "0.5px solid var(--border)", borderRadius: 6, padding: "6px 10px", cursor: "pointer", color: isRecording ? "#fff" : "var(--text-secondary)", display: "flex", alignItems: "center", justifyContent: "center" }}
+                              >
+                                {isRecording ? <X size={14} /> : <PencilSimple size={14} />}
+                              </button>
+                            )}
+                            {!fixed && customShortcuts[id] !== DEFAULT_SHORTCUTS[id] && !isRecording && (
+                              <button
+                                onClick={() => resetShortcut(id)}
+                                title={t("scResetShortcut")}
+                                style={{ background: "var(--bg-surface)", border: "0.5px solid var(--border)", borderRadius: 6, padding: "6px 10px", cursor: "pointer", color: "var(--text-muted)", display: "flex", alignItems: "center", justifyContent: "center" }}
+                              >
+                                <ArrowClockwise size={14} />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div style={{ fontSize: "var(--t11)", color: "var(--text-muted)", marginTop: 16 }}>{t("shortcutsNote")}</div>
+                  {Object.entries(customShortcuts).some(([k, v]) => DEFAULT_SHORTCUTS[k] && v !== DEFAULT_SHORTCUTS[k]) && (
+                    <button
+                      onClick={() => {
+                        setCustomShortcuts({ ...DEFAULT_SHORTCUTS });
+                        localStorage.setItem("kiyoshi-shortcuts", "{}");
+                      }}
+                      style={{ marginTop: 8, padding: "6px 14px", borderRadius: 8, border: "0.5px solid var(--border)", background: "var(--bg-elevated)", color: "var(--text-secondary)", cursor: "pointer", fontSize: "var(--t12)" }}
+                    >
+                      {t("scResetAll")}
+                    </button>
+                  )}
+                </>
+              );
+            })()}
 
             {tab === "storage" && <StorageTab t={t} />}
 
@@ -5107,14 +5288,14 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
 
 // ─── Queue Panel ────────────────────────────────────────────────────────────
 // ─── Queue Row (standalone to prevent drag breaking on re-render) ────────────
-function QueueRow({ track, globalIdx, isDraggable, isActive, dragOver, onPointerDown, onPlay, onRemove }) {
+function QueueRow({ track, globalIdx, isDraggable, isActive, dragOver, onPointerDown, onPlay, onRemove, isLiked, onToggleLike }) {
   return (
     <div
       data-queue-idx={globalIdx}
       onClick={onPlay}
       style={{
-        display: "flex", alignItems: "center", gap: 10,
-        padding: "6px 16px", cursor: "pointer",
+        display: "flex", alignItems: "center", gap: 8,
+        padding: "6px 12px 6px 10px", cursor: "pointer",
         background: dragOver === globalIdx ? "rgba(224,64,251,0.12)" : isActive ? "rgba(224,64,251,0.08)" : "transparent",
         borderTop: dragOver === globalIdx ? "2px solid var(--accent)" : "2px solid transparent",
         transition: "background 0.1s",
@@ -5124,19 +5305,22 @@ function QueueRow({ track, globalIdx, isDraggable, isActive, dragOver, onPointer
       onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = "var(--bg-hover)"; }}
       onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = dragOver === globalIdx ? "rgba(224,64,251,0.12)" : "transparent"; }}
     >
-      {isDraggable && (
-        <div
-          onPointerDown={e => { e.stopPropagation(); onPointerDown(e, globalIdx); }}
-          style={{ flexShrink: 0, cursor: "grab", padding: 2, touchAction: "none" }}
-        >
-          <DotsSixVertical size={16} style={{ display: "block", pointerEvents: "none", color: "var(--text-muted)" }} />
-        </div>
-      )}
+      {/* Drag handle */}
+      <div
+        onPointerDown={isDraggable ? e => { e.stopPropagation(); onPointerDown(e, globalIdx); } : undefined}
+        style={{ flexShrink: 0, cursor: isDraggable ? "grab" : "default", padding: "2px 1px", touchAction: "none", opacity: isDraggable ? 1 : 0 }}
+      >
+        <GripLines size={13} style={{ display: "block", pointerEvents: "none", color: "var(--text-muted)" }} />
+      </div>
+
+      {/* Thumbnail */}
       <div style={{ width: 36, height: 36, borderRadius: 4, overflow: "hidden", background: "var(--bg-elevated)", flexShrink: 0 }}>
         {track.thumbnail
           ? <img src={thumb(track.thumbnail)} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
           : <div style={{ width: "100%", height: "100%", background: "linear-gradient(135deg,#2a1535,#1a0a25)" }} />}
       </div>
+
+      {/* Title + artist */}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: "var(--t12)", fontWeight: 500, display: "flex", alignItems: "center", gap: 4, overflow: "hidden", color: isActive ? "var(--accent)" : "var(--text-primary)" }}>
           <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>{track.title}</span>
@@ -5146,6 +5330,29 @@ function QueueRow({ track, globalIdx, isDraggable, isActive, dragOver, onPointer
           {track.artists}
         </div>
       </div>
+
+      {/* Duration */}
+      {track.duration && (
+        <div style={{ fontSize: "var(--t11)", color: "var(--text-muted)", flexShrink: 0, minWidth: 28, textAlign: "right" }}>
+          {track.duration}
+        </div>
+      )}
+
+      {/* Like button */}
+      <div
+        onClick={e => { e.stopPropagation(); onToggleLike?.(track); }}
+        style={{
+          flexShrink: 0, padding: 4, borderRadius: 4, cursor: "pointer",
+          color: isLiked ? "var(--accent)" : "var(--text-muted)",
+          transition: "color 0.15s",
+        }}
+        onMouseEnter={e => e.currentTarget.style.color = isLiked ? "var(--accent)" : "var(--text-secondary)"}
+        onMouseLeave={e => e.currentTarget.style.color = isLiked ? "var(--accent)" : "var(--text-muted)"}
+      >
+        <Heart size={14} weight={isLiked ? "fill" : "regular"} />
+      </div>
+
+      {/* Remove button */}
       {isDraggable && (
         <div
           onClick={e => { e.stopPropagation(); onRemove(track.videoId); }}
@@ -5153,21 +5360,46 @@ function QueueRow({ track, globalIdx, isDraggable, isActive, dragOver, onPointer
           onMouseEnter={e => e.currentTarget.style.color = "#f44336"}
           onMouseLeave={e => e.currentTarget.style.color = "var(--text-muted)"}
         >
-          <X size={16} />
+          <Trash size={13} />
         </div>
       )}
     </div>
   );
 }
 
-function QueuePanel({ queue, setQueue, currentTrack, setTrack, onClose }) {
+function QueuePanel({ queue, setQueue, currentTrack, setTrack, onClose, likedIds, onToggleLike }) {
   const t = useLang();
+  const [panelTab, setPanelTab] = useState("queue");
+  const [songDesc, setSongDesc] = useState(null);    // null=loading, ""=none, str=text
+  const [songDescId, setSongDescId] = useState(null);
+  const [songDescError, setSongDescError] = useState(null);
   const [dragIdx, setDragIdx] = useState(null);
   const [dragOver, setDragOver] = useState(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const isDragging = useRef(false);
   const listRef = useRef(null);
   const nowPlayingRef = useRef(null);
+
+  // Fetch song description when switching to About tab or track changes
+  const fetchSongDesc = useCallback((videoId, force = false) => {
+    if (!videoId) return;
+    if (!force && songDescId === videoId) return;
+    setSongDesc(null);
+    setSongDescError(null);
+    setSongDescId(videoId);
+    fetch(`${API}/song/credits/${videoId}`)
+      .then(r => r.json())
+      .then(d => {
+        if (d.error) setSongDescError(d.error);
+        else setSongDesc(d.description || "");
+      })
+      .catch(() => setSongDesc(""));
+  }, [songDescId]);
+
+  useEffect(() => {
+    if (panelTab !== "about" || !currentTrack?.videoId) return;
+    fetchSongDesc(currentTrack.videoId);
+  }, [panelTab, currentTrack?.videoId]);
 
   useEffect(() => {
     const el = listRef.current;
@@ -5254,19 +5486,79 @@ function QueuePanel({ queue, setQueue, currentTrack, setTrack, onClose }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", position: "relative" }}>
       {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "44px 16px 12px", borderBottom: "0.5px solid var(--border)", flexShrink: 0 }}>
-        <div style={{ fontSize: "var(--t14)", fontWeight: 600 }}>{t("queue")}</div>
-        <button onClick={() => setQueue([])} style={{
-          background: "none", border: "none", cursor: "pointer", padding: "4px 8px",
-          fontSize: "var(--t11)", color: "var(--text-muted)", borderRadius: "var(--radius)",
-          fontFamily: "var(--font)", transition: "all 0.15s",
-        }}
-        onMouseEnter={e => { e.currentTarget.style.background = "var(--bg-hover)"; e.currentTarget.style.color = "#f44336"; }}
-        onMouseLeave={e => { e.currentTarget.style.background = "none"; e.currentTarget.style.color = "var(--text-muted)"; }}
-        >{t("clearQueue")}</button>
+      <div style={{ padding: "44px 16px 0", borderBottom: "0.5px solid var(--border)", flexShrink: 0 }}>
+        {/* Toggle row */}
+        <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 10 }}>
+          {[{ id: "queue", label: t("queue") }, { id: "about", label: t("aboutSong") }].map(tab => (
+            <button key={tab.id} onClick={() => setPanelTab(tab.id)} style={{
+              background: panelTab === tab.id ? "color-mix(in srgb, var(--accent) 18%, transparent)" : "none",
+              border: "none", borderRadius: 8, padding: "5px 12px",
+              fontSize: "var(--t12)", fontWeight: panelTab === tab.id ? 600 : 400,
+              color: panelTab === tab.id ? "var(--accent)" : "var(--text-muted)",
+              fontFamily: "var(--font)", cursor: "pointer", transition: "all 0.15s",
+            }}>{tab.label}</button>
+          ))}
+          {panelTab === "queue" && (
+            <button onClick={() => setQueue([])} style={{
+              marginLeft: "auto", background: "none", border: "none", cursor: "pointer", padding: "4px 8px",
+              fontSize: "var(--t11)", color: "var(--text-muted)", borderRadius: "var(--radius)",
+              fontFamily: "var(--font)", transition: "all 0.15s",
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = "var(--bg-hover)"; e.currentTarget.style.color = "#f44336"; }}
+            onMouseLeave={e => { e.currentTarget.style.background = "none"; e.currentTarget.style.color = "var(--text-muted)"; }}
+            >{t("clearQueue")}</button>
+          )}
+        </div>
       </div>
 
-      <div ref={listRef} className="scrollable" style={{ flex: 1, overflowY: "auto", paddingBottom: 16 }}>
+      {/* About Song tab */}
+      {panelTab === "about" && (
+        <div className="scrollable" style={{ flex: 1, overflowY: "auto", padding: "16px 16px 24px" }}>
+          {currentTrack ? (
+            <>
+              {/* Song card */}
+              <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 20 }}>
+                {currentTrack.thumbnail && (
+                  <img src={currentTrack.thumbnail} alt="" style={{ width: 64, height: 64, borderRadius: 8, objectFit: "cover", flexShrink: 0 }} />
+                )}
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: "var(--t14)", fontWeight: 700, color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{currentTrack.title}</div>
+                  <div style={{ fontSize: "var(--t12)", color: "var(--text-secondary)", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{currentTrack.artists}</div>
+                  {currentTrack.album && <div style={{ fontSize: "var(--t11)", color: "var(--text-muted)", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{currentTrack.album}</div>}
+                </div>
+              </div>
+
+              {/* Description */}
+              {songDesc === null && !songDescError && (
+                <div style={{ color: "var(--text-muted)", fontSize: "var(--t12)" }}>{t("loadingDots")}</div>
+              )}
+              {songDescError && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  <div style={{ color: "var(--text-muted)", fontSize: "var(--t12)" }}>{t("noCredits")}</div>
+                  <button onClick={() => { setSongDescId(null); fetchSongDesc(currentTrack?.videoId, true); }} style={{
+                    alignSelf: "flex-start", background: "var(--bg-elevated)", border: "0.5px solid var(--border)",
+                    borderRadius: 8, padding: "4px 12px", fontSize: "var(--t11)", color: "var(--text-secondary)",
+                    fontFamily: "var(--font)", cursor: "pointer", display: "flex", alignItems: "center", gap: 5,
+                  }}><ArrowClockwise size={11} /> {t("retry") || "Erneut versuchen"}</button>
+                </div>
+              )}
+              {songDesc !== null && songDesc === "" && !songDescError && (
+                <div style={{ color: "var(--text-muted)", fontSize: "var(--t12)" }}>{t("noCredits")}</div>
+              )}
+              {songDesc && (
+                <p style={{
+                  margin: 0, fontSize: "var(--t12)", lineHeight: 1.7,
+                  color: "var(--text-secondary)", whiteSpace: "pre-wrap",
+                }}>{songDesc}</p>
+              )}
+            </>
+          ) : (
+            <div style={{ color: "var(--text-muted)", fontSize: "var(--t13)", textAlign: "center", marginTop: 40 }}>{t("selectSong")}</div>
+          )}
+        </div>
+      )}
+
+      {panelTab === "queue" && <div ref={listRef} className="scrollable" style={{ flex: 1, overflowY: "auto", paddingBottom: 16 }}>
         {/* Previously played */}
         {played.length > 0 && (
           <>
@@ -5275,7 +5567,8 @@ function QueuePanel({ queue, setQueue, currentTrack, setTrack, onClose }) {
               <QueueRow key={qt.videoId || i} track={qt} globalIdx={i} isDraggable={false}
                 isActive={false} dragOver={dragOver}
                 onPointerDown={handlePointerDown}
-                onPlay={() => setTrack(qt)} onRemove={removeTrack} />
+                onPlay={() => setTrack(qt)} onRemove={removeTrack}
+                isLiked={likedIds?.has(qt.videoId)} onToggleLike={onToggleLike} />
             ))}
           </>
         )}
@@ -5287,7 +5580,8 @@ function QueuePanel({ queue, setQueue, currentTrack, setTrack, onClose }) {
             <QueueRow track={currentTrack} globalIdx={currentIdx} isDraggable={false}
               isActive={true} dragOver={dragOver}
               onPointerDown={handlePointerDown}
-              onPlay={() => setTrack(currentTrack)} onRemove={removeTrack} />
+              onPlay={() => setTrack(currentTrack)} onRemove={removeTrack}
+              isLiked={likedIds?.has(currentTrack.videoId)} onToggleLike={onToggleLike} />
           </>
         )}
 
@@ -5299,7 +5593,8 @@ function QueuePanel({ queue, setQueue, currentTrack, setTrack, onClose }) {
               <QueueRow key={qt.videoId || i} track={qt} globalIdx={currentIdx + 1 + i} isDraggable={true}
                 isActive={false} dragOver={dragOver}
                 onPointerDown={handlePointerDown}
-                onPlay={() => setTrack(qt)} onRemove={removeTrack} />
+                onPlay={() => setTrack(qt)} onRemove={removeTrack}
+                isLiked={likedIds?.has(qt.videoId)} onToggleLike={onToggleLike} />
             ))}
           </>
         )}
@@ -5307,7 +5602,7 @@ function QueuePanel({ queue, setQueue, currentTrack, setTrack, onClose }) {
         {queue.length === 0 && (
           <div style={{ padding: 24, color: "var(--text-muted)", fontSize: "var(--t13)", textAlign: "center" }}>{t("emptyQueue")}</div>
         )}
-      </div>
+      </div>}
 
       {/* Scroll-to-top button — appears after scrolling down */}
       {showScrollTop && (
@@ -5341,7 +5636,7 @@ function QueuePanel({ queue, setQueue, currentTrack, setTrack, onClose }) {
   );
 }
 
-function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPlaying, expanded, onExpandToggle, showLyrics, onToggleLyrics, queueOpen, onToggleQueue, fullscreen, onToggleFullscreen, crossfade = 0, onOpenAlbum, onOpenArtist, onExportSong, onDownloadSong, cachedSongIds, downloadingIds, onRefetchLyrics, lyricsProviders = DEFAULT_LYRICS_PROVIDERS, currentLyricsSource = "", onSwitchLyricsProvider, failedLyricsProviders = new Set(), language = "de", showLyricsTranslation = false, onToggleLyricsTranslation, lyricsTranslationLang = "DE", onSetLyricsTranslationLang, showRomaji = false, onToggleRomaji, isCustomLyrics = false, onImportLyrics, onRemoveCustomLyrics, onPremiumDetected }) {
+function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPlaying, expanded, onExpandToggle, showLyrics, onToggleLyrics, queueOpen, onToggleQueue, fullscreen, onToggleFullscreen, crossfade = 0, onOpenAlbum, onOpenArtist, onExportSong, onDownloadSong, cachedSongIds, downloadingIds, onRefetchLyrics, lyricsProviders = DEFAULT_LYRICS_PROVIDERS, currentLyricsSource = "", onSwitchLyricsProvider, failedLyricsProviders = new Set(), language = "de", showLyricsTranslation = false, onToggleLyricsTranslation, lyricsTranslationLang = "DE", onSetLyricsTranslationLang, showRomaji = false, onToggleRomaji, isCustomLyrics = false, onImportLyrics, onRemoveCustomLyrics, onPremiumDetected, onCreatePlaylist }) {
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(() => {
@@ -6045,7 +6340,7 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
           )}
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 2, width: 340, justifyContent: "flex-end" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 2, width: 320, justifyContent: "flex-end" }}>
           {/* Volume icon + slider */}
           <div data-volume-area style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <Tooltip text={volume === 0 ? t("unmute") : t("mute")}><button onClick={() => {
@@ -6221,22 +6516,21 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
                         <CaretDown size={10} style={{ transform: "rotate(-90deg)" }} />
                       </div>
                       {morePlaylists && (
-                        <div style={{ position: "absolute", right: "100%", marginRight: 4, top: 0, background: "var(--bg-elevated)", border: "0.5px solid var(--border)", borderRadius: "var(--radius-lg)", padding: "4px", minWidth: 180, boxShadow: "0 8px 24px rgba(0,0,0,0.4)", maxHeight: 300, overflowY: "auto", zIndex: 100001 }}>
-                          {morePlaylists.map((pl, i) => (
-                            <div key={i}
-                              onClick={async () => { try { await fetch(`${API}/playlist/${pl.playlistId}/add`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ videoIds: [track.videoId], tracks: [track] }) }); } catch {} closeMoreMenu(); }}
-                              style={{ padding: "7px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t12)", color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
-                              onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
-                              onMouseLeave={e => e.currentTarget.style.background = "transparent"}
-                            >{pl.title}</div>
-                          ))}
-                          <div style={{ borderTop: "0.5px solid var(--border)", margin: "4px 0" }} />
-                          <div onClick={() => { closeMoreMenu(); setCreatePlaylistOpen(true); }}
-                            style={{ padding: "7px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t12)", color: "var(--accent)", display: "flex", alignItems: "center", gap: 8 }}
-                            onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
-                            onMouseLeave={e => e.currentTarget.style.background = "transparent"}
-                          ><Plus size={12} weight="bold" />{t("newPlaylist")}</div>
-                        </div>
+                        <PlaylistPickerDropdown
+                          playlists={morePlaylists}
+                          onPick={async (pl) => {
+                            try { await fetch(`${API}/playlist/${pl.playlistId}/add`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ videoIds: [track.videoId], tracks: [track] }) }); } catch {}
+                            closeMoreMenu();
+                          }}
+                          onNewPlaylist={() => { closeMoreMenu(); onCreatePlaylist?.(); }}
+                          style={{
+                            position: "absolute", right: "calc(100% - 4px)", top: 0,
+                            background: "var(--bg-elevated)", border: "0.5px solid var(--border)",
+                            borderRadius: "var(--radius-lg)", padding: "4px", minWidth: 210,
+                            boxShadow: "0 8px 24px rgba(0,0,0,0.4)", maxHeight: 320, overflowY: "auto",
+                            zIndex: 100001,
+                          }}
+                        />
                       )}
                     </div>
                   )}
@@ -6508,7 +6802,8 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
           >
             <ChatText size={16} />
           </button></Tooltip>
-          {/* Expand toggle */}
+          {/* Expand toggle — hidden in fullscreen (overlay is always open there) */}
+          {!fullscreen && (
           <button onClick={onExpandToggle}
           className="icon-btn" style={{ color: expanded ? "var(--accent)" : "var(--text-secondary)" }}
           onMouseEnter={e => e.currentTarget.style.color = expanded ? "var(--accent)" : "var(--text-primary)"}
@@ -6516,6 +6811,7 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
           >
             <CaretUp size={16} style={{ transform: expanded ? "rotate(180deg)" : "none", transition: "transform 0.3s cubic-bezier(0.4,0,0.2,1)" }} />
           </button>
+          )}
           {/* Fullscreen toggle */}
           <Tooltip text={t("fullscreenTooltip")}><button onClick={onToggleFullscreen}
           className="icon-btn" style={{ color: fullscreen ? "var(--accent)" : "var(--text-secondary)" }}
@@ -7670,6 +7966,7 @@ function LibraryView({ onPlay, currentTrack, isPlaying, onOpenPlaylist, onOpenAl
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [sortOrder, setSortOrder] = useState("default");
   const t = useLang();
 
   useEffect(() => {
@@ -7704,16 +8001,38 @@ function LibraryView({ onPlay, currentTrack, isPlaying, onOpenPlaylist, onOpenAl
     { id: "artists",   label: t("filterArtists"),   icon: <Microphone size={14} /> },
   ];
 
-  const items = tab === "playlists" ? playlists : tab === "albums" ? albums : artists;
+  const rawItems = tab === "playlists" ? playlists : tab === "albums" ? albums : artists;
+
+  const items = [...rawItems].sort((a, b) => {
+    const nameA = (tab === "artists" ? a.artist : a.title) || "";
+    const nameB = (tab === "artists" ? b.artist : b.title) || "";
+    if (sortOrder === "az") return nameA.localeCompare(nameB);
+    if (sortOrder === "za") return nameB.localeCompare(nameA);
+    if (sortOrder === "artist") return (a.artists || "").localeCompare(b.artists || "");
+    if (sortOrder === "year_desc") return (parseInt(b.year) || 0) - (parseInt(a.year) || 0);
+    if (sortOrder === "year_asc")  return (parseInt(a.year) || 0) - (parseInt(b.year) || 0);
+    return 0; // "default" — keep API order
+  });
+
+  const sortOptions = [
+    { value: "default",   label: t("sortDefault") },
+    { value: "az",        label: t("sortAlphaAZ") },
+    { value: "za",        label: t("sortAlphaZA") },
+    ...(tab === "albums" ? [
+      { value: "artist",    label: t("sortByArtist") },
+      { value: "year_desc", label: t("sortByYearDesc") },
+      { value: "year_asc",  label: t("sortByYearAsc") },
+    ] : []),
+  ];
 
   return (
     <div style={{ padding: "24px 24px 0" }}>
       {/* Header row: title left, tabs centered */}
-      <div style={{ position: "relative", display: "flex", alignItems: "center", marginBottom: 24, height: 36 }}>
+      <div style={{ position: "relative", display: "flex", alignItems: "center", marginBottom: 12, height: 36 }}>
         <div style={{ fontSize: "var(--t22)", fontWeight: 600 }}>{t("library")}</div>
         <div style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", display: "flex", gap: 4 }}>
           {tabs.map(tab_ => (
-            <button key={tab_.id} onClick={() => setTab(tab_.id)}
+            <button key={tab_.id} onClick={() => { setTab(tab_.id); setSortOrder("default"); }}
               className={`view-tab-btn${tab === tab_.id ? " active" : ""}`}
               style={{
                 display: "flex", alignItems: "center", gap: 6,
@@ -7725,6 +8044,31 @@ function LibraryView({ onPlay, currentTrack, isPlaying, onOpenPlaylist, onOpenAl
               }}>{tab_.icon}{tab_.label}</button>
           ))}
         </div>
+      </div>
+
+      {/* Sort row */}
+      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 20 }}>
+        <Sliders size={12} style={{ color: "var(--text-muted)", flexShrink: 0 }} />
+        {sortOptions.map(o => (
+          <button
+            key={o.value}
+            onClick={() => setSortOrder(o.value)}
+            style={{
+              background: sortOrder === o.value ? "color-mix(in srgb, var(--accent) 15%, transparent)" : "none",
+              border: "none",
+              borderRadius: 6,
+              padding: "3px 9px",
+              fontSize: "var(--t12)",
+              fontFamily: "var(--font)",
+              color: sortOrder === o.value ? "var(--accent)" : "var(--text-muted)",
+              fontWeight: sortOrder === o.value ? 600 : 400,
+              cursor: "pointer",
+              transition: "all 0.15s",
+            }}
+            onMouseEnter={e => { if (sortOrder !== o.value) e.currentTarget.style.color = "var(--text-secondary)"; }}
+            onMouseLeave={e => { if (sortOrder !== o.value) e.currentTarget.style.color = "var(--text-muted)"; }}
+          >{o.label}</button>
+        ))}
       </div>
 
       {loading && <div style={{ color: "var(--text-secondary)" }}>{t("loadingDots")}</div>}
@@ -7799,7 +8143,40 @@ function useAccentColor(imageUrl) {
 }
 
 // ─── Shared table row for playlist/liked views ─────────────────────────────
-function TableRow({ track, index, isPlaying, onPlay, onOpenArtist, onOpenAlbum, isAlbum, onContextMenu, isCached, isDownloading, onDownload, isPremiumOnly }) {
+function SelActionBtn({ icon, label, onClick, danger, iconOnly, horizontal }) {
+  const [hov, setHov] = React.useState(false);
+  const btn = (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        display: "flex",
+        flexDirection: horizontal ? "row" : "column",
+        alignItems: "center", justifyContent: "center",
+        gap: horizontal ? 8 : 6,
+        padding: iconOnly ? "10px 14px" : horizontal ? "10px 18px" : "10px 20px",
+        border: "none", borderRadius: 12,
+        background: hov
+          ? (danger ? "rgba(239,68,68,0.85)" : "rgba(255,255,255,0.10)")
+          : "transparent",
+        color: hov
+          ? (danger ? "#fff" : "var(--text-primary)")
+          : "var(--text-secondary)",
+        cursor: "pointer",
+        transition: "background 0.15s, color 0.15s",
+        flexShrink: 0,
+        fontFamily: "inherit",
+      }}
+    >
+      <span style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>{icon}</span>
+      {!iconOnly && <span style={{ fontSize: horizontal ? "var(--t13)" : "var(--t11)", fontWeight: 500, whiteSpace: "nowrap", fontFamily: "inherit" }}>{label}</span>}
+    </button>
+  );
+  return iconOnly ? <Tooltip text={label}>{btn}</Tooltip> : btn;
+}
+
+function TableRow({ track, index, isPlaying, onPlay, onOpenArtist, onOpenAlbum, isAlbum, onContextMenu, isCached, isDownloading, onDownload, isPremiumOnly, selected = false, onToggleSelect }) {
   const anim = useAnimations();
   const t = useLang();
   const [hovered, setHovered] = useState(false);
@@ -7817,16 +8194,33 @@ function TableRow({ track, index, isPlaying, onPlay, onOpenArtist, onOpenAlbum, 
       onMouseLeave={() => setHovered(false)}
       style={{
         display: "grid",
-        gridTemplateColumns: isAlbum ? "minmax(0,2fr) minmax(0,1fr) 28px 52px" : "minmax(0,2fr) minmax(0,1fr) minmax(0,1fr) 28px 52px",
+        gridTemplateColumns: onToggleSelect
+          ? (isAlbum ? "28px minmax(0,2fr) minmax(0,1fr) 28px 52px" : "28px minmax(0,2fr) minmax(0,1fr) minmax(0,1fr) 28px 52px")
+          : (isAlbum ? "minmax(0,2fr) minmax(0,1fr) 28px 52px" : "minmax(0,2fr) minmax(0,1fr) minmax(0,1fr) 28px 52px"),
         alignItems: "center", gap: 8,
         padding: "4px 16px", borderRadius: 8,
         cursor: isPremiumOnly ? "default" : "pointer",
-        background: isPlaying ? "rgba(224,64,251,0.08)" : hovered ? "var(--bg-hover)" : "transparent",
+        background: selected ? "rgba(var(--accent-rgb, 180,64,251), 0.10)" : isPlaying ? "rgba(224,64,251,0.08)" : hovered ? "var(--bg-hover)" : "transparent",
         transition: "background 0.15s",
         opacity: isPremiumOnly ? 0.4 : 1,
         minHeight: 52,
       }}
     >
+      {onToggleSelect && (
+        <div
+          onClick={e => { e.stopPropagation(); onToggleSelect(); }}
+          style={{
+            display: "flex", alignItems: "center", justifyContent: "center",
+            opacity: (hovered || selected) ? 1 : 0, transition: "opacity 0.15s",
+            cursor: "pointer", flexShrink: 0,
+          }}
+        >
+          {selected
+            ? <CheckCircle size={18} weight="fill" style={{ color: "var(--accent)" }} />
+            : <div style={{ width: 16, height: 16, borderRadius: "50%", border: "1.5px solid var(--text-muted)", background: "var(--bg-elevated)" }} />
+          }
+        </div>
+      )}
       {/* Title */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
         <div style={{ width: 40, height: 40, borderRadius: 6, flexShrink: 0, overflow: "hidden", background: "var(--bg-elevated)", position: "relative" }}>
@@ -7891,7 +8285,7 @@ function TableRow({ track, index, isPlaying, onPlay, onOpenArtist, onOpenAlbum, 
 }
 
 // ─── Shared playlist/collection layout ────────────────────────────────────
-function PlaylistLayout({ title, thumbnail, tracks, total, loading, progress, cached, onPlay, currentTrack, isPlaying, onBack, isLiked, onOpenArtist, onOpenAlbum, isAlbum, albumArtists, albumArtistBrowseId, year, onRefresh, onTrackContextMenu, cachedSongIds, downloadingIds, premiumSongIds, onDownloadSong, onDownloadAll, onRemoveAll, hideExplicit, onToggleLike, likedIds }) {
+function PlaylistLayout({ title, thumbnail, tracks, total, loading, progress, cached, onPlay, currentTrack, isPlaying, onBack, isLiked, onOpenArtist, onOpenAlbum, isAlbum, albumArtists, albumArtistBrowseId, year, onRefresh, onTrackContextMenu, cachedSongIds, downloadingIds, premiumSongIds, onDownloadSong, onDownloadAll, onRemoveAll, hideExplicit, onToggleLike, likedIds, selectedTracks, onToggleSelect }) {
   const accentColor = useAccentColor(thumbnail);
   const t = useLang();
   const [trackSearch, setTrackSearch] = useState("");
@@ -8161,12 +8555,16 @@ function PlaylistLayout({ title, thumbnail, tracks, total, loading, progress, ca
 
       {/* Column headers */}
       <div style={{
-        display: "grid", gridTemplateColumns: isAlbum ? "minmax(0,2fr) minmax(0,1fr) 28px 52px" : "minmax(0,2fr) minmax(0,1fr) minmax(0,1fr) 28px 52px",
+        display: "grid",
+        gridTemplateColumns: onToggleSelect
+          ? (isAlbum ? "28px minmax(0,2fr) minmax(0,1fr) 28px 52px" : "28px minmax(0,2fr) minmax(0,1fr) minmax(0,1fr) 28px 52px")
+          : (isAlbum ? "minmax(0,2fr) minmax(0,1fr) 28px 52px" : "minmax(0,2fr) minmax(0,1fr) minmax(0,1fr) 28px 52px"),
         gap: 8, padding: "8px 16px", margin: "0 12px",
         borderBottom: "0.5px solid var(--border)",
         fontSize: "var(--t11)", fontWeight: 600, color: "var(--text-muted)",
         textTransform: "uppercase", letterSpacing: "0.08em",
       }}>
+        {onToggleSelect && <div />}
         <div>{t("colTitle")}</div>
         <div>{t("colArtist")}</div>
         {!isAlbum && <div>{t("colAlbum")}</div>}
@@ -8188,6 +8586,8 @@ function PlaylistLayout({ title, thumbnail, tracks, total, loading, progress, ca
             isDownloading={downloadingIds?.has(tr.videoId)}
             isPremiumOnly={premiumSongIds?.has(tr.videoId)}
             onDownload={onDownloadSong}
+            selected={selectedTracks?.has(tr.videoId)}
+            onToggleSelect={onToggleSelect ? () => onToggleSelect(tr) : undefined}
           />
         ))}
         {!trackSearch && Array.from({ length: skeletonCount }).map((_, i) => <SkeletonRow key={`sk-${i}`} />)}
@@ -8389,7 +8789,7 @@ function DownloadsView({ onPlay, currentTrack, isPlaying, cachedSongIds, downloa
   );
 }
 
-function CollectionView({ title, thumbnail, tracks, total, loading, progress, cached, onPlay, currentTrack, isPlaying, onBack, onOpenArtist, onOpenAlbum, isAlbum, albumArtists, albumArtistBrowseId, year, onRefresh, onTrackContextMenu, cachedSongIds, downloadingIds, premiumSongIds, onDownloadSong, onDownloadAll, onRemoveAll, hideExplicit, onToggleLike, likedIds }) {
+function CollectionView({ title, thumbnail, tracks, total, loading, progress, cached, onPlay, currentTrack, isPlaying, onBack, onOpenArtist, onOpenAlbum, isAlbum, albumArtists, albumArtistBrowseId, year, onRefresh, onTrackContextMenu, cachedSongIds, downloadingIds, premiumSongIds, onDownloadSong, onDownloadAll, onRemoveAll, hideExplicit, onToggleLike, likedIds, selectedTracks, onToggleSelect }) {
   return (
     <PlaylistLayout
       title={title} thumbnail={thumbnail} tracks={tracks} total={total}
@@ -8400,6 +8800,7 @@ function CollectionView({ title, thumbnail, tracks, total, loading, progress, ca
       onRefresh={onRefresh} onTrackContextMenu={onTrackContextMenu}
       cachedSongIds={cachedSongIds} downloadingIds={downloadingIds} premiumSongIds={premiumSongIds} onDownloadSong={onDownloadSong} onDownloadAll={onDownloadAll} onRemoveAll={onRemoveAll}
       hideExplicit={hideExplicit} onToggleLike={onToggleLike} likedIds={likedIds}
+      selectedTracks={selectedTracks} onToggleSelect={onToggleSelect}
     />
   );
 }
@@ -8973,7 +9374,7 @@ function HistoryView({ onPlay, currentTrack, isPlaying, onOpenArtist, onOpenAlbu
   );
 }
 
-function LikedView({ onPlay, currentTrack, isPlaying, onOpenArtist, onOpenAlbum, onTrackContextMenu, cachedSongIds, downloadingIds, onDownloadSong, hideExplicit, onToggleLike, likedIds }) {
+function LikedView({ onPlay, currentTrack, isPlaying, onOpenArtist, onOpenAlbum, onTrackContextMenu, cachedSongIds, downloadingIds, onDownloadSong, hideExplicit, onToggleLike, likedIds, selectedTracks, onToggleSelect }) {
   const [tracks, setTracks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -9016,35 +9417,97 @@ function LikedView({ onPlay, currentTrack, isPlaying, onOpenArtist, onOpenAlbum,
       onTrackContextMenu={onTrackContextMenu}
       cachedSongIds={cachedSongIds} downloadingIds={downloadingIds} onDownloadSong={onDownloadSong}
       hideExplicit={hideExplicit} onToggleLike={onToggleLike} likedIds={likedIds}
+      selectedTracks={selectedTracks} onToggleSelect={onToggleSelect}
     />
   );
 }
 
 function ArtistDescription({ text }) {
-  const [expanded, setExpanded] = useState(false);
-  const MAX = 180;
-  const isLong = text.length > MAX;
-  const displayed = expanded || !isLong ? text : text.slice(0, MAX).trimEnd() + "…";
+  const [popupOpen, setPopupOpen] = useState(false);
+  const t = useLang();
+  const PREVIEW = 300;
+  const isLong = text.length > PREVIEW;
+  const preview = isLong ? text.slice(0, PREVIEW).trimEnd() + "…" : text;
+
   return (
-    <div style={{ padding: "12px 24px 4px", borderBottom: "0.5px solid var(--border)" }}>
-      <p style={{
-        margin: 0, fontSize: "var(--t12)", lineHeight: 1.65,
-        color: "var(--text-secondary)", whiteSpace: "pre-wrap",
-      }}>{displayed}</p>
-      {isLong && (
-        <button onClick={() => setExpanded(e => !e)} style={{
-          marginTop: 6, background: "none", border: "none", cursor: "pointer",
-          fontSize: "var(--t12)", color: "var(--accent)", padding: 0, fontFamily: "var(--font)",
-        }}>{expanded ? "Weniger anzeigen" : "Mehr anzeigen"}</button>
+    <>
+      {/* Compact snippet — absolutely positioned in hero (right side) */}
+      <div style={{
+        position: "absolute", bottom: 20, right: 24,
+        width: "clamp(200px, 48%, 500px)", zIndex: 4,
+        background: "rgba(0,0,0,0.35)", backdropFilter: "blur(10px)",
+        borderRadius: 10, padding: "10px 12px",
+      }}>
+        <p style={{
+          margin: 0, fontSize: "var(--t11)", lineHeight: 1.6,
+          color: "rgba(255,255,255,0.75)", whiteSpace: "pre-wrap",
+          display: "-webkit-box", WebkitLineClamp: 5,
+          WebkitBoxOrient: "vertical", overflow: "hidden",
+        }}>{preview}</p>
+        {isLong && (
+          <button
+            onClick={() => setPopupOpen(true)}
+            style={{
+              marginTop: 6, background: "none", border: "none", cursor: "pointer",
+              fontSize: "var(--t11)", color: "var(--accent)", padding: 0,
+              fontFamily: "var(--font)", display: "block",
+            }}
+          >{t("showMore")}</button>
+        )}
+      </div>
+
+      {/* Full-text popup */}
+      {popupOpen && createPortal(
+        <div
+          onClick={() => setPopupOpen(false)}
+          style={{
+            position: "fixed", inset: 0, zIndex: 99999,
+            background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: "var(--bg-elevated)", border: "0.5px solid var(--border)",
+              borderRadius: 14, padding: "20px 22px", maxWidth: 480, width: "90%",
+              maxHeight: "60vh", overflowY: "auto",
+              boxShadow: "0 16px 48px rgba(0,0,0,0.6)",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+              <div style={{ fontSize: "var(--t13)", fontWeight: 600 }}>{t("about")}</div>
+              <button
+                onClick={() => setPopupOpen(false)}
+                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", padding: 4, borderRadius: "var(--radius)", fontFamily: "var(--font)" }}
+                onMouseEnter={e => e.currentTarget.style.color = "var(--text-primary)"}
+                onMouseLeave={e => e.currentTarget.style.color = "var(--text-muted)"}
+              ><X size={16} /></button>
+            </div>
+            <p style={{
+              margin: 0, fontSize: "var(--t12)", lineHeight: 1.7,
+              color: "var(--text-secondary)", whiteSpace: "pre-wrap",
+            }}>{text}</p>
+          </div>
+        </div>,
+        document.body
       )}
-    </div>
+    </>
   );
 }
 
-function ArtistView({ browseId, onPlay, currentTrack, isPlaying, onOpenAlbum, onOpenPlaylist, onBack, onContextMenu, onTogglePin, isPinned, hideExplicit }) {
+function ArtistView({ browseId, onPlay, currentTrack, isPlaying, onOpenAlbum, onOpenPlaylist, onOpenArtist, onBack, onContextMenu, onTogglePin, isPinned, hideExplicit, onStartRadio }) {
   const [artist, setArtist] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [allAlbums, setAllAlbums] = useState(null);       // null = not yet loaded
+  const [allAlbumsLoading, setAllAlbumsLoading] = useState(false);
+  const [allSingles, setAllSingles] = useState(null);
+  const [allSinglesLoading, setAllSinglesLoading] = useState(false);
+  const [subscribed, setSubscribed] = useState(null);     // null = unknown (not loaded yet)
+  const [subLoading, setSubLoading] = useState(false);
+  const [subError, setSubError] = useState(null);
+  const [radioLoading, setRadioLoading] = useState(false);
   const t = useLang();
   const artistAccent = useAccentColor(artist?.thumbnail);
 
@@ -9056,6 +9519,7 @@ function ArtistView({ browseId, onPlay, currentTrack, isPlaying, onOpenAlbum, on
       .then(d => {
         if (d.error) throw new Error(d.error);
         setArtist(d);
+        setSubscribed(d.subscribed ?? null);
       })
       .catch(e => setError(e.message))
       .finally(() => setLoading(false));
@@ -9124,16 +9588,112 @@ function ArtistView({ browseId, onPlay, currentTrack, isPlaying, onOpenAlbum, on
               </button></Tooltip>
             )}
           </div>
-          {artist.subscribers && (
-            <div style={{ fontSize: "var(--t12)", color: "rgba(255,255,255,0.55)", marginTop: 6, fontWeight: 500 }}>
-              {artist.subscribers}
+          {(artist.subscribers || artist.monthlyListeners) && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 3, marginTop: 6 }}>
+              {artist.subscribers && (
+                <div style={{ fontSize: "var(--t12)", color: "rgba(255,255,255,0.55)", fontWeight: 500 }}>
+                  {artist.subscribers} {t("subscribers")}
+                </div>
+              )}
+              {artist.monthlyListeners && (
+                <div style={{ fontSize: "var(--t12)", color: "rgba(255,255,255,0.45)", fontWeight: 500 }}>
+                  {artist.monthlyListeners} {t("monthlyListeners")}
+                </div>
+              )}
+            </div>
+          )}
+          {(subscribed !== null || artist.radioId) && (
+            <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 8 }}>
+              {subscribed !== null && <Tooltip text={subscribed ? t("unsubscribe") : t("subscribe")}>
+                <button
+                  disabled={subLoading}
+                  onClick={() => {
+                    const next = !subscribed;
+                    setSubLoading(true);
+                    setSubError(null);
+                    fetch(`${API}/artist/${browseId}/${next ? "subscribe" : "unsubscribe"}`, {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ channelId: artist.channelId || browseId }),
+                    })
+                      .then(r => r.json())
+                      .then(d => {
+                        if (d.error) setSubError(d.error);
+                        else setSubscribed(next);
+                      })
+                      .catch(e => setSubError(e.message))
+                      .finally(() => setSubLoading(false));
+                  }}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 6,
+                    padding: "6px 14px",
+                    background: subscribed ? "rgba(255,255,255,0.15)" : "var(--accent)",
+                    border: subscribed ? "0.5px solid rgba(255,255,255,0.25)" : "none",
+                    borderRadius: 20,
+                    color: "#fff",
+                    fontSize: "var(--t12)", fontWeight: 600,
+                    fontFamily: "var(--font)",
+                    cursor: subLoading ? "default" : "pointer",
+                    opacity: subLoading ? 0.6 : 1,
+                    transition: "background 0.2s, opacity 0.2s",
+                    backdropFilter: "blur(8px)",
+                  }}
+                >
+                  {subscribed
+                    ? <><UserCheck size={13} /> {t("subscribed")}</>
+                    : <><UserPlus  size={13} /> {t("subscribe")}</>
+                  }
+                </button>
+              </Tooltip>}
+              {artist.radioId && (
+                <button
+                  disabled={radioLoading}
+                  onClick={() => {
+                    setRadioLoading(true);
+                    fetch(`${API}/radio/${artist.radioId}`)
+                      .then(r => r.json())
+                      .then(d => {
+                        if (d.error) throw new Error(d.error);
+                        if (d.tracks?.length) onPlay(d.tracks[0], d.tracks);
+                      })
+                      .catch(e => console.error("Radio error:", e))
+                      .finally(() => setRadioLoading(false));
+                  }}
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 6,
+                    padding: "6px 14px",
+                    background: `rgba(${artistAccent},0.25)`,
+                    border: `1px solid rgba(${artistAccent},0.42)`,
+                    borderRadius: 20,
+                    color: "var(--accent)",
+                    fontSize: "var(--t12)", fontWeight: 600,
+                    fontFamily: "var(--font)",
+                    cursor: radioLoading ? "default" : "pointer",
+                    opacity: radioLoading ? 0.5 : 1,
+                    transition: "background 0.15s, border-color 0.15s",
+                    whiteSpace: "nowrap",
+                  }}
+                  onMouseEnter={e => { if (!radioLoading) { e.currentTarget.style.background = `rgba(${artistAccent},0.38)`; e.currentTarget.style.borderColor = `rgba(${artistAccent},0.65)`; } }}
+                  onMouseLeave={e => { e.currentTarget.style.background = `rgba(${artistAccent},0.25)`; e.currentTarget.style.borderColor = `rgba(${artistAccent},0.42)`; }}
+                >
+                  <Radio size={13} />
+                  {radioLoading ? "…" : "Radio"}
+                </button>
+              )}
+              {subError && (
+                <div style={{
+                  marginTop: 6, fontSize: "var(--t11)", color: "#ff7070",
+                  maxWidth: 280, lineHeight: 1.35,
+                }}>
+                  {subError}
+                </div>
+              )}
             </div>
           )}
         </div>
+        {/* Artist description — bottom right of hero */}
+        {artist.description && <ArtistDescription text={artist.description} />}
       </div>
-
-      {/* Artist description */}
-      {artist.description && <ArtistDescription text={artist.description} />}
 
       <div style={{ padding: "0 24px" }}>
 
@@ -9145,7 +9705,7 @@ function ArtistView({ browseId, onPlay, currentTrack, isPlaying, onOpenAlbum, on
           <div style={{ marginBottom: 32 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, marginTop: 8 }}>
               <div style={{ fontSize: "var(--t16)", fontWeight: 600 }}>{t("topSongs")}</div>
-              <div style={{ display: "flex", gap: 4 }}>
+              <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
                 {artist.songsBrowseId && (
                   <button
                     onClick={() => onOpenPlaylist({ playlistId: artist.songsBrowseId, title: `${artist.name} – ${t("topSongs")}`, forcedTitle: `${artist.name} – ${t("topSongs")}`, thumbnail: artist.thumbnail })}
@@ -9185,49 +9745,216 @@ function ArtistView({ browseId, onPlay, currentTrack, isPlaying, onOpenAlbum, on
         })()}
 
         {/* Albums */}
-        {artist.albums?.length > 0 && (
+        {artist.albums?.length > 0 && (() => {
+          const displayAlbums = allAlbums ?? artist.albums;
+          const canShowAll = !allAlbums && artist.albumsBrowseId && artist.albumsParams;
+          return (
+            <div style={{ marginBottom: 32 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                <div style={{ fontSize: "var(--t16)", fontWeight: 600 }}>{t("albums")}</div>
+                {canShowAll && (
+                  <button
+                    onClick={() => {
+                      setAllAlbumsLoading(true);
+                      fetch(`${API}/artist_albums?channelId=${encodeURIComponent(artist.albumsBrowseId)}&params=${encodeURIComponent(artist.albumsParams)}`)
+                        .then(r => r.json())
+                        .then(d => { if (!d.error) setAllAlbums(d.albums); })
+                        .catch(() => {})
+                        .finally(() => setAllAlbumsLoading(false));
+                    }}
+                    disabled={allAlbumsLoading}
+                    style={{
+                      background: "none", border: "none", cursor: allAlbumsLoading ? "default" : "pointer",
+                      fontSize: "var(--t12)", color: "var(--text-secondary)", padding: "4px 8px",
+                      borderRadius: "var(--radius)", fontFamily: "var(--font)",
+                      opacity: allAlbumsLoading ? 0.5 : 1,
+                      transition: "background 0.15s, color 0.15s",
+                    }}
+                    onMouseEnter={e => { if (!allAlbumsLoading) { e.currentTarget.style.background = "var(--bg-hover)"; e.currentTarget.style.color = "var(--text-primary)"; }}}
+                    onMouseLeave={e => { e.currentTarget.style.background = "none"; e.currentTarget.style.color = "var(--text-secondary)"; }}
+                  >{allAlbumsLoading ? "…" : t("showAll")}</button>
+                )}
+              </div>
+              {allAlbums ? (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 14 }}>
+                  {displayAlbums.map((a, i) => (
+                    <div key={i} onClick={() => onOpenAlbum({ browseId: a.browseId, title: a.title, thumbnail: a.thumbnail })}
+                      onContextMenu={e => onContextMenu?.(e, { browseId: a.browseId, title: a.title, thumbnail: a.thumbnail, type: "album" })}
+                      style={{ flexShrink: 0, width: 148, cursor: "pointer" }}
+                      onMouseEnter={e => e.currentTarget.querySelector(".album-title-g").style.color = "var(--accent)"}
+                      onMouseLeave={e => e.currentTarget.querySelector(".album-title-g").style.color = "var(--text-primary)"}
+                    >
+                      <div style={{ width: 148, height: 148, borderRadius: 8, overflow: "hidden", background: "var(--bg-elevated)", marginBottom: 8 }}>
+                        {a.thumbnail
+                          ? <img src={thumb(a.thumbnail)} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                          : <div style={{ width: "100%", height: "100%", background: "linear-gradient(135deg,#2a1535,#1a0a25)" }} />}
+                      </div>
+                      <div className="album-title-g" style={{ fontSize: "var(--t12)", fontWeight: 500, color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", transition: "color 0.15s" }}>{a.title}</div>
+                      {a.year && <div style={{ fontSize: "var(--t11)", color: "var(--text-muted)", marginTop: 2 }}>{a.year}{a.type ? ` · ${a.type}` : ""}</div>}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ display: "flex", gap: 14, overflowX: "auto", paddingBottom: 8 }}>
+                  {displayAlbums.map((a, i) => (
+                    <div key={i} onClick={() => onOpenAlbum({ browseId: a.browseId, title: a.title, thumbnail: a.thumbnail })}
+                      onContextMenu={e => onContextMenu?.(e, { browseId: a.browseId, title: a.title, thumbnail: a.thumbnail, type: "album" })}
+                      style={{ flexShrink: 0, width: 148, cursor: "pointer" }}
+                      onMouseEnter={e => e.currentTarget.querySelector(".album-title").style.color = "var(--accent)"}
+                      onMouseLeave={e => e.currentTarget.querySelector(".album-title").style.color = "var(--text-primary)"}
+                    >
+                      <div style={{ width: 148, height: 148, borderRadius: 8, overflow: "hidden", background: "var(--bg-elevated)", marginBottom: 8 }}>
+                        {a.thumbnail
+                          ? <img src={thumb(a.thumbnail)} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                          : <div style={{ width: "100%", height: "100%", background: "linear-gradient(135deg,#2a1535,#1a0a25)" }} />}
+                      </div>
+                      <div className="album-title" style={{ fontSize: "var(--t12)", fontWeight: 500, color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", transition: "color 0.15s" }}>{a.title}</div>
+                      {a.year && <div style={{ fontSize: "var(--t11)", color: "var(--text-muted)", marginTop: 2 }}>{a.year}</div>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* Singles & EPs */}
+        {artist.singles?.length > 0 && (() => {
+          const displaySingles = allSingles ?? artist.singles;
+          const canShowAll = !allSingles && artist.singlesBrowseId && artist.singlesParams;
+          return (
+            <div style={{ marginBottom: 32 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                <div style={{ fontSize: "var(--t16)", fontWeight: 600 }}>{t("singles")}</div>
+                {canShowAll && (
+                  <button
+                    onClick={() => {
+                      setAllSinglesLoading(true);
+                      fetch(`${API}/artist_albums?channelId=${encodeURIComponent(artist.singlesBrowseId)}&params=${encodeURIComponent(artist.singlesParams)}`)
+                        .then(r => r.json())
+                        .then(d => { if (!d.error) setAllSingles(d.albums); })
+                        .catch(() => {})
+                        .finally(() => setAllSinglesLoading(false));
+                    }}
+                    disabled={allSinglesLoading}
+                    style={{
+                      background: "none", border: "none", cursor: allSinglesLoading ? "default" : "pointer",
+                      fontSize: "var(--t12)", color: "var(--text-secondary)", padding: "4px 8px",
+                      borderRadius: "var(--radius)", fontFamily: "var(--font)",
+                      opacity: allSinglesLoading ? 0.5 : 1,
+                      transition: "background 0.15s, color 0.15s",
+                    }}
+                    onMouseEnter={e => { if (!allSinglesLoading) { e.currentTarget.style.background = "var(--bg-hover)"; e.currentTarget.style.color = "var(--text-primary)"; }}}
+                    onMouseLeave={e => { e.currentTarget.style.background = "none"; e.currentTarget.style.color = "var(--text-secondary)"; }}
+                  >{allSinglesLoading ? "…" : t("showAll")}</button>
+                )}
+              </div>
+              {allSingles ? (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 14 }}>
+                  {displaySingles.map((s, i) => (
+                    <div key={i} onClick={() => onOpenAlbum({ browseId: s.browseId, title: s.title, thumbnail: s.thumbnail })}
+                      onContextMenu={e => onContextMenu?.(e, { browseId: s.browseId, title: s.title, thumbnail: s.thumbnail, type: "album" })}
+                      style={{ flexShrink: 0, width: 148, cursor: "pointer" }}
+                      onMouseEnter={e => e.currentTarget.querySelector(".single-title-g").style.color = "var(--accent)"}
+                      onMouseLeave={e => e.currentTarget.querySelector(".single-title-g").style.color = "var(--text-primary)"}
+                    >
+                      <div style={{ width: 148, height: 148, borderRadius: 8, overflow: "hidden", background: "var(--bg-elevated)", marginBottom: 8 }}>
+                        {s.thumbnail
+                          ? <img src={thumb(s.thumbnail)} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                          : <div style={{ width: "100%", height: "100%", background: "linear-gradient(135deg,#2a1535,#1a0a25)" }} />}
+                      </div>
+                      <div className="single-title-g" style={{ fontSize: "var(--t12)", fontWeight: 500, color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", transition: "color 0.15s" }}>{s.title}</div>
+                      {s.year && <div style={{ fontSize: "var(--t11)", color: "var(--text-muted)", marginTop: 2 }}>{s.year}{s.type ? ` · ${s.type}` : ""}</div>}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ display: "flex", gap: 14, overflowX: "auto", paddingBottom: 8 }}>
+                  {displaySingles.map((s, i) => (
+                    <div key={i} onClick={() => onOpenAlbum({ browseId: s.browseId, title: s.title, thumbnail: s.thumbnail })}
+                      onContextMenu={e => onContextMenu?.(e, { browseId: s.browseId, title: s.title, thumbnail: s.thumbnail, type: "album" })}
+                      style={{ flexShrink: 0, width: 148, cursor: "pointer" }}
+                      onMouseEnter={e => e.currentTarget.querySelector(".single-title").style.color = "var(--accent)"}
+                      onMouseLeave={e => e.currentTarget.querySelector(".single-title").style.color = "var(--text-primary)"}
+                    >
+                      <div style={{ width: 148, height: 148, borderRadius: 8, overflow: "hidden", background: "var(--bg-elevated)", marginBottom: 8 }}>
+                        {s.thumbnail
+                          ? <img src={thumb(s.thumbnail)} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                          : <div style={{ width: "100%", height: "100%", background: "linear-gradient(135deg,#2a1535,#1a0a25)" }} />}
+                      </div>
+                      <div className="single-title" style={{ fontSize: "var(--t12)", fontWeight: 500, color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", transition: "color 0.15s" }}>{s.title}</div>
+                      {s.year && <div style={{ fontSize: "var(--t11)", color: "var(--text-muted)", marginTop: 2 }}>{s.year} · {t("single")}</div>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* Videos */}
+        {artist.videos?.length > 0 && (
           <div style={{ marginBottom: 32 }}>
-            <div style={{ fontSize: "var(--t16)", fontWeight: 600, marginBottom: 12 }}>{t("albums")}</div>
+            <div style={{ fontSize: "var(--t16)", fontWeight: 600, marginBottom: 12 }}>{t("videos")}</div>
             <div style={{ display: "flex", gap: 14, overflowX: "auto", paddingBottom: 8 }}>
-              {artist.albums.map((a, i) => (
-                <div key={i} onClick={() => onOpenAlbum({ browseId: a.browseId, title: a.title, thumbnail: a.thumbnail })}
-                  onContextMenu={e => onContextMenu?.(e, { browseId: a.browseId, title: a.title, thumbnail: a.thumbnail, type: "album" })}
-                  style={{ flexShrink: 0, width: 148, cursor: "pointer" }}
-                  onMouseEnter={e => e.currentTarget.querySelector(".album-title").style.color = "var(--accent)"}
-                  onMouseLeave={e => e.currentTarget.querySelector(".album-title").style.color = "var(--text-primary)"}
+              {artist.videos.map((v, i) => (
+                <div key={i}
+                  onClick={() => onPlay({
+                    videoId: v.videoId, title: v.title, artists: v.artists,
+                    thumbnail: v.thumbnail, duration: "",
+                  }, artist.videos.map(x => ({
+                    videoId: x.videoId, title: x.title, artists: x.artists,
+                    thumbnail: x.thumbnail, duration: "",
+                  })))}
+                  style={{ flexShrink: 0, width: 200, cursor: "pointer" }}
+                  onMouseEnter={e => e.currentTarget.querySelector(".vid-title").style.color = "var(--accent)"}
+                  onMouseLeave={e => e.currentTarget.querySelector(".vid-title").style.color = "var(--text-primary)"}
                 >
-                  <div style={{ width: 148, height: 148, borderRadius: 8, overflow: "hidden", background: "var(--bg-elevated)", marginBottom: 8 }}>
-                    {a.thumbnail
-                      ? <img src={thumb(a.thumbnail)} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  {/* 16:9 thumbnail */}
+                  <div style={{ width: 200, height: 113, borderRadius: 8, overflow: "hidden", background: "var(--bg-elevated)", marginBottom: 8, position: "relative" }}>
+                    {v.thumbnail
+                      ? <img src={thumb(v.thumbnail)} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                       : <div style={{ width: "100%", height: "100%", background: "linear-gradient(135deg,#2a1535,#1a0a25)" }} />}
+                    <div style={{
+                      position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center",
+                      background: "rgba(0,0,0,0)", transition: "background 0.15s",
+                    }}
+                      onMouseEnter={e => e.currentTarget.style.background = "rgba(0,0,0,0.3)"}
+                      onMouseLeave={e => e.currentTarget.style.background = "rgba(0,0,0,0)"}
+                    >
+                      <Play size={28} weight="fill" style={{ color: "#fff", opacity: 0, transition: "opacity 0.15s", filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.5))" }}
+                        onMouseEnter={e => { e.currentTarget.style.opacity = 1; e.currentTarget.closest("div").style.background = "rgba(0,0,0,0.3)"; }}
+                        onMouseLeave={e => { e.currentTarget.style.opacity = 0; e.currentTarget.closest("div").style.background = "rgba(0,0,0,0)"; }}
+                      />
+                    </div>
                   </div>
-                  <div className="album-title" style={{ fontSize: "var(--t12)", fontWeight: 500, color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", transition: "color 0.15s" }}>{a.title}</div>
-                  {a.year && <div style={{ fontSize: "var(--t11)", color: "var(--text-muted)", marginTop: 2 }}>{a.year}</div>}
+                  <div className="vid-title" style={{ fontSize: "var(--t12)", fontWeight: 500, color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", transition: "color 0.15s" }}>{v.title}</div>
+                  {v.views && <div style={{ fontSize: "var(--t11)", color: "var(--text-muted)", marginTop: 2 }}>{v.views}</div>}
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        {/* Singles */}
-        {artist.singles?.length > 0 && (
+        {/* Related Artists */}
+        {artist.related?.length > 0 && (
           <div style={{ marginBottom: 32 }}>
-            <div style={{ fontSize: "var(--t16)", fontWeight: 600, marginBottom: 12 }}>{t("singles")}</div>
+            <div style={{ fontSize: "var(--t16)", fontWeight: 600, marginBottom: 12 }}>{t("relatedArtists")}</div>
             <div style={{ display: "flex", gap: 14, overflowX: "auto", paddingBottom: 8 }}>
-              {artist.singles.map((s, i) => (
-                <div key={i} onClick={() => onOpenAlbum({ browseId: s.browseId, title: s.title, thumbnail: s.thumbnail })}
-                  onContextMenu={e => onContextMenu?.(e, { browseId: s.browseId, title: s.title, thumbnail: s.thumbnail, type: "album" })}
-                  style={{ flexShrink: 0, width: 148, cursor: "pointer" }}
-                  onMouseEnter={e => e.currentTarget.querySelector(".single-title").style.color = "var(--accent)"}
-                  onMouseLeave={e => e.currentTarget.querySelector(".single-title").style.color = "var(--text-primary)"}
+              {artist.related.map((r, i) => (
+                <div key={i}
+                  onClick={() => onOpenArtist?.({ browseId: r.browseId, artist: r.title })}
+                  style={{ flexShrink: 0, width: 120, cursor: "pointer", textAlign: "center" }}
+                  onMouseEnter={e => e.currentTarget.querySelector(".rel-name").style.color = "var(--accent)"}
+                  onMouseLeave={e => e.currentTarget.querySelector(".rel-name").style.color = "var(--text-primary)"}
                 >
-                  <div style={{ width: 148, height: 148, borderRadius: 8, overflow: "hidden", background: "var(--bg-elevated)", marginBottom: 8 }}>
-                    {s.thumbnail
-                      ? <img src={thumb(s.thumbnail)} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                      : <div style={{ width: "100%", height: "100%", background: "linear-gradient(135deg,#2a1535,#1a0a25)" }} />}
+                  <div style={{ width: 120, height: 120, borderRadius: "50%", overflow: "hidden", background: "var(--bg-elevated)", marginBottom: 8, margin: "0 auto 8px" }}>
+                    {r.thumbnail
+                      ? <img src={thumb(r.thumbnail)} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                      : <div style={{ width: "100%", height: "100%", background: "linear-gradient(135deg,#2a1535,#1a0a25)", display: "flex", alignItems: "center", justifyContent: "center" }}><Microphone size={28} style={{ opacity: 0.3 }} /></div>}
                   </div>
-                  <div className="single-title" style={{ fontSize: "var(--t12)", fontWeight: 500, color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", transition: "color 0.15s" }}>{s.title}</div>
-                  {s.year && <div style={{ fontSize: "var(--t11)", color: "var(--text-muted)", marginTop: 2 }}>{s.year} · {t("single")}</div>}
+                  <div className="rel-name" style={{ fontSize: "var(--t12)", fontWeight: 500, color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", transition: "color 0.15s" }}>{r.title}</div>
+                  {r.subscribers && <div style={{ fontSize: "var(--t11)", color: "var(--text-muted)", marginTop: 2 }}>{r.subscribers}</div>}
                 </div>
               ))}
             </div>
@@ -9938,6 +10665,7 @@ export default function App() {
   }, []);
 
   const [view, setView] = useState("home");
+  const [navHistory, setNavHistory] = useState([]); // navigation history stack for back button
   const [appKey, setAppKey] = useState(0); // increment to force full re-render
   const [viewRefreshKey, setViewRefreshKey] = useState(0); // increment to refresh current view
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -9946,6 +10674,24 @@ export default function App() {
   const [globalCtxClosing, setGlobalCtxClosing] = useState(false);
   const [pinnedIds, setPinnedIds] = useState([]);
   const [createPlaylistOpen, setCreatePlaylistOpen] = useState(false);
+  const [createPlaylistForSelection, setCreatePlaylistForSelection] = useState(false);
+  const [selectedTracks, setSelectedTracks] = useState(new Map()); // videoId → track
+  const [selectionPlaylistOpen, setSelectionPlaylistOpen] = useState(false);
+  const [selectionPlaylists, setSelectionPlaylists] = useState(null);
+  const [selectionAddRect, setSelectionAddRect] = useState(null); // bounding rect of the "Add to Playlist" button
+  const selectionAddBtnRef = useRef(null);
+  const selectionAddCloseTimer = useRef(null);
+
+  const toggleTrackSelection = useCallback((track) => {
+    setSelectedTracks(prev => {
+      const next = new Map(prev);
+      if (next.has(track.videoId)) next.delete(track.videoId);
+      else next.set(track.videoId, track);
+      return next;
+    });
+  }, []);
+
+  const clearSelection = useCallback(() => setSelectedTracks(new Map()), []);
   const [trackContextMenu, setTrackContextMenu] = useState(null); // { x, y, track, playlistId? }
   const [trackCtxData, setTrackCtxData] = useState(null);
   const [trackCtxClosing, setTrackCtxClosing] = useState(false);
@@ -10284,6 +11030,8 @@ export default function App() {
     }
   };
   const [queue, setQueue] = useState([]);
+  const queueRef = useRef([]);
+  useEffect(() => { queueRef.current = queue; }, [queue]);
   const [overlayOpen, setOverlayOpen] = useState(false);
   const [lyricsRefetchKey, setLyricsRefetchKey] = useState(0);
   const [forcedLyricsProvider, setForcedLyricsProvider] = useState(null);
@@ -10655,6 +11403,7 @@ export default function App() {
   const openPlaylist = useCallback((item, fromView, refresh = false) => {
     // forcedTitle: when the caller provides a custom title (e.g. "Dusqk – Top Songs"),
     // we keep it and don't let the stream header overwrite it.
+    if (!refresh) setNavHistory(h => [...h, navStateRef.current]);
     const forcedTitle = item.forcedTitle || null;
     setCollection({ title: forcedTitle || item.title, thumbnail: item.thumbnail, tracks: [], total: null, loading: true, progress: 0, cached: false, fromView: fromView || "library", forcedTitle, playlistId: item.playlistId });
     setView("collection");
@@ -10664,7 +11413,7 @@ export default function App() {
     let fakeProgress = 0;
     const interval = setInterval(() => {
       fakeProgress = Math.min(85, fakeProgress + Math.random() * 4);
-      setCollection(c => c.loading ? { ...c, progress: Math.round(fakeProgress) } : c);
+      setCollection(c => c?.loading ? { ...c, progress: Math.round(fakeProgress) } : c);
     }, 400);
 
     const url = `${API}/playlist/${item.playlistId}/stream${refresh ? "?refresh=1" : ""}`;
@@ -10672,20 +11421,21 @@ export default function App() {
     es.onmessage = e => {
       const msg = JSON.parse(e.data);
       if (msg.type === "header") {
-        setCollection(c => ({ ...c, title: c.forcedTitle || msg.title, thumbnail: msg.thumbnail || c.thumbnail, total: msg.total, cached: msg.cached || false }));
+        setCollection(c => c ? { ...c, title: c.forcedTitle || msg.title, thumbnail: msg.thumbnail || c.thumbnail, total: msg.total, cached: msg.cached || false } : c);
       } else if (msg.type === "tracks") {
-        setCollection(c => ({ ...c, tracks: [...c.tracks, ...msg.tracks] }));
+        setCollection(c => c ? { ...c, tracks: [...c.tracks, ...msg.tracks] } : c);
       } else if (msg.type === "done" || msg.type === "error") {
         clearInterval(interval);
-        setCollection(c => ({ ...c, progress: 100 }));
-        setTimeout(() => setCollection(c => ({ ...c, loading: false })), 400);
+        setCollection(c => c ? { ...c, progress: 100 } : c);
+        setTimeout(() => setCollection(c => c ? { ...c, loading: false } : c), 400);
         es.close();
       }
     };
-    es.onerror = () => { clearInterval(interval); setCollection(c => ({ ...c, loading: false })); es.close(); };
+    es.onerror = () => { clearInterval(interval); setCollection(c => c ? { ...c, loading: false } : c); es.close(); };
   }, []);
 
   const openAlbum = useCallback(async (item, fromView, refresh = false) => {
+    if (!refresh) setNavHistory(h => [...h, navStateRef.current]);
     setCollection({ title: item.title, thumbnail: item.thumbnail, tracks: [], total: null, loading: false, progress: 0, cached: false, fromView: fromView || "library", isAlbum: true, browseId: item.browseId });
     setView("collection");
     addRecentPlaylist({ browseId: item.browseId, title: item.title, thumbnail: item.thumbnail, type: "album" });
@@ -10713,6 +11463,46 @@ export default function App() {
     const saved = parseFloat(localStorage.getItem("kiyoshi-ui-zoom"));
     return ZOOM_STEPS.includes(saved) ? saved : 1.0;
   });
+
+  const [customShortcuts, setCustomShortcuts] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("kiyoshi-shortcuts") || "{}");
+      return { ...DEFAULT_SHORTCUTS, ...saved };
+    } catch { return { ...DEFAULT_SHORTCUTS }; }
+  });
+  const [shortcutLabels, setShortcutLabels] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("kiyoshi-shortcut-labels") || "{}"); }
+    catch { return {}; }
+  });
+  const [recordingShortcut, setRecordingShortcut] = useState(null);
+  const customShortcutsRef = useRef(customShortcuts);
+  const recordingShortcutRef = useRef(null);
+  useEffect(() => { customShortcutsRef.current = customShortcuts; }, [customShortcuts]);
+  useEffect(() => { recordingShortcutRef.current = recordingShortcut; }, [recordingShortcut]);
+
+  const getShortcutLabel = useCallback((stored) => {
+    if (!stored) return "—";
+    if (!stored.includes("+")) {
+      const label = shortcutLabels[stored] || CODE_DISPLAY_FALLBACK[stored] || stored;
+      return label.length === 1 ? label.toUpperCase() : label;
+    }
+    // Compound: "Ctrl+Equal" → "Ctrl+="
+    const parts    = stored.split("+");
+    const code     = parts[parts.length - 1];
+    const mods     = parts.slice(0, -1);
+    const keyLabel = shortcutLabels[code] || CODE_DISPLAY_FALLBACK[code] || code;
+    const displayKey = keyLabel.length === 1 ? keyLabel.toUpperCase() : keyLabel;
+    return [...mods, displayKey].join("+");
+  }, [shortcutLabels]);
+
+  const resetShortcut = useCallback((id) => {
+    setCustomShortcuts(prev => {
+      const next = { ...prev, [id]: DEFAULT_SHORTCUTS[id] };
+      localStorage.setItem("kiyoshi-shortcuts", JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
   const CSS_FONT_SIZES = [10, 11, 12, 13, 14, 15, 16, 18, 20, 22];
   const [appFontScale, setAppFontScale] = useState(() => {
     const saved = parseFloat(localStorage.getItem("kiyoshi-font-scale"));
@@ -11001,54 +11791,6 @@ export default function App() {
     });
   }, []);
 
-  // ── Global keyboard shortcuts ──
-  useEffect(() => {
-    const onKey = (e) => {
-      // Don't fire when typing in an input
-      if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
-      const audio = audioRef.current;
-      switch (e.code) {
-        case "Space":
-          e.preventDefault();
-          if (audio) { if (isPlaying) { audio.pause(); setIsPlaying(false); } else { audio.play(); setIsPlaying(true); } }
-          break;
-        case "ArrowRight":
-          e.preventDefault();
-          setCurrentTrack(t => {
-            if (!t) return t;
-            const idx = queue.findIndex(x => x.videoId === t.videoId);
-            return idx < queue.length - 1 ? queue[idx + 1] : t;
-          });
-          break;
-        case "ArrowLeft":
-          e.preventDefault();
-          setCurrentTrack(t => {
-            if (!t) return t;
-            const idx = queue.findIndex(x => x.videoId === t.videoId);
-            return idx > 0 ? queue[idx - 1] : t;
-          });
-          break;
-        case "ArrowUp":
-          e.preventDefault();
-          if (audio) { const dv = Math.min(1, Math.sqrt(audio.volume) + 0.02); audio.volume = dv * dv; }
-          break;
-        case "ArrowDown":
-          e.preventDefault();
-          if (audio) { const dv = Math.max(0, Math.sqrt(audio.volume) - 0.02); audio.volume = dv * dv; }
-          break;
-        case "Escape":
-          setOverlayOpen(false);
-          setQueueOpen(false);
-          break;
-        case "KeyF":
-          setFullscreen(f => !f);
-          break;
-        default: break;
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [isPlaying, queue, audioRef]);
 
   // Mouse wheel volume control — only on player bar area
   useEffect(() => {
@@ -11069,7 +11811,13 @@ export default function App() {
 
   const [artistView, setArtistView] = useState(null);
 
+  // Always-fresh snapshot of current nav state — used by open* callbacks to push history.
+  // Updated synchronously on every render so callbacks always read the latest values.
+  const navStateRef = useRef({ view: "home", collection: null, artistView: null });
+  navStateRef.current = { view, collection, artistView };
+
   const openArtist = useCallback((item, fromView) => {
+    setNavHistory(h => [...h, navStateRef.current]);
     setArtistView({ browseId: item.browseId, fromView: fromView || view });
     setView("artist");
     if (item.browseId && item.title) {
@@ -11077,85 +11825,150 @@ export default function App() {
     }
   }, [view]);
 
-  // Keyboard shortcuts
+  // ── Navigation history ──────────────────────────────────────────────────────
+  // Snapshot the current view state onto the history stack before navigating away.
+  const pushNav = useCallback((currentView, currentCollection, currentArtistView) => {
+    setNavHistory(h => [...h, {
+      view: currentView,
+      collection: currentView === "collection" ? currentCollection : undefined,
+      artistView: currentView === "artist" ? currentArtistView : undefined,
+    }]);
+  }, []);
+
+  // Navigate to a top-level section (sidebar links) — always clears history.
+  const navigateTo = useCallback((v) => {
+    setNavHistory([]);
+    setView(v);
+  }, []);
+
+  // Go back one step in history; falls back to home if the stack is empty.
+  const goBack = useCallback(() => {
+    setNavHistory(h => {
+      if (h.length === 0) { setView("home"); return h; }
+      const prev = h[h.length - 1];
+      setView(prev.view);
+      // Always restore collection (null for non-collection views so loading guards don't crash)
+      setCollection(prev.collection ?? null);
+      setArtistView(prev.artistView ?? null);
+      return h.slice(0, -1);
+    });
+  }, []);
+
+  // ── Clear track selection when view changes ─────────────────────────────────
+  useEffect(() => { clearSelection(); }, [view]);
+
+  // ── Keyboard shortcuts ──────────────────────────────────────────────────────
   useEffect(() => {
     const onKey = (e) => {
       if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
-      switch (e.code) {
-        case "Space":
+      const isModifier = ["Control","Shift","Alt","Meta"].includes(e.key);
+
+      // Recording mode — capture next non-modifier key (with any active modifiers)
+      if (recordingShortcutRef.current) {
+        if (!isModifier) {
           e.preventDefault();
-          if (audioRef.current) {
-            if (isPlaying) { audioRef.current.pause(); setIsPlaying(false); }
-            else { audioRef.current.play(); setIsPlaying(true); }
+          if (e.code !== "Escape") {
+            const actionId = recordingShortcutRef.current;
+            const shortcut = serializeShortcut(e);
+            setCustomShortcuts(prev => {
+              const next = { ...prev, [actionId]: shortcut };
+              localStorage.setItem("kiyoshi-shortcuts", JSON.stringify(next));
+              return next;
+            });
+            setShortcutLabels(prev => {
+              if (prev[e.code] === e.key) return prev;
+              const next = { ...prev, [e.code]: e.key };
+              localStorage.setItem("kiyoshi-shortcut-labels", JSON.stringify(next));
+              return next;
+            });
           }
-          break;
-        case "ArrowRight":
-          e.preventDefault();
-          // handled by Player internally via queue — trigger next
-          break;
-        case "ArrowUp":
-          e.preventDefault();
-          if (audioRef.current) { const dv = Math.min(1, Math.sqrt(audioRef.current.volume) + 0.02); audioRef.current.volume = dv * dv; }
-          break;
-        case "ArrowDown":
-          e.preventDefault();
-          if (audioRef.current) { const dv = Math.max(0, Math.sqrt(audioRef.current.volume) - 0.02); audioRef.current.volume = dv * dv; }
-          break;
-        case "KeyF":
-          setFullscreen(f => {
-            const next = !f;
-            import('@tauri-apps/api/core').then(({ invoke }) => invoke('set_fullscreen', { fullscreen: next }).catch(() => {}));
-            return next;
-          });
-          break;
-        case "Escape":
-          setOverlayOpen(false);
-          setQueueOpen(false);
-          break;
-        case "KeyS":
-          // Shuffle — handled in Player, no direct access here
-          break;
-        case "KeyM":
-          e.preventDefault();
-          if (audioRef.current) {
-            if (audioRef.current.volume > 0) {
-              mutePrevVolumeRef.current = audioRef.current.volume;
-              audioRef.current.volume = 0;
-            } else {
-              audioRef.current.volume = mutePrevVolumeRef.current || 0.5;
-            }
+          setRecordingShortcut(null);
+        }
+        return;
+      }
+
+      // Capture layout-aware display labels on every keypress
+      if (!isModifier && e.code) {
+        setShortcutLabels(prev => {
+          if (prev[e.code] === e.key) return prev;
+          const next = { ...prev, [e.code]: e.key };
+          localStorage.setItem("kiyoshi-shortcut-labels", JSON.stringify(next));
+          return next;
+        });
+      }
+
+      const sc = customShortcutsRef.current;
+
+      if (matchShortcut(sc.playPause, e)) {
+        e.preventDefault();
+        if (audioRef.current) {
+          if (audioRef.current.paused) { audioRef.current.play(); setIsPlaying(true); }
+          else { audioRef.current.pause(); setIsPlaying(false); }
+        }
+      } else if (matchShortcut(sc.nextTrack, e)) {
+        e.preventDefault();
+        const q = queueRef.current;
+        setCurrentTrack(t => {
+          if (!t) return t;
+          const idx = q.findIndex(x => x.videoId === t.videoId);
+          return idx < q.length - 1 ? q[idx + 1] : t;
+        });
+      } else if (matchShortcut(sc.prevTrack, e)) {
+        e.preventDefault();
+        const q = queueRef.current;
+        setCurrentTrack(t => {
+          if (!t) return t;
+          const idx = q.findIndex(x => x.videoId === t.videoId);
+          return idx > 0 ? q[idx - 1] : t;
+        });
+      } else if (matchShortcut(sc.volUp, e)) {
+        e.preventDefault();
+        if (audioRef.current) { const dv = Math.min(1, Math.sqrt(audioRef.current.volume) + 0.02); audioRef.current.volume = dv * dv; }
+      } else if (matchShortcut(sc.volDown, e)) {
+        e.preventDefault();
+        if (audioRef.current) { const dv = Math.max(0, Math.sqrt(audioRef.current.volume) - 0.02); audioRef.current.volume = dv * dv; }
+      } else if (matchShortcut(sc.fullscreen, e)) {
+        setFullscreen(f => {
+          const next = !f;
+          import('@tauri-apps/api/core').then(({ invoke }) => invoke('set_fullscreen', { fullscreen: next }).catch(() => {}));
+          if (next) setOverlayOpen(true);
+          return next;
+        });
+      } else if (e.code === "Escape") {
+        setOverlayOpen(false);
+        setQueueOpen(false);
+      } else if (matchShortcut(sc.mute, e)) {
+        e.preventDefault();
+        if (audioRef.current) {
+          if (audioRef.current.volume > 0) {
+            mutePrevVolumeRef.current = audioRef.current.volume;
+            audioRef.current.volume = 0;
+          } else {
+            audioRef.current.volume = mutePrevVolumeRef.current || 0.5;
           }
-          break;
-        case "KeyL":
-          e.preventDefault();
-          if (!currentTrack) break;
-          if (overlayOpen) { setShowLyrics(l => !l); }
-          else { setOverlayOpen(true); }
-          break;
-        case "Comma":
-          e.preventDefault();
-          if (audioRef.current) audioRef.current.currentTime = Math.max(0, audioRef.current.currentTime - 5);
-          break;
-        case "Period":
-          e.preventDefault();
-          if (audioRef.current) audioRef.current.currentTime = Math.min(audioRef.current.duration || 0, audioRef.current.currentTime + 5);
-          break;
-        case "Equal":
-          if (e.ctrlKey) {
-            e.preventDefault();
-            setUiZoom(z => { const idx = ZOOM_STEPS.indexOf(z); const next = ZOOM_STEPS[Math.min(ZOOM_STEPS.length - 1, idx >= 0 ? idx + 1 : 2)]; localStorage.setItem("kiyoshi-ui-zoom", next); return next; });
-          }
-          break;
-        case "Minus":
-          if (e.ctrlKey) {
-            e.preventDefault();
-            setUiZoom(z => { const idx = ZOOM_STEPS.indexOf(z); const next = ZOOM_STEPS[Math.max(0, idx >= 0 ? idx - 1 : 2)]; localStorage.setItem("kiyoshi-ui-zoom", next); return next; });
-          }
-          break;
+        }
+      } else if (matchShortcut(sc.lyrics, e)) {
+        e.preventDefault();
+        if (!currentTrack) return;
+        if (overlayOpen) { setShowLyrics(l => !l); }
+        else { setOverlayOpen(true); }
+      } else if (matchShortcut(sc.seekBack, e)) {
+        e.preventDefault();
+        if (audioRef.current) audioRef.current.currentTime = Math.max(0, audioRef.current.currentTime - 5);
+      } else if (matchShortcut(sc.seekForward, e)) {
+        e.preventDefault();
+        if (audioRef.current) audioRef.current.currentTime = Math.min(audioRef.current.duration || 0, audioRef.current.currentTime + 5);
+      } else if (matchShortcut(sc.zoomIn, e) || (e.ctrlKey && e.code === "NumpadAdd")) {
+        e.preventDefault();
+        setUiZoom(z => { const idx = ZOOM_STEPS.indexOf(z); const next = ZOOM_STEPS[Math.min(ZOOM_STEPS.length - 1, idx >= 0 ? idx + 1 : 2)]; localStorage.setItem("kiyoshi-ui-zoom", next); return next; });
+      } else if (matchShortcut(sc.zoomOut, e) || (e.ctrlKey && e.code === "NumpadSubtract")) {
+        e.preventDefault();
+        setUiZoom(z => { const idx = ZOOM_STEPS.indexOf(z); const next = ZOOM_STEPS[Math.max(0, idx >= 0 ? idx - 1 : 2)]; localStorage.setItem("kiyoshi-ui-zoom", next); return next; });
       }
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    // capture:true so we intercept before the WebView can handle Ctrl+= etc.
+    window.addEventListener("keydown", onKey, { capture: true });
+    return () => window.removeEventListener("keydown", onKey, { capture: true });
   }, [isPlaying, audioRef, overlayOpen, currentTrack, setUiZoom]);
 
   // Animated view wrapper
@@ -11218,7 +12031,7 @@ export default function App() {
           overflow: "hidden", flexShrink: 0,
           transition: "width 0.3s cubic-bezier(0.4,0,0.2,1), min-width 0.3s cubic-bezier(0.4,0,0.2,1)",
         }}>
-          <Sidebar view={view} setView={setView} onSearch={handleSearch} collapsed={sidebarCollapsed} onToggleCollapse={() => setSidebarCollapsed(c => !c)} onOpenSettings={() => setSettingsOpen(true)} onOpenUpdateTab={() => { setSettingsInitialTab("update"); setSettingsOpen(true); }} onCloseOverlay={() => setOverlayOpen(false)} onOpenPlaylist={(pl) => openPlaylist(pl, view)} onOpenAlbum={(item) => openAlbum(item, view)} onOpenArtist={(item) => openArtist(item, view)} onAddRecent={addRecentPlaylist} onContextMenu={openContextMenu} currentProfileData={profiles.find(p => p.active)} onOpenProfileSwitcher={() => setShowProfileSwitcher(true)} profiles={profiles}
+          <Sidebar view={view} setView={navigateTo} onSearch={handleSearch} collapsed={sidebarCollapsed} onToggleCollapse={() => setSidebarCollapsed(c => !c)} onOpenSettings={() => setSettingsOpen(true)} onOpenUpdateTab={() => { setSettingsInitialTab("update"); setSettingsOpen(true); }} onCloseOverlay={() => setOverlayOpen(false)} onOpenPlaylist={(pl) => openPlaylist(pl, view)} onOpenAlbum={(item) => openAlbum(item, view)} onOpenArtist={(item) => openArtist(item, view)} onAddRecent={addRecentPlaylist} onContextMenu={openContextMenu} currentProfileData={profiles.find(p => p.active)} onOpenProfileSwitcher={() => setShowProfileSwitcher(true)} profiles={profiles}
             onSwitchProfile={async (name) => {
               await fetch(`${API}/profiles/switch`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) });
               await fetchProfiles();
@@ -11265,11 +12078,11 @@ export default function App() {
           <div key={appKey} className="scrollable" style={{ flex: 1, overflowY: "auto" }}>
             {view === "home" && <AnimatedView key={`home-${viewRefreshKey}`}><HomeView displayName={profiles.find(p => p.active)?.displayName} onPlay={handlePlay} onOpenPlaylist={(item) => openPlaylist(item, "home")} onOpenAlbum={(item) => openAlbum(item, "home")} onOpenArtist={(item) => openArtist(item, "home")} onContextMenu={openContextMenu} onTrackContextMenu={(e, track) => setTrackContextMenu({ x: e.clientX, y: e.clientY, track })} hideExplicit={hideExplicit} /></AnimatedView>}
             {view === "search" && <AnimatedView key={`search-${viewRefreshKey}`}><SearchView query={searchQuery} onPlay={handlePlay} currentTrack={currentTrack} isPlaying={isPlaying} onOpenArtist={openArtist} onOpenAlbum={(item) => openAlbum(item, "search")} onOpenPlaylist={(item) => openPlaylist(item, "search")} onContextMenu={openContextMenu} onTrackContextMenu={(e, track) => setTrackContextMenu({ x: e.clientX, y: e.clientY, track })} hideExplicit={hideExplicit} /></AnimatedView>}
-            {view === "liked" && <AnimatedView key={`liked-${viewRefreshKey}`}><LikedView onPlay={handlePlay} currentTrack={currentTrack} isPlaying={isPlaying} onOpenArtist={openArtist} onOpenAlbum={(item) => openAlbum(item, "liked")} onTrackContextMenu={(e, track) => setTrackContextMenu({ x: e.clientX, y: e.clientY, track })} cachedSongIds={cachedSongIds} downloadingIds={downloadingIds} onDownloadSong={handleDownloadSong} hideExplicit={hideExplicit} onToggleLike={handleToggleLike} likedIds={likedIds} /></AnimatedView>}
+            {view === "liked" && <AnimatedView key={`liked-${viewRefreshKey}`}><LikedView onPlay={handlePlay} currentTrack={currentTrack} isPlaying={isPlaying} onOpenArtist={openArtist} onOpenAlbum={(item) => openAlbum(item, "liked")} onTrackContextMenu={(e, track) => setTrackContextMenu({ x: e.clientX, y: e.clientY, track })} cachedSongIds={cachedSongIds} downloadingIds={downloadingIds} onDownloadSong={handleDownloadSong} hideExplicit={hideExplicit} onToggleLike={handleToggleLike} likedIds={likedIds} selectedTracks={selectedTracks} onToggleSelect={toggleTrackSelection} /></AnimatedView>}
             {view === "history" && <AnimatedView key={`history-${viewRefreshKey}`}><HistoryView onPlay={handlePlay} currentTrack={currentTrack} isPlaying={isPlaying} onOpenArtist={openArtist} onOpenAlbum={(item) => openAlbum(item, "history")} onTrackContextMenu={(e, track, extra) => setTrackContextMenu({ x: e.clientX, y: e.clientY, track, ...extra })} cachedSongIds={cachedSongIds} downloadingIds={downloadingIds} onDownloadSong={handleDownloadSong} hideExplicit={hideExplicit} /></AnimatedView>}
             {view === "library" && <AnimatedView key={`library-${viewRefreshKey}`}><LibraryView onPlay={handlePlay} currentTrack={currentTrack} isPlaying={isPlaying} onOpenPlaylist={openPlaylist} onOpenAlbum={openAlbum} onOpenArtist={openArtist} onContextMenu={openContextMenu} /></AnimatedView>}
-            {view === "collection" && collection && <AnimatedView key={`collection-${viewRefreshKey}`}><CollectionView title={collection.title} thumbnail={collection.thumbnail} tracks={collection.tracks} total={collection.total} loading={collection.loading} progress={collection.progress || 0} cached={collection.cached} onPlay={handlePlay} currentTrack={currentTrack} isPlaying={isPlaying} onBack={() => setView(collection.fromView || "library")} onOpenArtist={openArtist} onOpenAlbum={(item) => openAlbum(item, "collection")} isAlbum={collection.isAlbum} albumArtists={collection.albumArtists} albumArtistBrowseId={collection.albumArtistBrowseId} year={collection.year} onRefresh={() => { if (collection.isAlbum) openAlbum({ browseId: collection.browseId, title: collection.title, thumbnail: collection.thumbnail }, collection.fromView, true); else openPlaylist({ playlistId: collection.playlistId, title: collection.title, thumbnail: collection.thumbnail, forcedTitle: collection.forcedTitle }, collection.fromView, true); }} onTrackContextMenu={(e, track) => setTrackContextMenu({ x: e.clientX, y: e.clientY, track, playlistId: collection.isAlbum ? null : collection.playlistId })} cachedSongIds={cachedSongIds} downloadingIds={downloadingIds} premiumSongIds={premiumSongIds} onDownloadSong={handleDownloadSong} onDownloadAll={(tracks) => handleDownloadAll(tracks, { title: collection.title, thumbnail: collection.thumbnail, artists: collection.albumArtists || "" })} onRemoveAll={handleRemoveAllDownloads} hideExplicit={hideExplicit} onToggleLike={handleToggleLike} likedIds={likedIds} /></AnimatedView>}
-            {view === "artist" && artistView && <AnimatedView key={`artist-${viewRefreshKey}`}><ArtistView browseId={artistView.browseId} onPlay={handlePlay} currentTrack={currentTrack} isPlaying={isPlaying} onOpenAlbum={(item) => openAlbum(item, "artist")} onOpenPlaylist={(item) => openPlaylist(item, "artist")} onBack={() => setView(artistView.fromView || "library")} onContextMenu={openContextMenu} onTogglePin={togglePin} isPinned={pinnedIds.includes(artistView.browseId)} hideExplicit={hideExplicit} /></AnimatedView>}
+            {view === "collection" && collection && <AnimatedView key={`collection-${viewRefreshKey}`}><CollectionView title={collection.title} thumbnail={collection.thumbnail} tracks={collection.tracks} total={collection.total} loading={collection.loading} progress={collection.progress || 0} cached={collection.cached} onPlay={handlePlay} currentTrack={currentTrack} isPlaying={isPlaying} onBack={goBack} onOpenArtist={openArtist} onOpenAlbum={(item) => openAlbum(item, "collection")} isAlbum={collection.isAlbum} albumArtists={collection.albumArtists} albumArtistBrowseId={collection.albumArtistBrowseId} year={collection.year} onRefresh={() => { if (collection.isAlbum) openAlbum({ browseId: collection.browseId, title: collection.title, thumbnail: collection.thumbnail }, collection.fromView, true); else openPlaylist({ playlistId: collection.playlistId, title: collection.title, thumbnail: collection.thumbnail, forcedTitle: collection.forcedTitle }, collection.fromView, true); }} onTrackContextMenu={(e, track) => setTrackContextMenu({ x: e.clientX, y: e.clientY, track, playlistId: collection.isAlbum ? null : collection.playlistId })} cachedSongIds={cachedSongIds} downloadingIds={downloadingIds} premiumSongIds={premiumSongIds} onDownloadSong={handleDownloadSong} onDownloadAll={(tracks) => handleDownloadAll(tracks, { title: collection.title, thumbnail: collection.thumbnail, artists: collection.albumArtists || "" })} onRemoveAll={handleRemoveAllDownloads} hideExplicit={hideExplicit} onToggleLike={handleToggleLike} likedIds={likedIds} selectedTracks={selectedTracks} onToggleSelect={toggleTrackSelection} /></AnimatedView>}
+            {view === "artist" && artistView && <AnimatedView key={`artist-${viewRefreshKey}`}><ArtistView browseId={artistView.browseId} onPlay={handlePlay} currentTrack={currentTrack} isPlaying={isPlaying} onOpenAlbum={(item) => openAlbum(item, "artist")} onOpenPlaylist={(item) => openPlaylist(item, "artist")} onOpenArtist={(item) => openArtist(item, "artist")} onBack={goBack} onContextMenu={openContextMenu} onTogglePin={togglePin} isPinned={pinnedIds.includes(artistView.browseId)} hideExplicit={hideExplicit} onStartRadio={handlePlay} /></AnimatedView>}
             {view === "downloads" && <AnimatedView key={`downloads-${viewRefreshKey}`}><DownloadsView onPlay={handlePlay} currentTrack={currentTrack} isPlaying={isPlaying} cachedSongIds={cachedSongIds} downloadingIds={downloadingIds} premiumSongIds={premiumSongIds} onDownloadSong={handleDownloadSong} onTrackContextMenu={(e, track) => setTrackContextMenu({ x: e.clientX, y: e.clientY, track })} hideExplicit={hideExplicit} onOpenAlbum={(item) => openAlbum(item, "downloads")} onOpenArtist={openArtist} onToggleLike={handleToggleLike} likedIds={likedIds} /></AnimatedView>}
             {isOffline && view !== "downloads" && (
               <div style={{
@@ -11283,11 +12096,104 @@ export default function App() {
               </div>
             )}
           </div>
+          {/* Player + floating action bar wrapper — position:relative so the bar can float above the player without affecting layout */}
+          <div style={{ position: "relative", flexShrink: 0 }}>
+            {/* Multi-track selection action bar — position:absolute so it floats above the player without pushing the list up */}
+            {selectedTracks.size > 0 && (
+              <div style={{
+                position: "absolute", bottom: "100%", left: 0, right: 0,
+                display: "flex", justifyContent: "center",
+                padding: "0 0 6px",
+                pointerEvents: "none",
+              }}>
+                <div style={{
+                  pointerEvents: "auto",
+                  display: "flex", flexDirection: "column", alignItems: "stretch",
+                  background: "var(--bg-elevated)", border: "0.5px solid var(--border)",
+                  borderRadius: 16,
+                  boxShadow: "0 8px 40px rgba(0,0,0,0.6)",
+                  animation: "ctxMenuIn 0.2s ease-out",
+                }}>
+                  {/* Title */}
+                  <div style={{
+                    fontSize: "var(--t12)", color: "var(--text-muted)", fontWeight: 600,
+                    textTransform: "uppercase", letterSpacing: "0.07em",
+                    padding: "9px 24px 8px", textAlign: "center",
+                  }}>
+                    {selectedTracks.size} {translate(language, selectedTracks.size === 1 ? "songSelected" : "songsSelected")}
+                  </div>
+                  {/* Actions */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 2, padding: "6px 8px" }}>
+                    {/* Like all */}
+                    <SelActionBtn
+                      icon={<Heart size={17} />}
+                      label={translate(language, "likeAll")}
+                      iconOnly
+                      onClick={async () => { for (const track of selectedTracks.values()) await handleToggleLike(track); clearSelection(); }}
+                    />
+                    <div style={{ width: 1, height: 20, background: "var(--border)", flexShrink: 0 }} />
+                    {/* Add to playlist */}
+                    <div
+                      ref={selectionAddBtnRef}
+                      onMouseEnter={async () => {
+                        clearTimeout(selectionAddCloseTimer.current);
+                        if (!selectionPlaylists) {
+                          const rect = selectionAddBtnRef.current?.getBoundingClientRect();
+                          setSelectionAddRect(rect ?? null);
+                          const d = await fetch(`${API}/library/playlists`).then(r => r.json()).catch(() => ({ playlists: [] }));
+                          setSelectionPlaylists(d.playlists || []);
+                        }
+                      }}
+                      onMouseLeave={() => {
+                        selectionAddCloseTimer.current = setTimeout(() => {
+                          setSelectionPlaylists(null);
+                          setSelectionAddRect(null);
+                        }, 150);
+                      }}
+                    >
+                      <SelActionBtn
+                        icon={<Plus size={17} />}
+                        label={translate(language, "addToPlaylist")}
+                        horizontal
+                        onClick={() => {}}
+                      />
+                    </div>
+                    {/* Remove from playlist — only when in playlist context */}
+                    {view === "collection" && collection?.playlistId && (
+                      <>
+                      <div style={{ width: 1, height: 20, background: "var(--border)", flexShrink: 0 }} />
+                      <SelActionBtn
+                        icon={<Trash size={17} />}
+                        label={translate(language, "removeSelected")}
+                        iconOnly danger
+                        onClick={async () => {
+                          const tracks = Array.from(selectedTracks.values());
+                          for (const track of tracks) {
+                            if (!track.setVideoId) continue;
+                            try {
+                              await fetch(`${API}/playlist/${collection.playlistId}/remove`, {
+                                method: "POST", headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ videos: [{ videoId: track.videoId, setVideoId: track.setVideoId }] }),
+                              });
+                              setCollection(c => c ? { ...c, tracks: c.tracks.filter(t => !(t.videoId === track.videoId && t.setVideoId === track.setVideoId)) } : c);
+                            } catch {}
+                          }
+                          clearSelection();
+                        }}
+                      />
+                      </>
+                    )}
+                    <div style={{ width: 1, height: 20, background: "var(--border)", flexShrink: 0 }} />
+                    {/* Close */}
+                    <SelActionBtn icon={<X size={17} />} label={translate(language, "cancel")} iconOnly onClick={clearSelection} />
+                  </div>
+                </div>
+              </div>
+            )}
           <div style={{
             opacity: !fullscreen || playerVisible ? 1 : 0,
             visibility: !fullscreen || playerVisible ? "visible" : "hidden",
             transition: "opacity 0.5s ease, visibility 0.5s ease",
-            flexShrink: 0,
             pointerEvents: !fullscreen || playerVisible ? "auto" : "none",
             position: fullscreen ? "relative" : "relative",
             zIndex: fullscreen ? 105 : "auto",
@@ -11320,6 +12226,7 @@ export default function App() {
               const next = !fullscreen;
               try { await invoke('set_fullscreen', { fullscreen: next }); } catch(e) { console.error(e); }
               setFullscreen(next);
+              if (next) setOverlayOpen(true);
             }}
             onOpenAlbum={openAlbum}
             onOpenArtist={openArtist}
@@ -11354,14 +12261,16 @@ export default function App() {
             onImportLyrics={() => importLyricsRef.current?.()}
             onRemoveCustomLyrics={() => removeCustomLyricsRef.current?.()}
             onPremiumDetected={(videoId) => setPremiumSongIds(prev => new Set(prev).add(videoId))}
+            onCreatePlaylist={() => setCreatePlaylistOpen(true)}
           />
           </div>
-        </div>
+          </div>
+          </div>
         <div style={{
           position: "absolute",
           top: overlayOpen ? 0 : "100%",
           left: fullscreen ? 0 : (sidebarCollapsed ? SIDEBAR_COLLAPSED : SIDEBAR_EXPANDED),
-          right: queueOpen ? 320 : 0, bottom: fullscreen ? 0 : 69, zIndex: fullscreen ? 102 : 100,
+          right: queueOpen ? 360 : 0, bottom: fullscreen ? 0 : 69, zIndex: fullscreen ? 102 : 100,
           overflow: "hidden",
           transition: animations ? "top 0.4s cubic-bezier(0.34,1.56,0.64,1), right 0.3s ease" : "top 0.1s ease",
           pointerEvents: overlayOpen ? "all" : "none",
@@ -11391,8 +12300,8 @@ export default function App() {
         {/* Queue panel */}
         <div style={{
           position: "absolute",
-          top: 0, right: queueOpen ? 0 : -320,
-          width: 320, bottom: fullscreen ? 0 : 69, zIndex: fullscreen ? 104 : 101,
+          top: 0, right: queueOpen ? 0 : -360,
+          width: 360, bottom: fullscreen ? 0 : 69, zIndex: fullscreen ? 104 : 101,
           background: "var(--bg-surface)", borderLeft: "0.5px solid var(--border)",
           transition: animations ? "right 0.3s cubic-bezier(0.4,0,0.2,1)" : "right 0.1s ease",
           display: "flex", flexDirection: "column",
@@ -11404,6 +12313,8 @@ export default function App() {
             currentTrack={currentTrack}
             setTrack={setCurrentTrack}
             onClose={() => setQueueOpen(false)}
+            likedIds={likedIds}
+            onToggleLike={handleToggleLike}
           />
         </div>
         {/* Login Screen - shown when no profile exists */}
@@ -11507,18 +12418,71 @@ export default function App() {
                 }
               }
             }}
+            customShortcuts={customShortcuts}
+            shortcutLabels={shortcutLabels}
+            recordingShortcut={recordingShortcut}
+            setRecordingShortcut={setRecordingShortcut}
+            getShortcutLabel={getShortcutLabel}
+            resetShortcut={resetShortcut}
           />
         )}
 
         {/* Debug Floating Window */}
         {debugFloat && <DebugFloatingWindow onClose={() => setDebugFloat(false)} />}
 
+        {/* Add-to-playlist dropdown for selection bar — portal so it escapes overflow clipping */}
+        {selectionPlaylists && selectionAddRect && createPortal(
+          <PlaylistPickerDropdown
+            playlists={selectionPlaylists}
+            onPick={async (pl) => {
+              setSelectionPlaylists(null);
+              setSelectionAddRect(null);
+              const tracks = Array.from(selectedTracks.values());
+              try { await fetch(`${API}/playlist/${pl.playlistId}/add`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ videoIds: tracks.map(t => t.videoId), tracks }) }); } catch {}
+              clearSelection();
+            }}
+            onNewPlaylist={() => { setSelectionPlaylists(null); setSelectionAddRect(null); setCreatePlaylistForSelection(true); setCreatePlaylistOpen(true); }}
+            containerProps={{
+              "data-sel-add-dropdown": "",
+              onMouseEnter: () => { clearTimeout(selectionAddCloseTimer.current); },
+              onMouseLeave: () => {
+                selectionAddCloseTimer.current = setTimeout(() => {
+                  setSelectionPlaylists(null);
+                  setSelectionAddRect(null);
+                }, 150);
+              },
+            }}
+            style={{
+              position: "fixed",
+              bottom: window.innerHeight - selectionAddRect.top + 6,
+              left: selectionAddRect.left + selectionAddRect.width / 2,
+              transform: "translateX(-50%)",
+              background: "var(--bg-elevated)", border: "0.5px solid var(--border)",
+              borderRadius: 10, padding: 4, minWidth: 210, maxHeight: 320, overflowY: "auto",
+              boxShadow: "0 8px 24px rgba(0,0,0,0.5)", zIndex: 99999,
+            }}
+          />,
+          document.body
+        )}
+
         {/* Create Playlist Modal */}
         {createPlaylistOpen && (
           <CreatePlaylistModal
             t={(key) => translate(language, key)}
-            onClose={() => setCreatePlaylistOpen(false)}
-            onCreated={(id, title) => {
+            onClose={() => { setCreatePlaylistOpen(false); setCreatePlaylistForSelection(false); }}
+            onCreated={async (id, title) => {
+              if (createPlaylistForSelection && selectedTracks.size > 0) {
+                const tracks = Array.from(selectedTracks.values());
+                try {
+                  await fetch(`${API}/playlist/${id}/add`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ videoIds: tracks.map(t => t.videoId), tracks }),
+                  });
+                } catch {}
+                clearSelection();
+                setCreatePlaylistForSelection(false);
+              }
               openPlaylist({ playlistId: id, title, thumbnail: "" }, view);
             }}
           />
@@ -11611,43 +12575,30 @@ export default function App() {
                 {trackCtxPlaylists && (() => {
                   const openLeft = (trackCtxData.x / uiZoom) + 420 > window.innerWidth;
                   return (
-                  <div style={{
-                    position: "absolute",
-                    ...(openLeft ? { right: "100%", marginRight: 4 } : { left: "100%", marginLeft: 4 }),
-                    top: 0,
-                    background: "var(--bg-elevated)", border: "0.5px solid var(--border)",
-                    borderRadius: "var(--radius-lg)", padding: "4px", minWidth: 180,
-                    boxShadow: "0 8px 24px rgba(0,0,0,0.4)", maxHeight: 300, overflowY: "auto",
-                  }}>
-                    {trackCtxPlaylists.map((pl, i) => (
-                      <div key={i}
-                        onClick={async () => {
-                          try {
-                            await fetch(`${API}/playlist/${pl.playlistId}/add`, {
-                              method: "POST",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ videoIds: [trackCtxData.track.videoId], tracks: [trackCtxData.track] }),
-                            });
-                          } catch {}
-                          setTrackContextMenu(null);
-                          setTrackCtxPlaylists(null);
-                        }}
-                        style={{ padding: "7px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t12)", color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
-                        onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
-                        onMouseLeave={e => e.currentTarget.style.background = "transparent"}
-                      >{pl.title}</div>
-                    ))}
-                    <div style={{ borderTop: "0.5px solid var(--border)", margin: "4px 0" }} />
-                    <div
-                      onClick={() => { setTrackContextMenu(null); setTrackCtxPlaylists(null); setCreatePlaylistOpen(true); }}
-                      style={{ padding: "7px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t12)", color: "var(--accent)", display: "flex", alignItems: "center", gap: 8 }}
-                      onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
-                      onMouseLeave={e => e.currentTarget.style.background = "transparent"}
-                    >
-                      <Plus size={12} weight="bold" />
-                      {translate(language, "newPlaylist")}
-                    </div>
-                  </div>
+                    <PlaylistPickerDropdown
+                      playlists={trackCtxPlaylists}
+                      onPick={async (pl) => {
+                        try {
+                          await fetch(`${API}/playlist/${pl.playlistId}/add`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ videoIds: [trackCtxData.track.videoId], tracks: [trackCtxData.track] }),
+                          });
+                        } catch {}
+                        setTrackContextMenu(null);
+                        setTrackCtxPlaylists(null);
+                      }}
+                      onNewPlaylist={() => { setTrackContextMenu(null); setTrackCtxPlaylists(null); setCreatePlaylistOpen(true); }}
+                      style={{
+                        position: "absolute",
+                        ...(openLeft ? { right: "calc(100% - 4px)" } : { left: "calc(100% - 4px)" }),
+                        top: 0,
+                        background: "var(--bg-elevated)", border: "0.5px solid var(--border)",
+                        borderRadius: "var(--radius-lg)", padding: "4px", minWidth: 200,
+                        boxShadow: "0 8px 24px rgba(0,0,0,0.4)", maxHeight: 320, overflowY: "auto",
+                        zIndex: 10001,
+                      }}
+                    />
                   );
                 })()}
               </div>

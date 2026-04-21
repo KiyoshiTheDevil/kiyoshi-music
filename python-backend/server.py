@@ -66,7 +66,8 @@ os.makedirs(CUSTOM_LYRICS_DIR, exist_ok=True)
 _ytm = None
 _current_profile = None
 _PLAYLIST_CACHE_MAX = 20
-_playlist_cache = collections.OrderedDict()  # in-memory LRU, max 20 entries
+_playlist_cache  = collections.OrderedDict()  # in-memory LRU, max 20 entries
+_credits_cache   = {}  # video_id -> list of {role, persons}  (permanent, small)
 
 def _playlist_cache_put(playlist_id, data):
     """Insert/update entry and evict the oldest if over the size limit."""
@@ -1749,6 +1750,39 @@ def stream_playlist(playlist_id):
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no", "Transfer-Encoding": "chunked"}
     )
 
+@app.route("/radio/<playlist_id>")
+def get_radio(playlist_id):
+    try:
+        watch = get_ytmusic().get_watch_playlist(playlistId=playlist_id, limit=50)
+        tracks = []
+        for t in watch.get("tracks", []):
+            if not t.get("videoId"):
+                continue
+            artist_list = t.get("artists") or []
+            artists = ", ".join(a["name"] for a in artist_list if isinstance(a, dict) and a.get("name"))
+            # get_watch_playlist returns thumbnail as a list of dicts OR a plain string
+            thumb_raw = t.get("thumbnails") or t.get("thumbnail") or []
+            if isinstance(thumb_raw, list) and thumb_raw:
+                last = thumb_raw[-1]
+                thumb = last.get("url", "") if isinstance(last, dict) else str(last)
+            elif isinstance(thumb_raw, str):
+                thumb = thumb_raw
+            else:
+                thumb = ""
+            album = t.get("album") or {}
+            tracks.append({
+                "videoId":    t.get("videoId", ""),
+                "title":      t.get("title", ""),
+                "artists":    artists,
+                "album":      album.get("name", "") if isinstance(album, dict) else "",
+                "thumbnail":  thumb,
+                "duration":   t.get("duration") or t.get("length", ""),
+                "isExplicit": bool(t.get("isExplicit", False)),
+            })
+        return jsonify({"tracks": tracks})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 @app.route("/playlist/<playlist_id>")
 def get_playlist(playlist_id):
     try:
@@ -1933,17 +1967,186 @@ def get_artist(browse_id):
                 "thumbnail": thumbs[-1].get("url", "") if thumbs else "",
             })
 
+        # Videos
+        videos = []
+        for v in (artist.get("videos", {}).get("results", [])):
+            if not v.get("videoId"):
+                continue
+            thumbs = v.get("thumbnails", [])
+            v_artists = v.get("artists") or []
+            videos.append({
+                "videoId":   v.get("videoId", ""),
+                "title":     v.get("title", ""),
+                "artists":   ", ".join(a.get("name", "") for a in v_artists) or artist.get("name", ""),
+                "views":     v.get("views", ""),
+                "thumbnail": thumbs[-1].get("url", "") if thumbs else "",
+            })
+
+        # Related artists ("Fans might also like")
+        related = []
+        for r in (artist.get("related", {}).get("results", [])):
+            thumbs = r.get("thumbnails", [])
+            related.append({
+                "browseId":    r.get("browseId", ""),
+                "title":       r.get("title", ""),
+                "subscribers": r.get("subscribers", ""),
+                "thumbnail":   thumbs[-1].get("url", "") if thumbs else "",
+            })
+
         thumbs = artist.get("thumbnails", [])
         return jsonify({
             "name":          artist.get("name", ""),
             "thumbnail":     thumbs[-1].get("url", "") if thumbs else "",
             "description":   artist.get("description", "") or "",
-            "subscribers":   artist.get("subscribers", "") or "",
+            "subscribers":      artist.get("subscribers", "") or "",
+            "monthlyListeners": artist.get("monthlyListeners", "") or "",
+            "radioId":       artist.get("radioId", "") or "",
+            "subscribed":    bool(artist.get("subscribed", False)),
+            "channelId":     artist.get("channelId", "") or browse_id,
             "songsBrowseId": (lambda b: b[2:] if b.startswith("VL") else b)(artist.get("songs", {}).get("browseId", "") or ""),
+            "albumsBrowseId": artist.get("albums", {}).get("browseId", "") or "",
+            "albumsParams":   artist.get("albums", {}).get("params", "") or "",
+            "singlesBrowseId": artist.get("singles", {}).get("browseId", "") or "",
+            "singlesParams":   artist.get("singles", {}).get("params", "") or "",
             "tracks":  tracks,
             "albums":  albums,
             "singles": singles,
+            "videos":  videos,
+            "related": related,
         })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/artist/<browse_id>/subscribe", methods=["POST"])
+def artist_subscribe(browse_id):
+    try:
+        data = request.get_json(silent=True) or {}
+        channel_id = data.get("channelId") or browse_id
+        get_ytmusic().subscribe_artists([channel_id])
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/artist/<browse_id>/unsubscribe", methods=["POST"])
+def artist_unsubscribe(browse_id):
+    try:
+        data = request.get_json(silent=True) or {}
+        channel_id = data.get("channelId") or browse_id
+        get_ytmusic().unsubscribe_artists([channel_id])
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/song/credits/<video_id>")
+def get_song_credits(video_id):
+    # Serve from cache if available
+    if video_id in _credits_cache:
+        return jsonify(_credits_cache[video_id])
+    import requests as req
+    import re as _re
+    description = ""
+    last_error = ""
+
+    # Use www.youtube.com InnerTube /next — returns full page description (not the
+    # truncated YTMusic shortDescription from music.youtube.com/youtubei/v1/player)
+    try:
+        url = "https://www.youtube.com/youtubei/v1/next?key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8"
+        payload = {
+            "videoId": video_id,
+            "context": {
+                "client": {
+                    "clientName": "WEB",
+                    "clientVersion": "2.20240726.00.00",
+                    "hl": "en",
+                    "gl": "US",
+                }
+            }
+        }
+        headers = {
+            "Content-Type": "application/json",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+            "X-YouTube-Client-Name": "1",
+            "X-YouTube-Client-Version": "2.20240726.00.00",
+        }
+        r = req.post(url, json=payload, headers=headers, timeout=12)
+        data = r.json()
+        # Path: contents → twoColumnWatchNextResults → results → results → contents[]
+        # → videoSecondaryInfoRenderer → attributedDescription.content
+        #   OR description.runs[].text
+        results = (data.get("contents") or {})
+        results = (results.get("twoColumnWatchNextResults") or {})
+        results = (results.get("results") or {})
+        results = (results.get("results") or {})
+        contents = results.get("contents") or []
+        for item in contents:
+            vsir = item.get("videoSecondaryInfoRenderer")
+            if not vsir:
+                continue
+            # Try attributedDescription first (newer YT layout)
+            ad = vsir.get("attributedDescription")
+            if isinstance(ad, dict):
+                description = (ad.get("content") or "").strip()
+            # Fall back to description.runs
+            if not description:
+                runs = (vsir.get("description") or {}).get("runs") or []
+                description = "".join(run.get("text", "") for run in runs).strip()
+            if description:
+                break
+    except Exception as e:
+        last_error = f"next: {e}"
+
+    # Fallback: scrape www.youtube.com page and extract ytInitialPlayerResponse
+    if not description:
+        try:
+            page_url = f"https://www.youtube.com/watch?v={video_id}"
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+                "Accept-Language": "en-US,en;q=0.9",
+            }
+            r = req.get(page_url, headers=headers, timeout=12)
+            match = _re.search(r'ytInitialPlayerResponse\s*=\s*\{', r.text)
+            if match:
+                start = match.end() - 1
+                depth, end = 0, start
+                for i, c in enumerate(r.text[start:]):
+                    if c == '{':
+                        depth += 1
+                    elif c == '}':
+                        depth -= 1
+                        if depth == 0:
+                            end = start + i + 1
+                            break
+                page_data = json.loads(r.text[start:end])
+                description = ((page_data.get("videoDetails") or {})
+                               .get("shortDescription") or "").strip()
+        except Exception as e:
+            last_error = f"scrape: {e}"
+
+    result = {"description": description}
+    if not description and last_error:
+        result["error"] = last_error
+    _credits_cache[video_id] = result
+    return jsonify(result)
+
+@app.route("/artist_albums")
+def get_artist_albums_route():
+    channel_id = request.args.get("channelId", "")
+    params = request.args.get("params", "")
+    if not channel_id or not params:
+        return jsonify({"error": "channelId and params are required"}), 400
+    try:
+        items = get_ytmusic().get_artist_albums(channel_id, params)
+        result = []
+        for a in (items or []):
+            thumbs = a.get("thumbnails", [])
+            result.append({
+                "browseId":  a.get("browseId", ""),
+                "title":     a.get("title", ""),
+                "year":      a.get("year", ""),
+                "thumbnail": thumbs[-1].get("url", "") if thumbs else "",
+                "type":      a.get("type", ""),
+            })
+        return jsonify({"albums": result})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

@@ -1,6 +1,6 @@
 [package]
 name = "kiyoshi-music"
-version = "0.9.13-beta"
+version = "0.9.14-beta"
 description = "Kiyoshi Music - YouTube Music Client"
 authors = []
 license = ""

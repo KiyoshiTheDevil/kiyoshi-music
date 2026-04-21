@@ -10,17 +10,14 @@
   "search": "Suchen...",
   "pinned": "Angepinnt",
   "recentlyOpened": "Zuletzt geöffnet",
-
   "goodMorning": "Guten Morgen",
   "goodDay": "Guten Tag",
   "goodAfternoon": "Guten Nachmittag",
   "goodEvening": "Guten Abend",
   "goodNight": "=_=",
-
   "selectSong": "Wähle einen Song aus",
   "loading": "Lädt…",
   "loadingDots": "Lädt…",
-
   "playlist": "Wiedergabeliste",
   "album": "Album",
   "artist": "Künstler",
@@ -34,12 +31,10 @@
   "likedTracks": "Tracks",
   "fetchingSongs": "Songs werden abgerufen…",
   "noPlaylists": "Keine Playlists gefunden.",
-
   "colTitle": "Titel",
   "colArtist": "Interpret",
   "colAlbum": "Album",
   "colDuration": "Dauer",
-
   "searchPrompt": "Tippe etwas ins Suchfeld und drücke Enter.",
   "searchResultsFor": "Suchergebnisse für",
   "noResults": "Keine Ergebnisse gefunden.",
@@ -47,31 +42,35 @@
   "filterArtists": "Künstler",
   "filterAlbums": "Alben",
   "filterPlaylists": "Playlists",
-
+  "sortDefault": "Standard",
+  "sortAlphaAZ": "A → Z",
+  "sortAlphaZA": "Z → A",
+  "sortByArtist": "Nach Künstler",
+  "sortByYearDesc": "Jahr (neu → alt)",
+  "sortByYearAsc": "Jahr (alt → neu)",
   "queue": "Wiedergabeliste",
+  "aboutSong": "Über den Song",
+  "credits": "Credits",
+  "noCredits": "Keine Credits verfügbar",
   "nowPlaying": "Wird abgespielt",
   "upNext": "Als nächstes",
   "previouslyPlayed": "Zuvor gespielt",
   "emptyQueue": "Keine Songs in der Wiedergabeliste",
   "clearQueue": "Leeren",
-
   "pin": "An Sidebar anpinnen",
   "unpin": "Von Sidebar entfernen",
   "open": "Öffnen",
   "removeFromRecent": "Aus Verlauf entfernen",
-
   "appSettings": "App-Einstellungen",
   "settings": "Einstellungen",
   "close": "Schließen",
   "quit": "App beenden",
   "selectLanguage": "Sprache auswählen",
-
   "appearance": "Darstellung",
   "playback": "Wiedergabe",
   "lyrics": "Songtext",
   "shortcuts": "Tastenkürzel",
   "language": "Sprache",
-
   "theme": "Theme",
   "themeDark": "Dunkel",
   "themeOled": "OLED",
@@ -89,7 +88,6 @@
   "appFontDyslexicDesc": "Lesefreundliche Schrift für Personen mit LRS und Legasthenie",
   "ambientVisualizer": "Ambient-Visualizer",
   "ambientVisualizerDesc": "Subtiler Farbeffekt im Hintergrund des Songtext-Overlays und der Cover-Ansicht",
-
   "downloadQueue": "Download-Warteschlange",
   "sleepTimer": "Schlaftimer",
   "cancelSleepTimer": "Timer abbrechen",
@@ -102,14 +100,12 @@
   "closeTrayDesc": "Fenster schließen minimiert in den System-Tray statt die App zu beenden",
   "discordRpc": "Discord Rich Presence",
   "discordRpcDesc": "Zeigt den aktuellen Song in deinem Discord-Profil an",
-
   "fontSize": "Schriftgröße",
   "fontSizeDesc": "Aktuelle Größe",
   "translationFontSize": "Übersetzungs-Schriftgröße",
   "romajiFontSize": "Romaji-Schriftgröße",
   "lyricsProviders": "Songtext-Anbieter",
   "lyricsProvidersDesc": "Reihenfolge und Aktivierung der Anbieter. Aktivierte Anbieter werden der Reihe nach versucht.",
-
   "cache": "Cache",
   "cacheAlbums": "Alben",
   "cachePlaylists": "Playlists",
@@ -122,7 +118,6 @@
   "cacheEmpty": "Leer",
   "cacheFiles": "Dateien",
   "cacheEntries": "Einträge",
-
   "keySpace": "Leertaste",
   "keyEsc": "Esc",
   "keyEnter": "Eingabe",
@@ -140,7 +135,11 @@
   "scSeekForward": "5 Sekunden vor",
   "scZoomIn": "Zoom vergrößern",
   "scZoomOut": "Zoom verkleinern",
-
+  "scRecording": "Taste drücken...",
+  "scRecordBtn": "Neu belegen",
+  "scCancelRecord": "Abbrechen",
+  "scResetShortcut": "Zurücksetzen",
+  "scResetAll": "Alle zurücksetzen",
   "welcome": "Willkommen",
   "loginDesc": "Verbinde dein YouTube Music Konto um deine Bibliothek zu nutzen.",
   "loginButton": "Bei YouTube Music anmelden",
@@ -150,31 +149,25 @@
   "cancel": "Abbrechen",
   "loginSuccess": "Anmeldung erfolgreich!",
   "loginSuccessHint": "Die App wird geladen…",
-
   "switchProfileTitle": "Profil wechseln",
   "addAccount": "Konto hinzufügen",
   "reauthSession": "Session erneuern",
   "removeAccountTitle": "Konto entfernen?",
   "removeAccountDesc": "Möchtest du dieses Konto wirklich entfernen? Diese Aktion kann nicht rückgängig gemacht werden.",
   "removeAccountConfirm": "Entfernen",
-
   "expand": "Ausklappen",
   "noProfile": "Kein Profil",
   "switchProfile": "Profil wechseln",
-
   "lyricsLoading": "Songtext werden geladen…",
   "noLyrics": "Kein Songetext verfügbar",
   "noLyricsHint": "Erstelle eigene Songtexte mit einem dieser Tools:",
   "createLyrics": "Songtext erstellen",
-
   "noSuggestions": "Keine Vorschläge verfügbar.",
   "loadingLikedSongs": "Lädt Liked Songs…",
-
   "queueTooltip": "Wiedergabeliste",
   "lyricsTooltip": "Lyrics",
   "fullscreenTooltip": "Vollbild",
   "single": "Single",
-
   "newPlaylist": "Neue Playlist",
   "createPlaylist": "Playlist erstellen",
   "playlistTitle": "Titel",
@@ -192,7 +185,6 @@
   "playlistCreated": "Playlist erstellt",
   "trackAdded": "Song hinzugefügt",
   "trackRemoved": "Song entfernt",
-
   "removeDownload": "Download entfernen",
   "premiumOnly": "Nur für YouTube Music Premium Nutzer verfügbar",
   "download": "Herunterladen",
@@ -201,7 +193,6 @@
   "downloadAll": "Alle herunterladen",
   "cacheSongs": "Songs",
   "offlineAvailable": "Offline verfügbar",
-
   "goToAlbum": "Zum Album",
   "goToArtist": "Zum Künstler",
   "scrollToTop": "Nach oben",
@@ -218,7 +209,6 @@
   "removeCustomLyrics": "Importierte Lyrics entfernen",
   "customLyricsActive": "Eigene Lyrics aktiv",
   "lyricsSource": "Lyrics Quelle",
-
   "storage": "Speicher",
   "storageDownloads": "Downloads",
   "storageCache": "Cache",
@@ -240,10 +230,9 @@
   "noPathSet": "Nicht festgelegt",
   "songsCount": "Songs",
   "storageUsed": "Speicherverbrauch",
-
   "update": "Update",
   "updateAvailable": "Update verfügbar",
-  "upToDate": "Kiyoshi Music ist auf dem neuesten Stand",
+  "upToDate": "Du nutzt bereits die neueste Version.",
   "currentVersion": "Aktuelle Version",
   "latestVersion": "Neueste Version",
   "changelog": "Änderungen",
@@ -255,33 +244,26 @@
   "downloadFailed": "Download fehlgeschlagen",
   "installNow": "Jetzt installieren",
   "savedToDownloads": "Im Downloads-Ordner gespeichert",
-
   "allSongs": "Alle Songs",
   "xOfY": "von",
   "totalDuration": "Gesamtdauer",
   "searchInPlaylist": "In Playlist suchen…",
-
   "hideExplicit": "Explizite Inhalte ausblenden",
   "hideExplicitDesc": "Songs mit dem \"E\"-Badge werden nicht angezeigt",
-
   "uiZoom": "Zoom",
   "uiZoomDesc": "Skalierung der Oberfläche",
-
   "like": "Zu Liked Songs hinzufügen",
   "unlike": "Aus Liked Songs entfernen",
-
   "shuffle": "Shuffle",
   "repeat": "Wiederholen",
   "repeatAll": "Alle wiederholen",
   "repeatOne": "Einmal wiederholen",
   "mute": "Stummschalten",
   "unmute": "Stummschaltung aufheben",
-
   "copyLyrics": "Lyrics kopieren",
   "saveLrc": "Als .lrc speichern",
   "lyricsCopied": "Lyrics in Zwischenablage kopiert!",
   "lrcSaved": "LRC gespeichert!",
-
   "errorLoading": "Fehler beim Laden",
   "backendHint": "Läuft das Python-Backend?",
   "localProfile": "Lokales Profil",
@@ -298,12 +280,10 @@
   "benefitRecommendations": "Personalisierte Empfehlungen",
   "benefitPlaylists": "Eigene YouTube-Playlists importieren",
   "benefitSync": "Geräteübergreifende Synchronisation",
-
   "goOffline": "Offline gehen",
   "goOnline": "Online gehen",
   "offlineBanner": "Offline-Modus — nur heruntergeladene Songs verfügbar",
   "offlineComingSoon": "Offline-Modus kommt bald",
-
   "debug": "Debug",
   "debugSysInfo": "Systeminformationen",
   "debugNoLogs": "Noch keine Log-Einträge.",
@@ -313,7 +293,6 @@
   "copied": "Kopiert!",
   "trayShow": "Kiyoshi Music anzeigen",
   "trayQuit": "Beenden",
-  "upToDate": "Du nutzt bereits die neueste Version.",
   "updateCheckFailed": "Update-Prüfung fehlgeschlagen.",
   "security": "Sicherheit",
   "pinProtection": "Zugriffsschutz",
@@ -333,7 +312,6 @@
   "pinEmergencyReset": "Schutz zurücksetzen",
   "pinEmergencyConfirmText": "Bist du sicher? Der Schutz wird deaktiviert und kann nicht wiederhergestellt werden.",
   "pinEmergencyConfirm": "Ja, zurücksetzen",
-
   "pinTypeLabel": "Schutzart",
   "pinTypeDesc": "Wähle zwischen einem numerischen PIN (Numpad) oder einem Textpasswort",
   "pinTypePin": "PIN",
@@ -342,7 +320,6 @@
   "pinLengthDesc": "Anzahl der Ziffern zum Entsperren",
   "pinDigits": "Stellen",
   "pinSubmit": "Bestätigen",
-
   "overlay": "OBS Overlay",
   "overlayGeneral": "Allgemein",
   "overlayAppearance": "Darstellung",
@@ -366,7 +343,7 @@
   "overlayBgOpacity": "Hintergrund-Transparenz",
   "overlayAccentColor": "Akzentfarbe",
   "overlayTextColor": "Textfarbe",
-  "overlayRadius": "Ecken-Radius",
+  "overlayRadius": "Radius",
   "overlayShowShadow": "Schatten anzeigen",
   "overlayShadowStrength": "Schattenstärke",
   "overlayBgBlurEnabled": "Album-Cover-Hintergrund",
@@ -400,7 +377,6 @@
   "overlayCorner_uniform": "Einheitlich",
   "overlayCorner_individual": "Individuell",
   "overlayCorner_beveled": "Schräg",
-  "overlayRadius": "Radius",
   "overlayCornerTL": "Oben links",
   "overlayCornerTR": "Oben rechts",
   "overlayCornerBR": "Unten rechts",
@@ -427,10 +403,8 @@
   "overlayLocalNoResults": "Keine Fonts gefunden",
   "overlayLocalUnavailable": "Lokale Fonts nicht verfügbar",
   "overlayLocalUnavailableDesc": "Dein Browser unterstützt die Local Font Access API nicht oder die Berechtigung wurde verweigert.",
-
   "machineTranslated": "Maschinell übersetzt",
   "contributeTranslation": "Hilf mit, diese Übersetzung auf Crowdin zu verbessern",
-
   "about": "Über",
   "aboutDesc": "Ein freier, schnörkelloser YouTube Music-Client für den Desktop — gebaut mit Tauri, React und einer Menge Kaffee.",
   "contributors": "Mitwirkende",
@@ -439,5 +413,20 @@
   "contributorRoleAlphaTester": "Alpha Tester",
   "contributorRoleTranslator": "Übersetzer für Toki Pona",
   "tools": "Tools",
-  "discordButton": "Auf YouTube Music anhören"
+  "songSelected": "Song ausgewählt",
+  "songsSelected": "Songs ausgewählt",
+  "likeAll": "Alle liken",
+  "removeSelected": "Entfernen",
+  "showMore": "Mehr anzeigen",
+  "showLess": "Weniger anzeigen",
+  "cancel": "Abbrechen",
+  "addToPlaylist": "Zur Playlist hinzufügen",
+  "subscribers": "Abonnenten",
+  "monthlyListeners": "monatliche Hörer",
+  "startRadio": "Radio starten",
+  "videos": "Videos",
+  "relatedArtists": "Fans hören auch",
+  "subscribe": "Abonnieren",
+  "subscribed": "Abonniert",
+  "unsubscribe": "Abonnement beenden"
 }

@@ -94,6 +94,8 @@ export const ImageSquare        = fa("image");
 export const Microphone         = fa("microphone");
 export const Heart              = fa("heart");
 export const Crown              = fa("crown");
+export const UserPlus           = fa("user-plus");
+export const UserCheck          = fa("user-check");
 
 // ── Actions ──────────────────────────────────────────────────────────────────
 export const Check              = fa("check");
@@ -114,6 +116,7 @@ export const ClockCounterClockwise = fa("clock-rotate-left");
 
 // ── Lists & layout ───────────────────────────────────────────────────────────
 export const DotsSixVertical    = fa("grip-vertical");
+export const GripLines          = fa("grip-lines");
 export const DotsThreeVertical  = fa("ellipsis-vertical");
 
 // ── Time & weather (greeting) ────────────────────────────────────────────────
@@ -137,6 +140,7 @@ export const EyeSlash           = fa("eye-slash");
 export const Tag                = fa("tag");
 export const CircleHalf         = fa("circle-half-stroke");
 export const WaveformLines      = fa("waveform-lines");
+export const Radio              = fa("radio");
 export const Sparkles           = fa("wand-magic-sparkles");
 export const ShareNodes         = fa("share-nodes");
 export const Globe              = fa("globe");
