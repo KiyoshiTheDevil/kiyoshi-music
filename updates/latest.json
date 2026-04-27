@@ -1,11 +1,11 @@
 {
-  "version": "v0.9.16-beta",
-  "pub_date": "2026-04-27T06:20:23Z",
-  "notes": "### Bug Fixes\n- **Linux AppImage white window (5th attempt)** — Diagnostics from v0.9.15-beta on Steam Deck (KDE Wayland, AMD GPU) revealed `Could not create default EGL display: EGL_BAD_PARAMETER` — WebKit's GPU process was crashing during EGL init. Fixes:\n  - Force Mesa software rasterizer via `LIBGL_ALWAYS_SOFTWARE=1` and `GALLIUM_DRIVER=llvmpipe` (slower, but guaranteed to render). Earlier concern about software rendering hurting AMD performance was wrong — when hardware EGL is broken, software is the only option.\n  - When GDK_BACKEND was forced to x11 on a Wayland system, prefer `wayland,x11` so EGL gets the native platform first.\n- **Sidecar binary search** — The Python server binary (`kiyoshi-server`) was not found at the expected `/usr/bin/` path inside the AppImage. `start_server` now tries multiple locations (`/usr/bin/`, `/usr/lib/`, `/usr/libexec/`, `/usr/lib/kiyoshi-music/`) and logs all attempted paths if it can't find the binary.\n---",
+  "version": "v0.9.17-beta",
+  "pub_date": "2026-04-27T06:54:46Z",
+  "notes": "### Bug Fixes\n- **Linux AppImage white window (6th attempt)** — `LIBGL_ALWAYS_SOFTWARE=1` from v0.9.16-beta wasn't enough — Mesa's EGL platform detection was still failing before the GL driver was selected. New env vars:\n  - `EGL_PLATFORM=surfaceless` — bypasses display platform negotiation entirely; EGL never needs to bind to X11/Wayland\n  - `MESA_LOADER_DRIVER_OVERRIDE=llvmpipe` — explicit software driver at the EGL/loader level (not just GL)\n  - `WEBKIT_DISABLE_HARDWARE_ACCELERATION=1` — belt-and-suspenders WebKit hint\n- **Server binary search now walks the AppImage tree** — known paths failed on v0.9.16, so `start_server` now recursively searches `$APPDIR` and the directories above the executable (depth 4) for the sidecar by name, with full diagnostic logging of every path attempted.\n---",
   "platforms": {
     "windows-x86_64": {
-      "url": "https://github.com/KiyoshiTheDevil/kiyoshi-music/releases/download/v0.9.16-beta/Kiyoshi.Music_0.9.16-beta_x64-setup.exe",
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTb3ErUzRRK3lrL21zcVFia0IyU2Y0eVlrOHpmRTBTSXJTcitWUlFzRXREaDd5NnczN1ZnQ2JOaFZ1aXdGNlFoZm9jSno4VE5FdXNMcmxJczlPcEMwWFVmczFjcGpjRUFvPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc3MjcwNzYxCWZpbGU6S2l5b3NoaSBNdXNpY18wLjkuMTYtYmV0YV94NjQtc2V0dXAuZXhlCm1aQ3pkbjZQZDV0UWFZRkIxRUY1b2F2aEU1dFdhbmxvcWhxbEtMTHM3SGx2NlJGbHdsRDM5RmJXa0d3R3MyMHo5M2k5KzB6Rm0yZzd1dVQxd0xkbUNBPT0K"
+      "url": "https://github.com/KiyoshiTheDevil/kiyoshi-music/releases/download/v0.9.17-beta/Kiyoshi.Music_0.9.17-beta_x64-setup.exe",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTb3ErUzRRK3lrL3YxN2ZSOUJvMGppSzgzaGNUTVhQODR0SjdUL2JnNnhLZmprOWxPc0FFWGZoTnF4UFE2RldsTEVCaG5XSEF0YWRvY3JwbzhydU4rOS9WZWVWMlhCdWdVPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc3MjcyODIxCWZpbGU6S2l5b3NoaSBNdXNpY18wLjkuMTctYmV0YV94NjQtc2V0dXAuZXhlCkpkd0tBM00zTm02aFBGcEdEUHZsN1E4RzIwWmtYckloOE9zWE9rNEpGNGM0K1loSG5YWUZhY05hRE1VRUkxM3VPNDlSdnZJQkRzeng1U1ltdFdJN0JBPT0K"
     }
   }
 }
