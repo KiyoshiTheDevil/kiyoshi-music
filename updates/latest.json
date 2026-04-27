@@ -1,11 +1,11 @@
 {
-  "version": "v0.9.19-beta",
-  "pub_date": "2026-04-27T21:34:02Z",
-  "notes": "### Bug Fixes\n- **Sidecar binary not found** — The v0.9.18-beta debug listing revealed the binary IS bundled, but Tauri strips the target-triple suffix on Linux: it's bundled as `kiyoshi-server` (not `kiyoshi-server-x86_64-unknown-linux-gnu`). The Rust code was looking for the suffixed name and never finding it. `start_server` now searches for both names — with and without the target-triple suffix.\n---",
+  "version": "v0.9.20-beta",
+  "pub_date": "2026-04-27T21:52:42Z",
+  "notes": "### Bug Fixes\n- **Linux AppImage white window (8th attempt)** — v0.9.19 confirmed the server now starts correctly and the binary mismatch is fixed, but EGL still aborts. New hypothesis: the \"Aborting...\" comes from GTK/GDK itself trying to use GL during init, before WebKit even starts. New env vars target GDK directly:\n  - `GDK_GL=disable` — disable GDK's GL usage entirely\n  - `GDK_DEBUG=gl-disable` — same hint via debug flag\n  - `GDK_RENDERING=image` — force CPU-only Cairo image surface rendering\n  - `GSK_RENDERER=cairo` — for GTK 4 (in case)\n  - `GST_GL_DISABLED=1` — disable GStreamer GL plugins\n- **Disabled `bundleMediaFramework`** — was bundling GStreamer GL plugins which try to init EGL on startup. Audio playback uses Rust's rodio, not GStreamer, so this should have no functional impact.\n---",
   "platforms": {
     "windows-x86_64": {
-      "url": "https://github.com/KiyoshiTheDevil/kiyoshi-music/releases/download/v0.9.19-beta/Kiyoshi.Music_0.9.19-beta_x64-setup.exe",
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTb3ErUzRRK3lrL25zdHN6Z2JjL2dwbUFPNStac0VpTzN1SU1vUDR1UUZXdkx1Uk1OT0JQS1VXNll4blJ6ZHMwR0lwRlEwdmdFbXV4cGhCWi9SRzZTK1R1dCtlTHpiTVFZPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc3MzI1NTg0CWZpbGU6S2l5b3NoaSBNdXNpY18wLjkuMTktYmV0YV94NjQtc2V0dXAuZXhlCkJPNGNzc0YraHA4QlRVQ1EwWGNoNUdLVlhYeDc1eC9lZ1o5eDlMYTRiYXJQZ3liVTVpRzMxNU5wRjI0L2puNXdDbzAyYVZFc21udlFZQ3NaRTRSMkRRPT0K"
+      "url": "https://github.com/KiyoshiTheDevil/kiyoshi-music/releases/download/v0.9.20-beta/Kiyoshi.Music_0.9.20-beta_x64-setup.exe",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTb3ErUzRRK3lrL3JEalNNQ0xxSVY1NWd0anlhUzZsSGpiUTFTYmhvcjc2dFdrbSs4a0NxSmErVVk1TGpnWno3RTVpSnU2OEhCdFFrcGVnaE1iWWkzRFpCUFJpQS80enc0PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc3MzI2NjkxCWZpbGU6S2l5b3NoaSBNdXNpY18wLjkuMjAtYmV0YV94NjQtc2V0dXAuZXhlCkhLbktQb3A3cUlvMGp0Sk93UVNrWGFBcXpVa1RSZU5VYmVBSEpLaHEyUFZlUXVPdWlrVHU5TFQ1bi9vM3lTUTRuNklwTW43cnV5K2hrS05nWXRHbUFnPT0K"
     }
   }
 }
