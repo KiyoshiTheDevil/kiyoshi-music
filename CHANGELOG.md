@@ -4,6 +4,17 @@ All notable changes to Kiyoshi Music are documented here.
 
 ---
 
+## [0.9.17-beta] — 2026-04-27
+
+### Bug Fixes
+- **Linux AppImage white window (6th attempt)** — `LIBGL_ALWAYS_SOFTWARE=1` from v0.9.16-beta wasn't enough — Mesa's EGL platform detection was still failing before the GL driver was selected. New env vars:
+  - `EGL_PLATFORM=surfaceless` — bypasses display platform negotiation entirely; EGL never needs to bind to X11/Wayland
+  - `MESA_LOADER_DRIVER_OVERRIDE=llvmpipe` — explicit software driver at the EGL/loader level (not just GL)
+  - `WEBKIT_DISABLE_HARDWARE_ACCELERATION=1` — belt-and-suspenders WebKit hint
+- **Server binary search now walks the AppImage tree** — known paths failed on v0.9.16, so `start_server` now recursively searches `$APPDIR` and the directories above the executable (depth 4) for the sidecar by name, with full diagnostic logging of every path attempted.
+
+---
+
 ## [0.9.16-beta] — 2026-04-27
 
 ### Bug Fixes

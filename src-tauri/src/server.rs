@@ -119,11 +119,66 @@ pub fn start_server(app: &tauri::AppHandle) {
             p.clone()
         }
         None => {
-            eprintln!("[server] Binary '{}' not found. Searched:", server_bin);
-            for p in &candidates {
-                eprintln!("[server]   - {}", p.display());
+            // Fallback: walk the AppImage / install tree to find the binary
+            // by name. Tauri's AppImage bundler version determines where the
+            // sidecar ends up — sometimes nested deep.
+            eprintln!("[server] Binary '{}' not in expected paths. Walking the tree...", server_bin);
+            let mut search_roots: Vec<std::path::PathBuf> = vec![];
+            if let Ok(appdir) = std::env::var("APPDIR") {
+                search_roots.push(std::path::PathBuf::from(appdir));
             }
-            return;
+            let mut p = exe_dir.clone();
+            for _ in 0..3 {
+                if let Some(parent) = p.parent() {
+                    search_roots.push(parent.to_path_buf());
+                    p = parent.to_path_buf();
+                }
+            }
+
+            fn find_in(dir: &std::path::Path, name: &str, depth: u8) -> Option<std::path::PathBuf> {
+                if depth == 0 { return None; }
+                let entries = match std::fs::read_dir(dir) { Ok(e) => e, Err(_) => return None };
+                for entry in entries.flatten() {
+                    let path = entry.path();
+                    if let Some(fname) = path.file_name().and_then(|n| n.to_str()) {
+                        if fname == name && path.is_file() {
+                            return Some(path);
+                        }
+                    }
+                    if path.is_dir() {
+                        if let Some(found) = find_in(&path, name, depth - 1) {
+                            return Some(found);
+                        }
+                    }
+                }
+                None
+            }
+
+            let mut found = None;
+            for root in &search_roots {
+                eprintln!("[server]   walking: {}", root.display());
+                if let Some(p) = find_in(root, server_bin, 4) {
+                    eprintln!("[server]   found via walk: {}", p.display());
+                    found = Some(p);
+                    break;
+                }
+            }
+
+            match found {
+                Some(p) => p,
+                None => {
+                    eprintln!("[server] Binary '{}' not found anywhere.", server_bin);
+                    eprintln!("[server] Searched paths:");
+                    for p in &candidates {
+                        eprintln!("[server]   - {}", p.display());
+                    }
+                    eprintln!("[server] Searched roots (recursive, depth 4):");
+                    for r in &search_roots {
+                        eprintln!("[server]   - {}", r.display());
+                    }
+                    return;
+                }
+            }
         }
     };
 

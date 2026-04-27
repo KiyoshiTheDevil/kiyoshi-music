@@ -73,24 +73,22 @@ fn main() {
         // Text rendering on some distros
         env::set_var("WEBKIT_FORCE_COMPLEX_TEXT", "0");
 
-        // ── Software rendering ──────────────────────────────────────────────
-        // Force Mesa software rasterizer for ALL GL usage. This is necessary
-        // because WebKit's GPU process always tries to initialize EGL — and on
-        // many Linux configurations (notably Steam Deck on Wayland-via-XWayland
-        // with the AMD Mesa driver) hardware EGL fails with EGL_BAD_PARAMETER,
-        // crashing the WebKit GPU process and producing a blank white window.
-        // Software is slower but guaranteed to work everywhere.
+        // ── Software rendering — aggressive ─────────────────────────────────
+        // WebKit's GPU process insists on initializing EGL even when compositing
+        // is disabled. On Steam Deck (KDE Wayland, AMD Mesa) eglGetDisplay fails
+        // with EGL_BAD_PARAMETER because Mesa can't decide on a platform. To
+        // bypass this we force EGL into surfaceless mode (no display needed)
+        // and explicitly select the swrast/llvmpipe driver at every layer.
         env::set_var("LIBGL_ALWAYS_SOFTWARE", "1");
-        // Same idea, scoped to the GBM backend that Mesa uses internally
         env::set_var("GALLIUM_DRIVER", "llvmpipe");
+        env::set_var("MESA_LOADER_DRIVER_OVERRIDE", "llvmpipe");
+        // Surfaceless EGL — works without X11 or Wayland display, never fails
+        env::set_var("EGL_PLATFORM", "surfaceless");
+        // Belt-and-suspenders: also try to disable hardware acceleration
+        env::set_var("WEBKIT_DISABLE_HARDWARE_ACCELERATION", "1");
 
         // ── GDK backend ─────────────────────────────────────────────────────
-        // Some Tauri/AppImage tooling forces GDK_BACKEND=x11. On Wayland systems
-        // this means EGL goes through XWayland, which is exactly the path that
-        // tends to fail. If GDK_BACKEND was forced to x11 but Wayland is also
-        // available, prefer Wayland.
         if env::var("GDK_BACKEND").as_deref() == Ok("x11") && env::var("WAYLAND_DISPLAY").is_ok() {
-            // Don't unset (some tooling re-sets it after); explicitly try wayland first, x11 fallback
             env::set_var("GDK_BACKEND", "wayland,x11");
         }
 
@@ -102,8 +100,11 @@ fn main() {
         eprintln!("[kiyoshi]   WEBKIT_DISABLE_ACCELERATED_2D_CANVAS=1");
         eprintln!("[kiyoshi]   __GL_THREADED_OPTIMIZATIONS=0");
         eprintln!("[kiyoshi]   WEBKIT_FORCE_COMPLEX_TEXT=0");
-        eprintln!("[kiyoshi]   LIBGL_ALWAYS_SOFTWARE=1  (forces Mesa software rendering)");
+        eprintln!("[kiyoshi]   LIBGL_ALWAYS_SOFTWARE=1");
         eprintln!("[kiyoshi]   GALLIUM_DRIVER=llvmpipe");
+        eprintln!("[kiyoshi]   MESA_LOADER_DRIVER_OVERRIDE=llvmpipe");
+        eprintln!("[kiyoshi]   EGL_PLATFORM=surfaceless");
+        eprintln!("[kiyoshi]   WEBKIT_DISABLE_HARDWARE_ACCELERATION=1");
         eprintln!("[kiyoshi] display server: {}",
             env::var("WAYLAND_DISPLAY").map(|_| "wayland").unwrap_or_else(|_|
                 env::var("DISPLAY").map(|_| "x11").unwrap_or("none")));
