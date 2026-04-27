@@ -4,6 +4,14 @@ All notable changes to Kiyoshi Music are documented here.
 
 ---
 
+## [0.9.18-beta] — 2026-04-27
+
+### Bug Fixes
+- **Linux AppImage white window (7th attempt)** — env-var workarounds didn't fix EGL_BAD_PARAMETER on Steam Deck because the bundled libEGL/libGL/libgbm in the AppImage were incompatible with the host's Mesa drivers. New fix: tell `linuxdeploy` to **exclude** all GL/EGL/DRM/Wayland/X11 graphics libraries from the AppImage via `LINUXDEPLOY_EXCLUDE_LIST`. The AppImage now uses the host system's Mesa drivers — guaranteed compatible with the host's GPU and kernel.
+- **Server binary diagnostics** — Recursive walk depth increased from 4 to 8. Added a build-time AppImage content listing step that runs after the AppImage is produced, so we can see exactly what's bundled (helps diagnose where the sidecar ends up, if anywhere).
+
+---
+
 ## [0.9.17-beta] — 2026-04-27
 
 ### Bug Fixes

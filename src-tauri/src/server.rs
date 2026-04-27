@@ -157,7 +157,7 @@ pub fn start_server(app: &tauri::AppHandle) {
             let mut found = None;
             for root in &search_roots {
                 eprintln!("[server]   walking: {}", root.display());
-                if let Some(p) = find_in(root, server_bin, 4) {
+                if let Some(p) = find_in(root, server_bin, 8) {
                     eprintln!("[server]   found via walk: {}", p.display());
                     found = Some(p);
                     break;
@@ -172,7 +172,7 @@ pub fn start_server(app: &tauri::AppHandle) {
                     for p in &candidates {
                         eprintln!("[server]   - {}", p.display());
                     }
-                    eprintln!("[server] Searched roots (recursive, depth 4):");
+                    eprintln!("[server] Searched roots (recursive, depth 8):");
                     for r in &search_roots {
                         eprintln!("[server]   - {}", r.display());
                     }
