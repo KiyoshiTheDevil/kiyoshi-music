@@ -1,11 +1,11 @@
 {
-  "version": "v0.9.18-beta",
-  "pub_date": "2026-04-27T21:20:57Z",
-  "notes": "### Bug Fixes\n- **Linux AppImage white window (7th attempt)** — env-var workarounds didn't fix EGL_BAD_PARAMETER on Steam Deck because the bundled libEGL/libGL/libgbm in the AppImage were incompatible with the host's Mesa drivers. New fix: tell `linuxdeploy` to **exclude** all GL/EGL/DRM/Wayland/X11 graphics libraries from the AppImage via `LINUXDEPLOY_EXCLUDE_LIST`. The AppImage now uses the host system's Mesa drivers — guaranteed compatible with the host's GPU and kernel.\n- **Server binary diagnostics** — Recursive walk depth increased from 4 to 8. Added a build-time AppImage content listing step that runs after the AppImage is produced, so we can see exactly what's bundled (helps diagnose where the sidecar ends up, if anywhere).\n---",
+  "version": "v0.9.19-beta",
+  "pub_date": "2026-04-27T21:34:02Z",
+  "notes": "### Bug Fixes\n- **Sidecar binary not found** — The v0.9.18-beta debug listing revealed the binary IS bundled, but Tauri strips the target-triple suffix on Linux: it's bundled as `kiyoshi-server` (not `kiyoshi-server-x86_64-unknown-linux-gnu`). The Rust code was looking for the suffixed name and never finding it. `start_server` now searches for both names — with and without the target-triple suffix.\n---",
   "platforms": {
     "windows-x86_64": {
-      "url": "https://github.com/KiyoshiTheDevil/kiyoshi-music/releases/download/v0.9.18-beta/Kiyoshi.Music_0.9.18-beta_x64-setup.exe",
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTb3ErUzRRK3lrL3ZTSUl6Y1RWZGlFVTRWbzRkM0ZFRjFqMUxGeXhrK2MreUNxZk5tU2hkbGg1aDRtS2JZRGtmc1p5RFBtTlNLazBVZlAvemVBSk85RlNNS3YzMFZOWUFvPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc3MzI0Nzk0CWZpbGU6S2l5b3NoaSBNdXNpY18wLjkuMTgtYmV0YV94NjQtc2V0dXAuZXhlCmY5NFBieTIrUmRwRDUwc3RkQmlnOVUyOTlkWnVNSk5mWGkwbnorN01zdkNybExTVUNOaG9GQ25RNDE4d015ZGs4M1FGTUlPM0tRWVlxMmZVdlNqVkFnPT0K"
+      "url": "https://github.com/KiyoshiTheDevil/kiyoshi-music/releases/download/v0.9.19-beta/Kiyoshi.Music_0.9.19-beta_x64-setup.exe",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTb3ErUzRRK3lrL25zdHN6Z2JjL2dwbUFPNStac0VpTzN1SU1vUDR1UUZXdkx1Uk1OT0JQS1VXNll4blJ6ZHMwR0lwRlEwdmdFbXV4cGhCWi9SRzZTK1R1dCtlTHpiTVFZPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc3MzI1NTg0CWZpbGU6S2l5b3NoaSBNdXNpY18wLjkuMTktYmV0YV94NjQtc2V0dXAuZXhlCkJPNGNzc0YraHA4QlRVQ1EwWGNoNUdLVlhYeDc1eC9lZ1o5eDlMYTRiYXJQZ3liVTVpRzMxNU5wRjI0L2puNXdDbzAyYVZFc21udlFZQ3NaRTRSMkRRPT0K"
     }
   }
 }
