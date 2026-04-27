@@ -1,11 +1,11 @@
 {
-  "version": "v0.9.20-beta",
-  "pub_date": "2026-04-27T21:52:42Z",
-  "notes": "### Bug Fixes\n- **Linux AppImage white window (8th attempt)** — v0.9.19 confirmed the server now starts correctly and the binary mismatch is fixed, but EGL still aborts. New hypothesis: the \"Aborting...\" comes from GTK/GDK itself trying to use GL during init, before WebKit even starts. New env vars target GDK directly:\n  - `GDK_GL=disable` — disable GDK's GL usage entirely\n  - `GDK_DEBUG=gl-disable` — same hint via debug flag\n  - `GDK_RENDERING=image` — force CPU-only Cairo image surface rendering\n  - `GSK_RENDERER=cairo` — for GTK 4 (in case)\n  - `GST_GL_DISABLED=1` — disable GStreamer GL plugins\n- **Disabled `bundleMediaFramework`** — was bundling GStreamer GL plugins which try to init EGL on startup. Audio playback uses Rust's rodio, not GStreamer, so this should have no functional impact.\n---",
+  "version": "v0.9.21-beta",
+  "pub_date": "2026-04-27T22:07:25Z",
+  "notes": "### Diagnostics\n- **Library inspection on Linux startup** — eight env-var iterations haven't fixed the EGL crash on Steam Deck. The error comes from WebKit's hardcoded `GLDisplay::create()` which calls `CRASH()` if `eglGetDisplay()` fails. New build prints the actual libraries available on the host (via `ldconfig -p`) and what graphics libs are bundled in the AppImage's `usr/lib/`. This will reveal whether: (a) the host is missing required libraries, (b) `LINUXDEPLOY_EXCLUDE_LIST` actually worked or libraries are still bundled, (c) there's an ABI mismatch between bundled and host libs.\n- **Cleaned up env-var soup** — removed conflicting/non-functional flags (e.g. `EGL_PLATFORM=surfaceless` which only affects `eglGetPlatformDisplay`, not the legacy `eglGetDisplay` that WebKit uses). Kept only the seven flags that have any chance of being respected.\n---",
   "platforms": {
     "windows-x86_64": {
-      "url": "https://github.com/KiyoshiTheDevil/kiyoshi-music/releases/download/v0.9.20-beta/Kiyoshi.Music_0.9.20-beta_x64-setup.exe",
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTb3ErUzRRK3lrL3JEalNNQ0xxSVY1NWd0anlhUzZsSGpiUTFTYmhvcjc2dFdrbSs4a0NxSmErVVk1TGpnWno3RTVpSnU2OEhCdFFrcGVnaE1iWWkzRFpCUFJpQS80enc0PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc3MzI2NjkxCWZpbGU6S2l5b3NoaSBNdXNpY18wLjkuMjAtYmV0YV94NjQtc2V0dXAuZXhlCkhLbktQb3A3cUlvMGp0Sk93UVNrWGFBcXpVa1RSZU5VYmVBSEpLaHEyUFZlUXVPdWlrVHU5TFQ1bi9vM3lTUTRuNklwTW43cnV5K2hrS05nWXRHbUFnPT0K"
+      "url": "https://github.com/KiyoshiTheDevil/kiyoshi-music/releases/download/v0.9.21-beta/Kiyoshi.Music_0.9.21-beta_x64-setup.exe",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTb3ErUzRRK3lrL2txMDg5ZGg1NjFwVDhTQU0yRkNRV01uTGNzUkJvdU44d2NkTE9TWWIzUWo1ZWRDTWRWMTdBcFliR0dGY1dia3VyRHdlUjRuSEptaTNrS3RMaVV3NFFJPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc3MzI3NTgxCWZpbGU6S2l5b3NoaSBNdXNpY18wLjkuMjEtYmV0YV94NjQtc2V0dXAuZXhlCmFkK3NNMk1xbGVxNnl6cGRFRWFWLzlOK0F4bFBKeExBNlBYYUtRL0FDaUs1cHJkdDFtWUpjK2tTZHZrREd2cFNHcVRxT1I4NHdRb0R0WFZxNHFJWUFBPT0K"
     }
   }
 }
