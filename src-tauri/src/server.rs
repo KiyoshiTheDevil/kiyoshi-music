@@ -10,6 +10,7 @@ impl ServerProcess {
     }
 }
 
+#[allow(dead_code)]
 fn wait_for_server(max_ms: u64) -> bool {
     let start = std::time::Instant::now();
     while start.elapsed().as_millis() < max_ms as u128 {
@@ -84,6 +85,7 @@ pub fn kill_existing_server(child: &mut Option<Child>) {
     }
 }
 
+#[allow(dead_code)]
 pub fn start_server(app: &tauri::AppHandle) {
     #[cfg(all(target_os = "windows", target_arch = "x86_64"))]
     let server_bin = "kiyoshi-server.exe";

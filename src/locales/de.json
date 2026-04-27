@@ -413,6 +413,8 @@
   "contributorRoleAlphaTester": "Alpha Tester",
   "contributorRoleTranslator": "Übersetzer für Toki Pona",
   "tools": "Tools",
+  "selectAll": "Alle auswählen",
+  "deselectAll": "Alle abwählen",
   "songSelected": "Song ausgewählt",
   "songsSelected": "Songs ausgewählt",
   "likeAll": "Alle liken",

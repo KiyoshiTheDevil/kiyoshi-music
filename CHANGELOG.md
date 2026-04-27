@@ -4,6 +4,26 @@ All notable changes to Kiyoshi Music are documented here.
 
 ---
 
+## [0.9.15-beta] — 2026-04-27
+
+### New Features
+- **Library search** — Search field in the Library view (right side of the sort row) filters playlists, albums or artists in real-time; resets on tab change
+- **Select All checkbox** — Master checkbox in the playlist/album column header selects or deselects all visible tracks at once (respecting the search filter)
+- **Buy Me a Coffee button** — Added to the About page in Settings
+
+### Improvements
+- **History view redesign** — Now uses the same hero header layout as Liked Songs (cover art, title, song count, play button, back button); "Clear History" button moved to the action row, right side
+- **Liked Songs back button** — Always active and routes to the previous view (or Home if accessed directly via sidebar)
+- **Animation toggle** — Now disables ALL transitions and animations globally via a single CSS rule with `!important`; previously many hardcoded transitions were ignoring the toggle
+
+### Bug Fixes
+- **Linux AppImage white window (4th attempt)** — Made external CSS/font loads non-blocking (Google Fonts and FontAwesome no longer delay first paint); added HTML-level boot splash that's visible immediately on parse; added `WEBKIT_DISABLE_ACCELERATED_2D_CANVAS=1`, `__GL_THREADED_OPTIMIZATIONS=0` and `WEBKIT_FORCE_COMPLEX_TEXT=0` env vars; added `[kiyoshi]` and `[boot]` diagnostic logging visible from terminal
+
+### Internal
+- Suppressed three Rust dead-code warnings (`capacity`, `wait_for_server`, `start_server`) with `#[allow(dead_code)]`
+
+---
+
 ## [0.9.14-beta] — 2026-04-21
 
 ### New Features

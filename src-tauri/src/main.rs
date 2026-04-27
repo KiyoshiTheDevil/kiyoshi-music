@@ -71,6 +71,31 @@ fn main() {
         // Do NOT force GDK_BACKEND=x11 — on Wayland (KDE Plasma / SteamOS)
         // WebKitGTK works better with the native Wayland backend.
         // Do NOT force LIBGL_ALWAYS_SOFTWARE — harmful on AMD GPUs.
+
+        // Disable accelerated 2D canvas — another known cause of blank WebKit windows
+        env::set_var("WEBKIT_DISABLE_ACCELERATED_2D_CANVAS", "1");
+        // NVIDIA: prevent threaded GL optimizations from racing with WebKit
+        env::set_var("__GL_THREADED_OPTIMIZATIONS", "0");
+        // Some distros need the WebGL workaround
+        env::set_var("WEBKIT_FORCE_COMPLEX_TEXT", "0");
+
+        // Diagnostic logging — visible when AppImage is launched from terminal.
+        // Helps narrow down the white-window cause when it still happens.
+        eprintln!("[kiyoshi] linux env applied:");
+        eprintln!("[kiyoshi]   WEBKIT_DISABLE_COMPOSITING_MODE=1");
+        eprintln!("[kiyoshi]   WEBKIT_DISABLE_DMABUF_RENDERER=1");
+        eprintln!("[kiyoshi]   WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1");
+        eprintln!("[kiyoshi]   WEBKIT_DISABLE_ACCELERATED_2D_CANVAS=1");
+        eprintln!("[kiyoshi]   __GL_THREADED_OPTIMIZATIONS=0");
+        eprintln!("[kiyoshi]   WEBKIT_FORCE_COMPLEX_TEXT=0");
+        eprintln!("[kiyoshi] display server: {}",
+            env::var("WAYLAND_DISPLAY").map(|_| "wayland").unwrap_or_else(|_|
+                env::var("DISPLAY").map(|_| "x11").unwrap_or("none")));
+        eprintln!("[kiyoshi] gdk_backend: {}", env::var("GDK_BACKEND").unwrap_or_else(|_| "(unset, native)".into()));
+        eprintln!("[kiyoshi] desktop: {}", env::var("XDG_CURRENT_DESKTOP").unwrap_or_else(|_| "(unknown)".into()));
+        if std::env::var("APPIMAGE").is_ok() {
+            eprintln!("[kiyoshi] running inside AppImage: {}", env::var("APPIMAGE").unwrap_or_default());
+        }
     }
 
     tauri::Builder::default()

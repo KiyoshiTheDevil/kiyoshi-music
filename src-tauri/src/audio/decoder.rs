@@ -22,6 +22,7 @@ impl SampleRing {
         }
     }
 
+    #[allow(dead_code)]
     pub fn capacity(&self) -> usize {
         self.buf.len()
     }

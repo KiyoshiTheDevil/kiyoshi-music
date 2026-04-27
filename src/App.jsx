@@ -108,10 +108,10 @@ const _MAX_FRONTEND_LOGS = 500;
 })();
 
 // ─── App Version ─────────────────────────────────────────────────────────────
-const APP_VERSION = "0.9.14-beta";
+const APP_VERSION = "0.9.15-beta";
 
 // ─── Update Checker (GitHub Releases) ───────────────────────────────────────
-const APP_TAG = "v0.9.14-beta";
+const APP_TAG = "v0.9.15-beta";
 const GITHUB_RELEASES_API = "https://api.github.com/repos/KiyoshiTheDevil/kiyoshi-music/releases?per_page=1";
 
 function isNewerVersion(latest, current) {
@@ -5101,7 +5101,7 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                   <div style={{ fontSize: "var(--t13)", color: "var(--text-secondary)", maxWidth: 420, lineHeight: 1.6, marginBottom: 20 }}>
                     {t("aboutDesc")}
                   </div>
-                  <div style={{ display: "flex", gap: 10 }}>
+                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                     <button onClick={() => openUrl("https://github.com/KiyoshiTheDevil/kiyoshi-music")} style={{
                       display: "flex", alignItems: "center", gap: 7,
                       padding: "7px 16px", borderRadius: "var(--radius)", cursor: "pointer",
@@ -5114,6 +5114,18 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                     >
                       <Globe size={14} />
                       GitHub
+                    </button>
+                    <button onClick={() => openUrl("https://buymeacoffee.com/kiyoshi_the_devil")} style={{
+                      display: "flex", alignItems: "center", gap: 7,
+                      padding: "7px 16px", borderRadius: "var(--radius)", cursor: "pointer",
+                      background: "#FFDD00", border: "0.5px solid transparent",
+                      color: "#000000", fontSize: "var(--t13)", fontFamily: "var(--font)",
+                      fontWeight: 600, transition: "all 0.15s",
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.opacity = "0.88"}
+                    onMouseLeave={e => e.currentTarget.style.opacity = "1"}
+                    >
+                      ☕ Buy me a coffee
                     </button>
                   </div>
                 </div>
@@ -7967,7 +7979,13 @@ function LibraryView({ onPlay, currentTrack, isPlaying, onOpenPlaylist, onOpenAl
   const [error, setError] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [sortOrder, setSortOrder] = useState("default");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchRef = useRef(null);
   const t = useLang();
+
+  useEffect(() => { if (searchOpen) searchRef.current?.focus(); }, [searchOpen]);
+  useEffect(() => { setSearchQuery(""); setSearchOpen(false); }, [tab]);
 
   useEffect(() => {
     const handler = () => setRefreshKey(k => k + 1);
@@ -8012,6 +8030,11 @@ function LibraryView({ onPlay, currentTrack, isPlaying, onOpenPlaylist, onOpenAl
     if (sortOrder === "year_desc") return (parseInt(b.year) || 0) - (parseInt(a.year) || 0);
     if (sortOrder === "year_asc")  return (parseInt(a.year) || 0) - (parseInt(b.year) || 0);
     return 0; // "default" — keep API order
+  }).filter(item => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    if (tab === "artists") return (item.artist || "").toLowerCase().includes(q);
+    return (item.title || "").toLowerCase().includes(q) || (item.artists || "").toLowerCase().includes(q);
   });
 
   const sortOptions = [
@@ -8046,7 +8069,7 @@ function LibraryView({ onPlay, currentTrack, isPlaying, onOpenPlaylist, onOpenAl
         </div>
       </div>
 
-      {/* Sort row */}
+      {/* Sort + search row */}
       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 20 }}>
         <Sliders size={12} style={{ color: "var(--text-muted)", flexShrink: 0 }} />
         {sortOptions.map(o => (
@@ -8055,20 +8078,49 @@ function LibraryView({ onPlay, currentTrack, isPlaying, onOpenPlaylist, onOpenAl
             onClick={() => setSortOrder(o.value)}
             style={{
               background: sortOrder === o.value ? "color-mix(in srgb, var(--accent) 15%, transparent)" : "none",
-              border: "none",
-              borderRadius: 6,
-              padding: "3px 9px",
-              fontSize: "var(--t12)",
-              fontFamily: "var(--font)",
+              border: "none", borderRadius: 6, padding: "3px 9px",
+              fontSize: "var(--t12)", fontFamily: "var(--font)",
               color: sortOrder === o.value ? "var(--accent)" : "var(--text-muted)",
               fontWeight: sortOrder === o.value ? 600 : 400,
-              cursor: "pointer",
-              transition: "all 0.15s",
+              cursor: "pointer", transition: "all 0.15s",
             }}
             onMouseEnter={e => { if (sortOrder !== o.value) e.currentTarget.style.color = "var(--text-secondary)"; }}
             onMouseLeave={e => { if (sortOrder !== o.value) e.currentTarget.style.color = "var(--text-muted)"; }}
           >{o.label}</button>
         ))}
+        {/* Search — right side */}
+        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>
+          <div style={{ width: searchOpen ? 200 : 0, overflow: "hidden", transition: "width 0.25s cubic-bezier(0.4,0,0.2,1)" }}>
+            <input
+              ref={searchRef}
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              onKeyDown={e => { if (e.key === "Escape") { setSearchQuery(""); setSearchOpen(false); } }}
+              placeholder={t("search")}
+              style={{
+                background: "var(--bg-elevated)", border: "0.5px solid var(--border)",
+                borderRadius: 20, padding: "5px 12px", fontSize: "var(--t12)",
+                color: "var(--text-primary)", outline: "none",
+                width: 200, fontFamily: "var(--font)",
+              }}
+            />
+          </div>
+          <button
+            onClick={() => { setSearchOpen(v => !v); if (searchOpen) setSearchQuery(""); }}
+            style={{
+              width: 28, height: 28, borderRadius: "50%", flexShrink: 0,
+              background: searchOpen ? "color-mix(in srgb, var(--accent) 18%, transparent)" : "var(--bg-elevated)",
+              border: "0.5px solid var(--border)",
+              color: searchOpen ? "var(--accent)" : "var(--text-secondary)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              cursor: "pointer", transition: "all 0.15s", padding: 0,
+            }}
+            onMouseEnter={e => { if (!searchOpen) e.currentTarget.style.color = "var(--text-primary)"; }}
+            onMouseLeave={e => { if (!searchOpen) e.currentTarget.style.color = "var(--text-secondary)"; }}
+          >
+            <MagnifyingGlass size={13} />
+          </button>
+        </div>
       </div>
 
       {loading && <div style={{ color: "var(--text-secondary)" }}>{t("loadingDots")}</div>}
@@ -8285,7 +8337,7 @@ function TableRow({ track, index, isPlaying, onPlay, onOpenArtist, onOpenAlbum, 
 }
 
 // ─── Shared playlist/collection layout ────────────────────────────────────
-function PlaylistLayout({ title, thumbnail, tracks, total, loading, progress, cached, onPlay, currentTrack, isPlaying, onBack, isLiked, onOpenArtist, onOpenAlbum, isAlbum, albumArtists, albumArtistBrowseId, year, onRefresh, onTrackContextMenu, cachedSongIds, downloadingIds, premiumSongIds, onDownloadSong, onDownloadAll, onRemoveAll, hideExplicit, onToggleLike, likedIds, selectedTracks, onToggleSelect }) {
+function PlaylistLayout({ title, thumbnail, tracks, total, loading, progress, cached, onPlay, currentTrack, isPlaying, onBack, isLiked, onOpenArtist, onOpenAlbum, isAlbum, albumArtists, albumArtistBrowseId, year, onRefresh, onTrackContextMenu, cachedSongIds, downloadingIds, premiumSongIds, onDownloadSong, onDownloadAll, onRemoveAll, hideExplicit, onToggleLike, likedIds, selectedTracks, onToggleSelect, onSelectAll, extraActions, typeLabel }) {
   const accentColor = useAccentColor(thumbnail);
   const t = useLang();
   const [trackSearch, setTrackSearch] = useState("");
@@ -8347,20 +8399,22 @@ function PlaylistLayout({ title, thumbnail, tracks, total, loading, progress, ca
             overflow: "hidden", background: "var(--bg-elevated)",
             boxShadow: `0 18px 52px rgba(${accentColor},0.38)`,
           }}>
-            {isLiked && !thumbnail
-              ? <div style={{ width: "100%", height: "100%", background: `linear-gradient(135deg, rgba(${accentColor},0.8), rgba(${accentColor},0.3))`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <Heart size={72} weight="fill" style={{ color: "rgba(255,255,255,0.9)" }} />
-                </div>
-              : thumbnail
+            {thumbnail
               ? <img src={thumb(thumbnail)} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-              : <div style={{ width: "100%", height: "100%", background: "linear-gradient(135deg,#2a1535,#1a0a25)" }} />}
+              : <div style={{ width: "100%", height: "100%", background: `linear-gradient(135deg, rgba(${accentColor},0.8), rgba(${accentColor},0.3))`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  {isLiked
+                    ? <Heart size={72} weight="fill" style={{ color: "rgba(255,255,255,0.9)" }} />
+                    : typeLabel
+                    ? <ClockCounterClockwise size={72} style={{ color: "rgba(255,255,255,0.9)" }} />
+                    : null}
+                </div>}
           </div>
 
           {/* Info */}
           <div style={{ minWidth: 0, flex: 1 }}>
             {/* Type label */}
             <div style={{ fontSize: "var(--t11)", fontWeight: 600, color: "rgba(255,255,255,0.5)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8 }}>
-              {isAlbum ? t("album") : t("playlist")}
+              {typeLabel ?? (isAlbum ? t("album") : t("playlist"))}
             </div>
 
             {/* Title */}
@@ -8424,6 +8478,7 @@ function PlaylistLayout({ title, thumbnail, tracks, total, loading, progress, ca
 
               {/* Right: secondary actions */}
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                {extraActions}
                 {/* Inline search input */}
                 <div style={{
                   width: searchVisible ? 200 : 0, overflow: "hidden",
@@ -8564,7 +8619,20 @@ function PlaylistLayout({ title, thumbnail, tracks, total, loading, progress, ca
         fontSize: "var(--t11)", fontWeight: 600, color: "var(--text-muted)",
         textTransform: "uppercase", letterSpacing: "0.08em",
       }}>
-        {onToggleSelect && <div />}
+        {onToggleSelect && (() => {
+          const allSelected = visibleTracks.length > 0 && visibleTracks.every(tr => selectedTracks?.has(tr.videoId));
+          return (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+              onClick={() => onSelectAll?.(visibleTracks, allSelected)}
+              title={allSelected ? t("deselectAll") : t("selectAll")}
+            >
+              {allSelected
+                ? <CheckCircle size={18} weight="fill" style={{ color: "var(--accent)" }} />
+                : <div style={{ width: 16, height: 16, borderRadius: "50%", border: "1.5px solid var(--text-muted)", background: "var(--bg-elevated)" }} />
+              }
+            </div>
+          );
+        })()}
         <div>{t("colTitle")}</div>
         <div>{t("colArtist")}</div>
         {!isAlbum && <div>{t("colAlbum")}</div>}
@@ -8789,7 +8857,7 @@ function DownloadsView({ onPlay, currentTrack, isPlaying, cachedSongIds, downloa
   );
 }
 
-function CollectionView({ title, thumbnail, tracks, total, loading, progress, cached, onPlay, currentTrack, isPlaying, onBack, onOpenArtist, onOpenAlbum, isAlbum, albumArtists, albumArtistBrowseId, year, onRefresh, onTrackContextMenu, cachedSongIds, downloadingIds, premiumSongIds, onDownloadSong, onDownloadAll, onRemoveAll, hideExplicit, onToggleLike, likedIds, selectedTracks, onToggleSelect }) {
+function CollectionView({ title, thumbnail, tracks, total, loading, progress, cached, onPlay, currentTrack, isPlaying, onBack, onOpenArtist, onOpenAlbum, isAlbum, albumArtists, albumArtistBrowseId, year, onRefresh, onTrackContextMenu, cachedSongIds, downloadingIds, premiumSongIds, onDownloadSong, onDownloadAll, onRemoveAll, hideExplicit, onToggleLike, likedIds, selectedTracks, onToggleSelect, onSelectAll }) {
   return (
     <PlaylistLayout
       title={title} thumbnail={thumbnail} tracks={tracks} total={total}
@@ -8800,7 +8868,7 @@ function CollectionView({ title, thumbnail, tracks, total, loading, progress, ca
       onRefresh={onRefresh} onTrackContextMenu={onTrackContextMenu}
       cachedSongIds={cachedSongIds} downloadingIds={downloadingIds} premiumSongIds={premiumSongIds} onDownloadSong={onDownloadSong} onDownloadAll={onDownloadAll} onRemoveAll={onRemoveAll}
       hideExplicit={hideExplicit} onToggleLike={onToggleLike} likedIds={likedIds}
-      selectedTracks={selectedTracks} onToggleSelect={onToggleSelect}
+      selectedTracks={selectedTracks} onToggleSelect={onToggleSelect} onSelectAll={onSelectAll}
     />
   );
 }
@@ -9280,7 +9348,7 @@ function timeAgo(ts, t) {
   return new Date(ts).toLocaleDateString();
 }
 
-function HistoryView({ onPlay, currentTrack, isPlaying, onOpenArtist, onOpenAlbum, onTrackContextMenu, cachedSongIds, downloadingIds, onDownloadSong, hideExplicit }) {
+function HistoryView({ onPlay, currentTrack, isPlaying, onOpenArtist, onOpenAlbum, onTrackContextMenu, cachedSongIds, downloadingIds, onDownloadSong, hideExplicit, onBack }) {
   const t = useLang();
   const profileKey = () => `kiyoshi-history-${window.__activeProfile || "default"}`;
   const load = () => { try { return JSON.parse(localStorage.getItem(profileKey()) || "[]"); } catch { return []; } };
@@ -9305,76 +9373,41 @@ function HistoryView({ onPlay, currentTrack, isPlaying, onOpenArtist, onOpenAlbu
     setTracks(updated);
   };
 
-  return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-      {/* Header */}
-      <div style={{ padding: "24px 24px 8px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-        <div style={{ fontSize: "var(--t22)", fontWeight: 700 }}>{t("history")}</div>
-        {tracks.length > 0 && (
-          <button onClick={clearHistory} style={{
-            background: "none", border: "0.5px solid var(--border)", borderRadius: 8,
-            color: "var(--text-muted)", fontSize: "var(--t12)", padding: "5px 12px", cursor: "pointer",
-            fontFamily: "var(--font)", transition: "all 0.15s",
-          }}
-          onMouseEnter={e => { e.currentTarget.style.color = "#f44336"; e.currentTarget.style.borderColor = "#f44336"; }}
-          onMouseLeave={e => { e.currentTarget.style.color = "var(--text-muted)"; e.currentTarget.style.borderColor = "var(--border)"; }}
-          >{t("clearHistory")}</button>
-        )}
-      </div>
+  const clearHistoryBtn = tracks.length > 0 ? (
+    <button onClick={clearHistory} style={{
+      borderRadius: 28, height: 42, display: "flex", alignItems: "center",
+      padding: "0 18px", gap: 8, fontSize: "var(--t13)", fontWeight: 600,
+      cursor: "pointer", transition: "background 0.15s, border-color 0.15s, color 0.15s",
+      fontFamily: "var(--font)", backdropFilter: "blur(6px)",
+      border: "0.5px solid rgba(255,255,255,0.15)",
+      background: "rgba(0,0,0,0.3)", color: "rgba(255,255,255,0.75)",
+    }}
+    onMouseEnter={e => { e.currentTarget.style.color = "#f44336"; e.currentTarget.style.borderColor = "#f44336"; e.currentTarget.style.background = "rgba(244,67,54,0.12)"; }}
+    onMouseLeave={e => { e.currentTarget.style.color = "rgba(255,255,255,0.75)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.15)"; e.currentTarget.style.background = "rgba(0,0,0,0.3)"; }}
+    >
+      <Trash size={13} /> {t("clearHistory")}
+    </button>
+  ) : null;
 
-      {tracks.length === 0 ? (
-        <div style={{ padding: "40px 24px", color: "var(--text-muted)", fontSize: "var(--t13)", textAlign: "center" }}>
-          {t("historyEmpty")}
-        </div>
-      ) : (
-        <div className="scrollable" style={{ flex: 1, overflowY: "auto" }}>
-          {tracks.filter(tr => !hideExplicit || !tr.isExplicit).map((track, i) => {
-            const isActive = currentTrack?.videoId === track.videoId;
-            return (
-              <div key={`${track.videoId}-${i}`} onClick={() => onPlay(track, tracks)}
-                onContextMenu={e => {
-                  e.preventDefault();
-                  onTrackContextMenu(e, track, { historyIndex: i, removeFromHistory: () => removeFromHistory(i) });
-                }}
-                style={{
-                  display: "flex", alignItems: "center", gap: 12,
-                  padding: "7px 24px", cursor: "pointer",
-                  background: isActive ? "rgba(224,64,251,0.07)" : "transparent",
-                  transition: "background 0.12s",
-                }}
-                onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = "var(--bg-hover)"; }}
-                onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = "transparent"; }}
-              >
-                {/* Thumbnail */}
-                <div style={{ width: 40, height: 40, borderRadius: 6, overflow: "hidden", flexShrink: 0, background: "var(--bg-elevated)" }}>
-                  {track.thumbnail
-                    ? <img src={thumb(track.thumbnail)} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                    : <div style={{ width: "100%", height: "100%", background: "linear-gradient(135deg,#2a1535,#1a0a25)" }} />}
-                </div>
-                {/* Info */}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: "var(--t13)", fontWeight: 500, display: "flex", alignItems: "center", gap: 4, overflow: "hidden", color: isActive ? "var(--accent)" : "var(--text-primary)" }}>
-                    <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>{track.title}</span>
-                    {track.isExplicit && <ExplicitBadge />}
-                  </div>
-                  <div style={{ fontSize: "var(--t11)", color: "var(--text-muted)", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                    <ArtistLinks track={track} onOpenArtist={onOpenArtist} />
-                  </div>
-                </div>
-                {/* Time ago */}
-                <div style={{ fontSize: "var(--t11)", color: "var(--text-muted)", flexShrink: 0 }}>{timeAgo(track.playedAt, t)}</div>
-                {/* Duration */}
-                <div style={{ fontSize: "var(--t11)", color: "var(--text-muted)", flexShrink: 0, minWidth: 36, textAlign: "right" }}>{track.duration || ""}</div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
+  return (
+    <PlaylistLayout
+      title={t("history")} thumbnail={null} tracks={tracks} total={tracks.length}
+      loading={false} progress={0} cached={false}
+      onPlay={onPlay} currentTrack={currentTrack} isPlaying={isPlaying}
+      onBack={onBack}
+      typeLabel={t("history")}
+      isLiked={false}
+      onOpenArtist={onOpenArtist} onOpenAlbum={onOpenAlbum}
+      onTrackContextMenu={onTrackContextMenu}
+      cachedSongIds={cachedSongIds} downloadingIds={downloadingIds}
+      onDownloadSong={onDownloadSong}
+      hideExplicit={hideExplicit}
+      extraActions={clearHistoryBtn}
+    />
   );
 }
 
-function LikedView({ onPlay, currentTrack, isPlaying, onOpenArtist, onOpenAlbum, onTrackContextMenu, cachedSongIds, downloadingIds, onDownloadSong, hideExplicit, onToggleLike, likedIds, selectedTracks, onToggleSelect }) {
+function LikedView({ onPlay, currentTrack, isPlaying, onOpenArtist, onOpenAlbum, onTrackContextMenu, cachedSongIds, downloadingIds, onDownloadSong, hideExplicit, onToggleLike, likedIds, selectedTracks, onToggleSelect, onSelectAll, onBack }) {
   const [tracks, setTracks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -9413,11 +9446,11 @@ function LikedView({ onPlay, currentTrack, isPlaying, onOpenArtist, onOpenAlbum,
       title={t("likedSongs")} thumbnail={null} tracks={tracks} total={tracks.length}
       loading={false} progress={0} cached={false}
       onPlay={onPlay} currentTrack={currentTrack} isPlaying={isPlaying}
-      onBack={null} isLiked={true} onOpenArtist={onOpenArtist} onOpenAlbum={onOpenAlbum}
+      onBack={onBack || null} isLiked={true} onOpenArtist={onOpenArtist} onOpenAlbum={onOpenAlbum}
       onTrackContextMenu={onTrackContextMenu}
       cachedSongIds={cachedSongIds} downloadingIds={downloadingIds} onDownloadSong={onDownloadSong}
       hideExplicit={hideExplicit} onToggleLike={onToggleLike} likedIds={likedIds}
-      selectedTracks={selectedTracks} onToggleSelect={onToggleSelect}
+      selectedTracks={selectedTracks} onToggleSelect={onToggleSelect} onSelectAll={onSelectAll}
     />
   );
 }
@@ -10692,6 +10725,13 @@ export default function App() {
   }, []);
 
   const clearSelection = useCallback(() => setSelectedTracks(new Map()), []);
+  const selectAllTracks = useCallback((tracks, allSelected) => {
+    if (allSelected) {
+      setSelectedTracks(new Map());
+    } else {
+      setSelectedTracks(new Map(tracks.map(tr => [tr.videoId, tr])));
+    }
+  }, []);
   const [trackContextMenu, setTrackContextMenu] = useState(null); // { x, y, track, playlistId? }
   const [trackCtxData, setTrackCtxData] = useState(null);
   const [trackCtxClosing, setTrackCtxClosing] = useState(false);
@@ -11987,6 +12027,9 @@ export default function App() {
     <FontScaleContext.Provider value={appFontScale}>
     <ZoomContext.Provider value={uiZoom}>
       <style>{GLOBAL_KEYFRAMES}</style>
+      {!animations && (
+        <style>{`*, *::before, *::after { transition: none !important; animation: none !important; }`}</style>
+      )}
       {showSplash && <SplashScreen fading={splashFading} />}
       {/* Language picker first on very first launch, before FFmpeg setup */}
       {showLangPicker && !showLogin && (
@@ -12078,10 +12121,10 @@ export default function App() {
           <div key={appKey} className="scrollable" style={{ flex: 1, overflowY: "auto" }}>
             {view === "home" && <AnimatedView key={`home-${viewRefreshKey}`}><HomeView displayName={profiles.find(p => p.active)?.displayName} onPlay={handlePlay} onOpenPlaylist={(item) => openPlaylist(item, "home")} onOpenAlbum={(item) => openAlbum(item, "home")} onOpenArtist={(item) => openArtist(item, "home")} onContextMenu={openContextMenu} onTrackContextMenu={(e, track) => setTrackContextMenu({ x: e.clientX, y: e.clientY, track })} hideExplicit={hideExplicit} /></AnimatedView>}
             {view === "search" && <AnimatedView key={`search-${viewRefreshKey}`}><SearchView query={searchQuery} onPlay={handlePlay} currentTrack={currentTrack} isPlaying={isPlaying} onOpenArtist={openArtist} onOpenAlbum={(item) => openAlbum(item, "search")} onOpenPlaylist={(item) => openPlaylist(item, "search")} onContextMenu={openContextMenu} onTrackContextMenu={(e, track) => setTrackContextMenu({ x: e.clientX, y: e.clientY, track })} hideExplicit={hideExplicit} /></AnimatedView>}
-            {view === "liked" && <AnimatedView key={`liked-${viewRefreshKey}`}><LikedView onPlay={handlePlay} currentTrack={currentTrack} isPlaying={isPlaying} onOpenArtist={openArtist} onOpenAlbum={(item) => openAlbum(item, "liked")} onTrackContextMenu={(e, track) => setTrackContextMenu({ x: e.clientX, y: e.clientY, track })} cachedSongIds={cachedSongIds} downloadingIds={downloadingIds} onDownloadSong={handleDownloadSong} hideExplicit={hideExplicit} onToggleLike={handleToggleLike} likedIds={likedIds} selectedTracks={selectedTracks} onToggleSelect={toggleTrackSelection} /></AnimatedView>}
-            {view === "history" && <AnimatedView key={`history-${viewRefreshKey}`}><HistoryView onPlay={handlePlay} currentTrack={currentTrack} isPlaying={isPlaying} onOpenArtist={openArtist} onOpenAlbum={(item) => openAlbum(item, "history")} onTrackContextMenu={(e, track, extra) => setTrackContextMenu({ x: e.clientX, y: e.clientY, track, ...extra })} cachedSongIds={cachedSongIds} downloadingIds={downloadingIds} onDownloadSong={handleDownloadSong} hideExplicit={hideExplicit} /></AnimatedView>}
+            {view === "liked" && <AnimatedView key={`liked-${viewRefreshKey}`}><LikedView onPlay={handlePlay} currentTrack={currentTrack} isPlaying={isPlaying} onOpenArtist={openArtist} onOpenAlbum={(item) => openAlbum(item, "liked")} onTrackContextMenu={(e, track) => setTrackContextMenu({ x: e.clientX, y: e.clientY, track })} cachedSongIds={cachedSongIds} downloadingIds={downloadingIds} onDownloadSong={handleDownloadSong} hideExplicit={hideExplicit} onToggleLike={handleToggleLike} likedIds={likedIds} selectedTracks={selectedTracks} onToggleSelect={toggleTrackSelection} onSelectAll={selectAllTracks} onBack={goBack} /></AnimatedView>}
+            {view === "history" && <AnimatedView key={`history-${viewRefreshKey}`}><HistoryView onPlay={handlePlay} currentTrack={currentTrack} isPlaying={isPlaying} onOpenArtist={openArtist} onOpenAlbum={(item) => openAlbum(item, "history")} onTrackContextMenu={(e, track, extra) => setTrackContextMenu({ x: e.clientX, y: e.clientY, track, ...extra })} cachedSongIds={cachedSongIds} downloadingIds={downloadingIds} onDownloadSong={handleDownloadSong} hideExplicit={hideExplicit} onBack={goBack} /></AnimatedView>}
             {view === "library" && <AnimatedView key={`library-${viewRefreshKey}`}><LibraryView onPlay={handlePlay} currentTrack={currentTrack} isPlaying={isPlaying} onOpenPlaylist={openPlaylist} onOpenAlbum={openAlbum} onOpenArtist={openArtist} onContextMenu={openContextMenu} /></AnimatedView>}
-            {view === "collection" && collection && <AnimatedView key={`collection-${viewRefreshKey}`}><CollectionView title={collection.title} thumbnail={collection.thumbnail} tracks={collection.tracks} total={collection.total} loading={collection.loading} progress={collection.progress || 0} cached={collection.cached} onPlay={handlePlay} currentTrack={currentTrack} isPlaying={isPlaying} onBack={goBack} onOpenArtist={openArtist} onOpenAlbum={(item) => openAlbum(item, "collection")} isAlbum={collection.isAlbum} albumArtists={collection.albumArtists} albumArtistBrowseId={collection.albumArtistBrowseId} year={collection.year} onRefresh={() => { if (collection.isAlbum) openAlbum({ browseId: collection.browseId, title: collection.title, thumbnail: collection.thumbnail }, collection.fromView, true); else openPlaylist({ playlistId: collection.playlistId, title: collection.title, thumbnail: collection.thumbnail, forcedTitle: collection.forcedTitle }, collection.fromView, true); }} onTrackContextMenu={(e, track) => setTrackContextMenu({ x: e.clientX, y: e.clientY, track, playlistId: collection.isAlbum ? null : collection.playlistId })} cachedSongIds={cachedSongIds} downloadingIds={downloadingIds} premiumSongIds={premiumSongIds} onDownloadSong={handleDownloadSong} onDownloadAll={(tracks) => handleDownloadAll(tracks, { title: collection.title, thumbnail: collection.thumbnail, artists: collection.albumArtists || "" })} onRemoveAll={handleRemoveAllDownloads} hideExplicit={hideExplicit} onToggleLike={handleToggleLike} likedIds={likedIds} selectedTracks={selectedTracks} onToggleSelect={toggleTrackSelection} /></AnimatedView>}
+            {view === "collection" && collection && <AnimatedView key={`collection-${viewRefreshKey}`}><CollectionView title={collection.title} thumbnail={collection.thumbnail} tracks={collection.tracks} total={collection.total} loading={collection.loading} progress={collection.progress || 0} cached={collection.cached} onPlay={handlePlay} currentTrack={currentTrack} isPlaying={isPlaying} onBack={goBack} onOpenArtist={openArtist} onOpenAlbum={(item) => openAlbum(item, "collection")} isAlbum={collection.isAlbum} albumArtists={collection.albumArtists} albumArtistBrowseId={collection.albumArtistBrowseId} year={collection.year} onRefresh={() => { if (collection.isAlbum) openAlbum({ browseId: collection.browseId, title: collection.title, thumbnail: collection.thumbnail }, collection.fromView, true); else openPlaylist({ playlistId: collection.playlistId, title: collection.title, thumbnail: collection.thumbnail, forcedTitle: collection.forcedTitle }, collection.fromView, true); }} onTrackContextMenu={(e, track) => setTrackContextMenu({ x: e.clientX, y: e.clientY, track, playlistId: collection.isAlbum ? null : collection.playlistId })} cachedSongIds={cachedSongIds} downloadingIds={downloadingIds} premiumSongIds={premiumSongIds} onDownloadSong={handleDownloadSong} onDownloadAll={(tracks) => handleDownloadAll(tracks, { title: collection.title, thumbnail: collection.thumbnail, artists: collection.albumArtists || "" })} onRemoveAll={handleRemoveAllDownloads} hideExplicit={hideExplicit} onToggleLike={handleToggleLike} likedIds={likedIds} selectedTracks={selectedTracks} onToggleSelect={toggleTrackSelection} onSelectAll={selectAllTracks} /></AnimatedView>}
             {view === "artist" && artistView && <AnimatedView key={`artist-${viewRefreshKey}`}><ArtistView browseId={artistView.browseId} onPlay={handlePlay} currentTrack={currentTrack} isPlaying={isPlaying} onOpenAlbum={(item) => openAlbum(item, "artist")} onOpenPlaylist={(item) => openPlaylist(item, "artist")} onOpenArtist={(item) => openArtist(item, "artist")} onBack={goBack} onContextMenu={openContextMenu} onTogglePin={togglePin} isPinned={pinnedIds.includes(artistView.browseId)} hideExplicit={hideExplicit} onStartRadio={handlePlay} /></AnimatedView>}
             {view === "downloads" && <AnimatedView key={`downloads-${viewRefreshKey}`}><DownloadsView onPlay={handlePlay} currentTrack={currentTrack} isPlaying={isPlaying} cachedSongIds={cachedSongIds} downloadingIds={downloadingIds} premiumSongIds={premiumSongIds} onDownloadSong={handleDownloadSong} onTrackContextMenu={(e, track) => setTrackContextMenu({ x: e.clientX, y: e.clientY, track })} hideExplicit={hideExplicit} onOpenAlbum={(item) => openAlbum(item, "downloads")} onOpenArtist={openArtist} onToggleLike={handleToggleLike} likedIds={likedIds} /></AnimatedView>}
             {isOffline && view !== "downloads" && (
