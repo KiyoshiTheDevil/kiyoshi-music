@@ -4,6 +4,16 @@ All notable changes to Kiyoshi Music are documented here.
 
 ---
 
+## [0.9.16-beta] — 2026-04-27
+
+### Bug Fixes
+- **Linux AppImage white window (5th attempt)** — Diagnostics from v0.9.15-beta on Steam Deck (KDE Wayland, AMD GPU) revealed `Could not create default EGL display: EGL_BAD_PARAMETER` — WebKit's GPU process was crashing during EGL init. Fixes:
+  - Force Mesa software rasterizer via `LIBGL_ALWAYS_SOFTWARE=1` and `GALLIUM_DRIVER=llvmpipe` (slower, but guaranteed to render). Earlier concern about software rendering hurting AMD performance was wrong — when hardware EGL is broken, software is the only option.
+  - When GDK_BACKEND was forced to x11 on a Wayland system, prefer `wayland,x11` so EGL gets the native platform first.
+- **Sidecar binary search** — The Python server binary (`kiyoshi-server`) was not found at the expected `/usr/bin/` path inside the AppImage. `start_server` now tries multiple locations (`/usr/bin/`, `/usr/lib/`, `/usr/libexec/`, `/usr/lib/kiyoshi-music/`) and logs all attempted paths if it can't find the binary.
+
+---
+
 ## [0.9.15-beta] — 2026-04-27
 
 ### New Features

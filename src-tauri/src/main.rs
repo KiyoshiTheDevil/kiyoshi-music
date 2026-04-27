@@ -59,28 +59,42 @@ fn update_tray_labels(app: tauri::AppHandle, show_label: String, quit_label: Str
 fn main() {
     #[cfg(target_os = "linux")]
     {
+        // ── WebKit / GTK rendering env vars ─────────────────────────────────
         // Disable GPU compositing — most reliable fix for blank/white window
-        // across distros (Arch, Ubuntu, SteamOS, etc.)
         env::set_var("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
         // Disable DMABuf renderer — avoids driver-level render failures
-        // especially on AMD GPUs (Steam Deck / SteamOS)
         env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
-        // Disable WebKit2GTK sandbox — AppImage FUSE mounts conflict with
-        // the user-namespace sandbox required by the WebKit process
+        // Disable WebKit2GTK sandbox — AppImage FUSE mounts conflict with it
         env::set_var("WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS", "1");
-        // Do NOT force GDK_BACKEND=x11 — on Wayland (KDE Plasma / SteamOS)
-        // WebKitGTK works better with the native Wayland backend.
-        // Do NOT force LIBGL_ALWAYS_SOFTWARE — harmful on AMD GPUs.
-
-        // Disable accelerated 2D canvas — another known cause of blank WebKit windows
+        // Disable accelerated 2D canvas
         env::set_var("WEBKIT_DISABLE_ACCELERATED_2D_CANVAS", "1");
-        // NVIDIA: prevent threaded GL optimizations from racing with WebKit
+        // NVIDIA: prevent threaded GL optimizations racing with WebKit
         env::set_var("__GL_THREADED_OPTIMIZATIONS", "0");
-        // Some distros need the WebGL workaround
+        // Text rendering on some distros
         env::set_var("WEBKIT_FORCE_COMPLEX_TEXT", "0");
 
-        // Diagnostic logging — visible when AppImage is launched from terminal.
-        // Helps narrow down the white-window cause when it still happens.
+        // ── Software rendering ──────────────────────────────────────────────
+        // Force Mesa software rasterizer for ALL GL usage. This is necessary
+        // because WebKit's GPU process always tries to initialize EGL — and on
+        // many Linux configurations (notably Steam Deck on Wayland-via-XWayland
+        // with the AMD Mesa driver) hardware EGL fails with EGL_BAD_PARAMETER,
+        // crashing the WebKit GPU process and producing a blank white window.
+        // Software is slower but guaranteed to work everywhere.
+        env::set_var("LIBGL_ALWAYS_SOFTWARE", "1");
+        // Same idea, scoped to the GBM backend that Mesa uses internally
+        env::set_var("GALLIUM_DRIVER", "llvmpipe");
+
+        // ── GDK backend ─────────────────────────────────────────────────────
+        // Some Tauri/AppImage tooling forces GDK_BACKEND=x11. On Wayland systems
+        // this means EGL goes through XWayland, which is exactly the path that
+        // tends to fail. If GDK_BACKEND was forced to x11 but Wayland is also
+        // available, prefer Wayland.
+        if env::var("GDK_BACKEND").as_deref() == Ok("x11") && env::var("WAYLAND_DISPLAY").is_ok() {
+            // Don't unset (some tooling re-sets it after); explicitly try wayland first, x11 fallback
+            env::set_var("GDK_BACKEND", "wayland,x11");
+        }
+
+        // ── Diagnostics (visible when AppImage is launched from terminal) ───
         eprintln!("[kiyoshi] linux env applied:");
         eprintln!("[kiyoshi]   WEBKIT_DISABLE_COMPOSITING_MODE=1");
         eprintln!("[kiyoshi]   WEBKIT_DISABLE_DMABUF_RENDERER=1");
@@ -88,12 +102,14 @@ fn main() {
         eprintln!("[kiyoshi]   WEBKIT_DISABLE_ACCELERATED_2D_CANVAS=1");
         eprintln!("[kiyoshi]   __GL_THREADED_OPTIMIZATIONS=0");
         eprintln!("[kiyoshi]   WEBKIT_FORCE_COMPLEX_TEXT=0");
+        eprintln!("[kiyoshi]   LIBGL_ALWAYS_SOFTWARE=1  (forces Mesa software rendering)");
+        eprintln!("[kiyoshi]   GALLIUM_DRIVER=llvmpipe");
         eprintln!("[kiyoshi] display server: {}",
             env::var("WAYLAND_DISPLAY").map(|_| "wayland").unwrap_or_else(|_|
                 env::var("DISPLAY").map(|_| "x11").unwrap_or("none")));
         eprintln!("[kiyoshi] gdk_backend: {}", env::var("GDK_BACKEND").unwrap_or_else(|_| "(unset, native)".into()));
         eprintln!("[kiyoshi] desktop: {}", env::var("XDG_CURRENT_DESKTOP").unwrap_or_else(|_| "(unknown)".into()));
-        if std::env::var("APPIMAGE").is_ok() {
+        if env::var("APPIMAGE").is_ok() {
             eprintln!("[kiyoshi] running inside AppImage: {}", env::var("APPIMAGE").unwrap_or_default());
         }
     }

@@ -102,12 +102,30 @@ pub fn start_server(app: &tauri::AppHandle) {
         .ok()
         .and_then(|e| e.parent().map(|p| p.to_path_buf()))
         .unwrap_or_else(|| std::path::PathBuf::from("."));
-    let server_exe = exe_dir.join(server_bin);
 
-    if !server_exe.exists() {
-        eprintln!("[server] Binary not found at: {}", server_exe.display());
-        return;
-    }
+    // Try several locations — Tauri's AppImage bundling for externalBin sidecars
+    // can place them at different paths depending on the bundler version.
+    let candidates: Vec<std::path::PathBuf> = vec![
+        exe_dir.join(server_bin),                               // /usr/bin/<bin>
+        exe_dir.join("..").join("lib").join(server_bin),        // /usr/lib/<bin>
+        exe_dir.join("..").join("libexec").join(server_bin),    // /usr/libexec/<bin>
+        std::path::PathBuf::from("/usr/lib/kiyoshi-music").join(server_bin), // .deb install
+        std::path::PathBuf::from("/usr/bin").join(server_bin),  // system-wide
+    ];
+
+    let server_exe = match candidates.iter().find(|p| p.exists()) {
+        Some(p) => {
+            eprintln!("[server] Found binary at: {}", p.display());
+            p.clone()
+        }
+        None => {
+            eprintln!("[server] Binary '{}' not found. Searched:", server_bin);
+            for p in &candidates {
+                eprintln!("[server]   - {}", p.display());
+            }
+            return;
+        }
+    };
 
     #[cfg(windows)]
     {
