@@ -4,6 +4,14 @@ All notable changes to Kiyoshi Music are documented here.
 
 ---
 
+## [0.9.21-beta] — 2026-04-27
+
+### Diagnostics
+- **Library inspection on Linux startup** — eight env-var iterations haven't fixed the EGL crash on Steam Deck. The error comes from WebKit's hardcoded `GLDisplay::create()` which calls `CRASH()` if `eglGetDisplay()` fails. New build prints the actual libraries available on the host (via `ldconfig -p`) and what graphics libs are bundled in the AppImage's `usr/lib/`. This will reveal whether: (a) the host is missing required libraries, (b) `LINUXDEPLOY_EXCLUDE_LIST` actually worked or libraries are still bundled, (c) there's an ABI mismatch between bundled and host libs.
+- **Cleaned up env-var soup** — removed conflicting/non-functional flags (e.g. `EGL_PLATFORM=surfaceless` which only affects `eglGetPlatformDisplay`, not the legacy `eglGetDisplay` that WebKit uses). Kept only the seven flags that have any chance of being respected.
+
+---
+
 ## [0.9.20-beta] — 2026-04-27
 
 ### Bug Fixes

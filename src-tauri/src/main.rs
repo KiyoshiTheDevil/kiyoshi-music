@@ -59,70 +59,36 @@ fn update_tray_labels(app: tauri::AppHandle, show_label: String, quit_label: Str
 fn main() {
     #[cfg(target_os = "linux")]
     {
-        // ── WebKit / GTK rendering env vars ─────────────────────────────────
-        // Disable GPU compositing — most reliable fix for blank/white window
+        // ── WebKit env vars (the ones that actually matter) ─────────────────
         env::set_var("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
-        // Disable DMABuf renderer — avoids driver-level render failures
         env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
-        // Disable WebKit2GTK sandbox — AppImage FUSE mounts conflict with it
         env::set_var("WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS", "1");
-        // Disable accelerated 2D canvas
-        env::set_var("WEBKIT_DISABLE_ACCELERATED_2D_CANVAS", "1");
-        // NVIDIA: prevent threaded GL optimizations racing with WebKit
-        env::set_var("__GL_THREADED_OPTIMIZATIONS", "0");
-        // Text rendering on some distros
-        env::set_var("WEBKIT_FORCE_COMPLEX_TEXT", "0");
+        // Try forcing compositing the OTHER way — we've been disabling for 8
+        // attempts; some Steam Deck reports say forcing it helps.
+        // env::set_var("WEBKIT_FORCE_COMPOSITING_MODE", "1");
 
-        // ── Software rendering — aggressive ─────────────────────────────────
-        // WebKit's GPU process insists on initializing EGL even when compositing
-        // is disabled. On Steam Deck (KDE Wayland, AMD Mesa) eglGetDisplay fails
-        // with EGL_BAD_PARAMETER because Mesa can't decide on a platform. To
-        // bypass this we force EGL into surfaceless mode (no display needed)
-        // and explicitly select the swrast/llvmpipe driver at every layer.
+        // Force Mesa software rasterizer
         env::set_var("LIBGL_ALWAYS_SOFTWARE", "1");
         env::set_var("GALLIUM_DRIVER", "llvmpipe");
-        env::set_var("MESA_LOADER_DRIVER_OVERRIDE", "llvmpipe");
-        // Surfaceless EGL — works without X11 or Wayland display, never fails
-        env::set_var("EGL_PLATFORM", "surfaceless");
-        // Belt-and-suspenders: also try to disable hardware acceleration
-        env::set_var("WEBKIT_DISABLE_HARDWARE_ACCELERATION", "1");
 
-        // ── GDK / GTK rendering ─────────────────────────────────────────────
-        // The "Aborting..." in the EGL error suggests GTK/GDK itself is calling
-        // abort() when EGL init fails. GDK has its own GL detection that runs
-        // before WebKit even starts. Disable all GL usage in GDK.
+        // GDK: don't try to use GL
         env::set_var("GDK_GL", "disable");
-        env::set_var("GDK_DEBUG", "gl-disable");
-        // Force GTK to use the image (CPU-only Cairo) renderer
         env::set_var("GDK_RENDERING", "image");
-        // GTK 4 (in case): use the cairo renderer (no GL)
-        env::set_var("GSK_RENDERER", "cairo");
-        // Disable GStreamer GL plugins (bundleMediaFramework pulls in gstreamer-gl)
-        env::set_var("GST_GL_DISABLED", "1");
 
         // ── GDK backend ─────────────────────────────────────────────────────
         if env::var("GDK_BACKEND").as_deref() == Ok("x11") && env::var("WAYLAND_DISPLAY").is_ok() {
             env::set_var("GDK_BACKEND", "wayland,x11");
         }
 
-        // ── Diagnostics (visible when AppImage is launched from terminal) ───
-        eprintln!("[kiyoshi] linux env applied:");
+        // ── Diagnostics ─────────────────────────────────────────────────────
+        eprintln!("[kiyoshi] linux env applied (minimal set, attempt 9):");
         eprintln!("[kiyoshi]   WEBKIT_DISABLE_COMPOSITING_MODE=1");
         eprintln!("[kiyoshi]   WEBKIT_DISABLE_DMABUF_RENDERER=1");
         eprintln!("[kiyoshi]   WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1");
-        eprintln!("[kiyoshi]   WEBKIT_DISABLE_ACCELERATED_2D_CANVAS=1");
-        eprintln!("[kiyoshi]   __GL_THREADED_OPTIMIZATIONS=0");
-        eprintln!("[kiyoshi]   WEBKIT_FORCE_COMPLEX_TEXT=0");
         eprintln!("[kiyoshi]   LIBGL_ALWAYS_SOFTWARE=1");
         eprintln!("[kiyoshi]   GALLIUM_DRIVER=llvmpipe");
-        eprintln!("[kiyoshi]   MESA_LOADER_DRIVER_OVERRIDE=llvmpipe");
-        eprintln!("[kiyoshi]   EGL_PLATFORM=surfaceless");
-        eprintln!("[kiyoshi]   WEBKIT_DISABLE_HARDWARE_ACCELERATION=1");
         eprintln!("[kiyoshi]   GDK_GL=disable");
-        eprintln!("[kiyoshi]   GDK_DEBUG=gl-disable");
         eprintln!("[kiyoshi]   GDK_RENDERING=image");
-        eprintln!("[kiyoshi]   GSK_RENDERER=cairo");
-        eprintln!("[kiyoshi]   GST_GL_DISABLED=1");
         eprintln!("[kiyoshi] display server: {}",
             env::var("WAYLAND_DISPLAY").map(|_| "wayland").unwrap_or_else(|_|
                 env::var("DISPLAY").map(|_| "x11").unwrap_or("none")));
@@ -130,6 +96,43 @@ fn main() {
         eprintln!("[kiyoshi] desktop: {}", env::var("XDG_CURRENT_DESKTOP").unwrap_or_else(|_| "(unknown)".into()));
         if env::var("APPIMAGE").is_ok() {
             eprintln!("[kiyoshi] running inside AppImage: {}", env::var("APPIMAGE").unwrap_or_default());
+        }
+
+        // ── System library diagnostics — what does the host actually have? ──
+        eprintln!("[kiyoshi] system library check:");
+        for lib in &["libEGL.so.1", "libGL.so.1", "libwebkit2gtk-4.1.so.0", "libwebkit2gtk-4.0.so.37", "libgbm.so.1"] {
+            match std::process::Command::new("ldconfig").args(["-p"]).output() {
+                Ok(out) => {
+                    let stdout = String::from_utf8_lossy(&out.stdout);
+                    let found: Vec<&str> = stdout.lines().filter(|l| l.contains(lib)).collect();
+                    if found.is_empty() {
+                        eprintln!("[kiyoshi]   {}: NOT FOUND on system", lib);
+                    } else {
+                        eprintln!("[kiyoshi]   {}: {}", lib, found[0].trim());
+                    }
+                }
+                Err(_) => {
+                    eprintln!("[kiyoshi]   (ldconfig not available)");
+                    break;
+                }
+            }
+        }
+
+        // What's in the AppImage's lib dir?
+        if let Ok(appdir) = env::var("APPDIR") {
+            let lib_dir = std::path::PathBuf::from(&appdir).join("usr/lib");
+            if lib_dir.exists() {
+                eprintln!("[kiyoshi] AppImage usr/lib contents (libEGL/libGL/libwebkit only):");
+                if let Ok(entries) = std::fs::read_dir(&lib_dir) {
+                    for entry in entries.flatten() {
+                        let n = entry.file_name();
+                        let name = n.to_string_lossy();
+                        if name.contains("EGL") || name.contains("libGL") || name.contains("webkit") || name.contains("gbm") {
+                            eprintln!("[kiyoshi]   {}", name);
+                        }
+                    }
+                }
+            }
         }
     }
 
