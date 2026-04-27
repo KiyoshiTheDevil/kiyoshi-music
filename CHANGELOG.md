@@ -4,6 +4,13 @@ All notable changes to Kiyoshi Music are documented here.
 
 ---
 
+## [0.9.19-beta] — 2026-04-27
+
+### Bug Fixes
+- **Sidecar binary not found** — The v0.9.18-beta debug listing revealed the binary IS bundled, but Tauri strips the target-triple suffix on Linux: it's bundled as `kiyoshi-server` (not `kiyoshi-server-x86_64-unknown-linux-gnu`). The Rust code was looking for the suffixed name and never finding it. `start_server` now searches for both names — with and without the target-triple suffix.
+
+---
+
 ## [0.9.18-beta] — 2026-04-27
 
 ### Bug Fixes
