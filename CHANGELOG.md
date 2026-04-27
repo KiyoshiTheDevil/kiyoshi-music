@@ -4,6 +4,19 @@ All notable changes to Kiyoshi Music are documented here.
 
 ---
 
+## [0.9.20-beta] — 2026-04-27
+
+### Bug Fixes
+- **Linux AppImage white window (8th attempt)** — v0.9.19 confirmed the server now starts correctly and the binary mismatch is fixed, but EGL still aborts. New hypothesis: the "Aborting..." comes from GTK/GDK itself trying to use GL during init, before WebKit even starts. New env vars target GDK directly:
+  - `GDK_GL=disable` — disable GDK's GL usage entirely
+  - `GDK_DEBUG=gl-disable` — same hint via debug flag
+  - `GDK_RENDERING=image` — force CPU-only Cairo image surface rendering
+  - `GSK_RENDERER=cairo` — for GTK 4 (in case)
+  - `GST_GL_DISABLED=1` — disable GStreamer GL plugins
+- **Disabled `bundleMediaFramework`** — was bundling GStreamer GL plugins which try to init EGL on startup. Audio playback uses Rust's rodio, not GStreamer, so this should have no functional impact.
+
+---
+
 ## [0.9.19-beta] — 2026-04-27
 
 ### Bug Fixes

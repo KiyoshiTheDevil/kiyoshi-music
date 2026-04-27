@@ -87,6 +87,19 @@ fn main() {
         // Belt-and-suspenders: also try to disable hardware acceleration
         env::set_var("WEBKIT_DISABLE_HARDWARE_ACCELERATION", "1");
 
+        // ── GDK / GTK rendering ─────────────────────────────────────────────
+        // The "Aborting..." in the EGL error suggests GTK/GDK itself is calling
+        // abort() when EGL init fails. GDK has its own GL detection that runs
+        // before WebKit even starts. Disable all GL usage in GDK.
+        env::set_var("GDK_GL", "disable");
+        env::set_var("GDK_DEBUG", "gl-disable");
+        // Force GTK to use the image (CPU-only Cairo) renderer
+        env::set_var("GDK_RENDERING", "image");
+        // GTK 4 (in case): use the cairo renderer (no GL)
+        env::set_var("GSK_RENDERER", "cairo");
+        // Disable GStreamer GL plugins (bundleMediaFramework pulls in gstreamer-gl)
+        env::set_var("GST_GL_DISABLED", "1");
+
         // ── GDK backend ─────────────────────────────────────────────────────
         if env::var("GDK_BACKEND").as_deref() == Ok("x11") && env::var("WAYLAND_DISPLAY").is_ok() {
             env::set_var("GDK_BACKEND", "wayland,x11");
@@ -105,6 +118,11 @@ fn main() {
         eprintln!("[kiyoshi]   MESA_LOADER_DRIVER_OVERRIDE=llvmpipe");
         eprintln!("[kiyoshi]   EGL_PLATFORM=surfaceless");
         eprintln!("[kiyoshi]   WEBKIT_DISABLE_HARDWARE_ACCELERATION=1");
+        eprintln!("[kiyoshi]   GDK_GL=disable");
+        eprintln!("[kiyoshi]   GDK_DEBUG=gl-disable");
+        eprintln!("[kiyoshi]   GDK_RENDERING=image");
+        eprintln!("[kiyoshi]   GSK_RENDERER=cairo");
+        eprintln!("[kiyoshi]   GST_GL_DISABLED=1");
         eprintln!("[kiyoshi] display server: {}",
             env::var("WAYLAND_DISPLAY").map(|_| "wayland").unwrap_or_else(|_|
                 env::var("DISPLAY").map(|_| "x11").unwrap_or("none")));
