@@ -5,7 +5,6 @@
 
   [![Version](https://img.shields.io/badge/version-0.9.7--beta-a855f7?style=flat-square)](https://github.com/KiyoshiTheDevil/kiyoshi-music/releases/latest)
   [![Platform](https://img.shields.io/badge/platform-Windows-0078d4?style=flat-square&logo=windows&logoColor=white)](https://github.com/KiyoshiTheDevil/kiyoshi-music/releases/latest)
-  [![Platform](https://img.shields.io/badge/Linux-experimental-f97316?style=flat-square&logo=linux&logoColor=white)](#)
   [![Tauri](https://img.shields.io/badge/Tauri-2.x-24c8db?style=flat-square&logo=tauri&logoColor=white)](https://tauri.app)
   [![Crowdin](https://img.shields.io/badge/translate-Crowdin-2e3340?style=flat-square&logo=crowdin&logoColor=white)](https://crowdin.com/project/kiyoshi-music)
   [![License](https://img.shields.io/badge/license-Personal_Use-ef4444?style=flat-square)](#disclaimer)
@@ -74,7 +73,7 @@
 
 Head to the [**Releases**](https://github.com/KiyoshiTheDevil/kiyoshi-music/releases/latest) page and grab the latest Windows installer (`.exe`).
 
-> **Linux:** AppImage and `.deb` builds are provided but not the primary focus. They may require additional attention and are not guaranteed to be fully stable.
+> **Linux:** Not officially supported. Multiple attempts to ship a working AppImage failed due to library incompatibilities (notably on Steam Deck with Mesa 25 vs the WebKitGTK build). Linux users are welcome to fork this repository and re-add a build pipeline — historical Linux work is preserved in the git history through `v0.9.23-beta`.
 
 > **Google Account:** Not required to use the app. Only needed if you want to sync your YouTube Music library and playlists.
 

@@ -4,6 +4,20 @@ All notable changes to Kiyoshi Music are documented here.
 
 ---
 
+## [0.9.24-beta] — 2026-04-28
+
+### Removed
+- **Linux support has been dropped from the main branch.** After 9 unsuccessful attempts to fix the AppImage white-window issue on Steam Deck (KDE Wayland, AMD Mesa 25.3 vs our bundled libwebkit2gtk's expectations), official Linux support is no longer provided.
+  - Linux build job removed from CI (no more AppImage / .deb produced)
+  - Linux-specific environment variables removed from `main.rs`
+  - Linux bundle config removed from `tauri.conf.json`
+  - Diagnostic Linux library checks removed
+  - Linux-specific server-binary search paths removed from `server.rs`
+
+  Users who want Linux support can fork the repository and re-add the build pipeline (the historical Linux work-in-progress is preserved in the git history through v0.9.23-beta).
+
+---
+
 ## [0.9.23-beta] — 2026-04-28
 
 ### Bug Fixes (hopefully)

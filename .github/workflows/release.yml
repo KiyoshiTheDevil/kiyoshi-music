@@ -96,105 +96,11 @@ jobs:
           releaseId: ${{ needs.create-release.outputs.release_id }}
           args: --target x86_64-pc-windows-msvc --bundles nsis
 
-  # ─── Step 2b: Linux AppImage + .deb ──────────────────────────────────────────
-  build-linux:
-    needs: create-release
-    # Use ubuntu-24.04 — its Mesa 24.x is closer to recent distros (Steam Deck
-    # ships Mesa 25.3). Building libwebkit2gtk against Ubuntu 22.04's Mesa 22
-    # caused EGL_BAD_PARAMETER on Steam Deck because the EGL platform calls
-    # didn't match what newer libEGL versions accept.
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Python 3.11
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libwebkit2gtk-4.1-dev \
-            libayatana-appindicator3-dev \
-            librsvg2-dev \
-            patchelf \
-            libasound2-dev \
-            squashfs-tools \
-            file \
-            libssl-dev
-
-      - name: Create binaries directory
-        run: mkdir -p src-tauri/binaries
-
-      - name: Install Python dependencies
-        working-directory: python-backend
-        run: pip install -r requirements.txt pyinstaller
-
-      - name: Build Python server (Linux)
-        working-directory: python-backend
-        run: |
-          pyinstaller kiyoshi-server-x86_64-unknown-linux-gnu.spec \
-            --distpath ../src-tauri/binaries \
-            --workpath build_tmp/kiyoshi-server-x86_64-unknown-linux-gnu
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install frontend dependencies
-        run: npm install
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Cache Rust build
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: src-tauri
-
-      - name: Make server binary executable
-        run: chmod +x src-tauri/binaries/kiyoshi-server-x86_64-unknown-linux-gnu
-
-      - name: Build Tauri AppImage + deb
-        uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-          NO_STRIP: "1"
-          # Tell linuxdeploy NOT to bundle Mesa / GL / DRM / Wayland / X11 libs.
-          # The bundled versions can be incompatible with the host (notably Steam
-          # Deck on KDE Wayland) causing eglGetDisplay to fail with
-          # EGL_BAD_PARAMETER. Forcing the host's libraries to be used fixes this
-          # because the host's Mesa is matched to its kernel/GPU driver.
-          LINUXDEPLOY_EXCLUDE_LIST: "libGL.so.1 libGLX.so.0 libEGL.so.1 libGLdispatch.so.0 libGLESv2.so.2 libGLESv1_CM.so.1 libgbm.so.1 libdrm.so.2 libdrm_amdgpu.so.1 libdrm_intel.so.1 libdrm_nouveau.so.2 libdrm_radeon.so.1 libwayland-client.so.0 libwayland-cursor.so.0 libwayland-egl.so.1 libwayland-server.so.0 libxkbcommon.so.0 libX11.so.6 libxcb.so.1 libXext.so.6 libXrender.so.1 libXfixes.so.3"
-        with:
-          releaseId: ${{ needs.create-release.outputs.release_id }}
-          args: --target x86_64-unknown-linux-gnu --bundles appimage --bundles deb
-
-      - name: List AppImage contents (debug — helps diagnose missing sidecars)
-        run: |
-          for img in src-tauri/target/x86_64-unknown-linux-gnu/release/bundle/appimage/*.AppImage; do
-            echo "=== Contents of $(basename "$img") ==="
-            "$img" --appimage-extract > /dev/null 2>&1 || true
-            echo "-- usr/bin --"
-            ls -la squashfs-root/usr/bin/ 2>/dev/null || echo "(no usr/bin)"
-            echo "-- usr/lib (top level) --"
-            ls -la squashfs-root/usr/lib/ 2>/dev/null | head -40 || echo "(no usr/lib)"
-            echo "-- looking for kiyoshi-server anywhere --"
-            find squashfs-root -name "kiyoshi-server*" 2>/dev/null || echo "(none found)"
-            rm -rf squashfs-root
-          done
-
   # ─── Step 3: Publish release + generate latest.json ─────────────────────────
-  # Runs AFTER both builds so all assets are uploaded.
+  # Runs AFTER the build job so all assets are uploaded.
   # Publishing the draft first makes browser_download_url available in the API.
   finalize:
-    needs: [create-release, build-windows, build-linux]
+    needs: [create-release, build-windows]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

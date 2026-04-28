@@ -17,9 +17,6 @@ use server::{ServerProcess, stop_server};
 #[cfg(windows)]
 use obs::start_audio_session_tagger;
 
-#[cfg(target_os = "linux")]
-use std::env;
-
 struct AppTray(tauri::tray::TrayIcon<tauri::Wry>);
 struct CloseTray(AtomicBool);
 
@@ -57,96 +54,6 @@ fn update_tray_labels(app: tauri::AppHandle, show_label: String, quit_label: Str
 }
 
 fn main() {
-    #[cfg(target_os = "linux")]
-    {
-        // ── WebKit env vars ─────────────────────────────────────────────────
-        env::set_var("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
-        env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
-        env::set_var("WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS", "1");
-
-        // Force Mesa software rasterizer
-        env::set_var("LIBGL_ALWAYS_SOFTWARE", "1");
-        env::set_var("GALLIUM_DRIVER", "llvmpipe");
-
-        // GDK: don't try to use GL
-        env::set_var("GDK_GL", "disable");
-        env::set_var("GDK_RENDERING", "image");
-
-        // ── GDK backend ─────────────────────────────────────────────────────
-        // Force Wayland-only (no x11 fallback) on Wayland systems. Mixed
-        // wayland,x11 may have caused WebKit to pick X11 first and fail.
-        if env::var("WAYLAND_DISPLAY").is_ok() {
-            env::set_var("GDK_BACKEND", "wayland");
-        }
-
-
-        // ── Diagnostics ─────────────────────────────────────────────────────
-        eprintln!("[kiyoshi] linux env applied:");
-        eprintln!("[kiyoshi]   WEBKIT_DISABLE_COMPOSITING_MODE=1");
-        eprintln!("[kiyoshi]   WEBKIT_DISABLE_DMABUF_RENDERER=1");
-        eprintln!("[kiyoshi]   WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1");
-        eprintln!("[kiyoshi]   LIBGL_ALWAYS_SOFTWARE=1");
-        eprintln!("[kiyoshi]   GALLIUM_DRIVER=llvmpipe");
-        eprintln!("[kiyoshi]   GDK_GL=disable");
-        eprintln!("[kiyoshi]   GDK_RENDERING=image");
-        eprintln!("[kiyoshi]   GDK_BACKEND=wayland (forced)");
-        eprintln!("[kiyoshi] display server: {}",
-            env::var("WAYLAND_DISPLAY").map(|_| "wayland").unwrap_or_else(|_|
-                env::var("DISPLAY").map(|_| "x11").unwrap_or("none")));
-        eprintln!("[kiyoshi] gdk_backend: {}", env::var("GDK_BACKEND").unwrap_or_else(|_| "(unset, native)".into()));
-        eprintln!("[kiyoshi] desktop: {}", env::var("XDG_CURRENT_DESKTOP").unwrap_or_else(|_| "(unknown)".into()));
-        if env::var("APPIMAGE").is_ok() {
-            eprintln!("[kiyoshi] running inside AppImage: {}", env::var("APPIMAGE").unwrap_or_default());
-        }
-
-        // ── System library diagnostics — what does the host actually have? ──
-        eprintln!("[kiyoshi] system library check:");
-        for lib in &["libEGL.so.1", "libGL.so.1", "libwebkit2gtk-4.1.so.0", "libwebkit2gtk-4.0.so.37", "libgbm.so.1"] {
-            match std::process::Command::new("ldconfig").args(["-p"]).output() {
-                Ok(out) => {
-                    let stdout = String::from_utf8_lossy(&out.stdout);
-                    let found: Vec<&str> = stdout.lines().filter(|l| l.contains(lib)).collect();
-                    if found.is_empty() {
-                        eprintln!("[kiyoshi]   {}: NOT FOUND on system", lib);
-                    } else {
-                        eprintln!("[kiyoshi]   {}: {}", lib, found[0].trim());
-                    }
-                }
-                Err(_) => {
-                    eprintln!("[kiyoshi]   (ldconfig not available)");
-                    break;
-                }
-            }
-        }
-
-        // What's in the AppImage's lib dir?
-        if let Ok(appdir) = env::var("APPDIR") {
-            let lib_dir = std::path::PathBuf::from(&appdir).join("usr/lib");
-            if lib_dir.exists() {
-                eprintln!("[kiyoshi] AppImage usr/lib contents (libEGL/libGL/libwebkit only):");
-                if let Ok(entries) = std::fs::read_dir(&lib_dir) {
-                    for entry in entries.flatten() {
-                        let n = entry.file_name();
-                        let name = n.to_string_lossy();
-                        if name.contains("EGL") || name.contains("libGL") || name.contains("webkit") || name.contains("gbm") {
-                            eprintln!("[kiyoshi]   {}", name);
-                        }
-                    }
-                }
-            }
-        }
-
-        // DRM device check — needed for GBM-based EGL platforms
-        eprintln!("[kiyoshi] /dev/dri contents:");
-        if let Ok(entries) = std::fs::read_dir("/dev/dri") {
-            for entry in entries.flatten() {
-                eprintln!("[kiyoshi]   {}", entry.file_name().to_string_lossy());
-            }
-        } else {
-            eprintln!("[kiyoshi]   (no /dev/dri directory!)");
-        }
-    }
-
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             // A second instance was started — focus the existing window instead
