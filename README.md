@@ -90,9 +90,7 @@ Join the translation effort on **[Crowdin](https://crowdin.com/project/kiyoshi-m
 
 | Issue | Status |
 |---|---|
-| Performance issues | ✅ Fixed |
-| Higher RAM usage sometimes | ✅ Fixed |
-| Some animations ignore the "Disable Animations" setting | 🔧 In progress |
+| None right now | Yay! |
 
 Found a bug? Please report it in the [**Issues**](https://github.com/KiyoshiTheDevil/kiyoshi-music/issues) tab — thank you!
 
