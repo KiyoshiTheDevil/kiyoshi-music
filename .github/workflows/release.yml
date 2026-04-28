@@ -99,7 +99,11 @@ jobs:
   # ─── Step 2b: Linux AppImage + .deb ──────────────────────────────────────────
   build-linux:
     needs: create-release
-    runs-on: ubuntu-22.04
+    # Use ubuntu-24.04 — its Mesa 24.x is closer to recent distros (Steam Deck
+    # ships Mesa 25.3). Building libwebkit2gtk against Ubuntu 22.04's Mesa 22
+    # caused EGL_BAD_PARAMETER on Steam Deck because the EGL platform calls
+    # didn't match what newer libEGL versions accept.
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 

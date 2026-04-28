@@ -4,6 +4,17 @@ All notable changes to Kiyoshi Music are documented here.
 
 ---
 
+## [0.9.23-beta] — 2026-04-28
+
+### Bug Fixes (hopefully)
+- **Linux AppImage white window — root cause identified** — Steam Deck runs Mesa 25.3.0 (bleeding edge). The previous build runner was Ubuntu 22.04 with Mesa 22.x. Our bundled `libwebkit2gtk-4.1` was compiled against the old Mesa and called EGL with parameters that newer libEGL versions reject (causing `EGL_BAD_PARAMETER`). **Build runner upgraded to `ubuntu-24.04` which has Mesa 24.x — much closer to Steam Deck and modern Linux distros.**
+- **Cleaned up the env-var soup** — removed verbose debug flags that produced no useful output. Kept only the essential rendering flags.
+
+### CI
+- **Releases now stay as drafts** — manual review + publish in GitHub UI required. New `update-latest-json.yml` workflow can be triggered manually after publishing to refresh the auto-updater.
+
+---
+
 ## [0.9.22-beta] — 2026-04-28
 
 ### Diagnostics

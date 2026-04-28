@@ -79,17 +79,9 @@ fn main() {
             env::set_var("GDK_BACKEND", "wayland");
         }
 
-        // ── Verbose debugging ───────────────────────────────────────────────
-        // Print WebKit's compositor / GL platform negotiation so we can see
-        // EXACTLY which EGL platform identifier is being rejected.
-        env::set_var("WEBKIT_DEBUG", "Compositor,Layers");
-        // Mesa GL/EGL debug output
-        env::set_var("LIBGL_DEBUG", "verbose");
-        env::set_var("EGL_LOG_LEVEL", "debug");
-        env::set_var("MESA_DEBUG", "silent");
 
         // ── Diagnostics ─────────────────────────────────────────────────────
-        eprintln!("[kiyoshi] linux env applied (attempt 10 — verbose EGL debug):");
+        eprintln!("[kiyoshi] linux env applied:");
         eprintln!("[kiyoshi]   WEBKIT_DISABLE_COMPOSITING_MODE=1");
         eprintln!("[kiyoshi]   WEBKIT_DISABLE_DMABUF_RENDERER=1");
         eprintln!("[kiyoshi]   WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1");
@@ -97,10 +89,7 @@ fn main() {
         eprintln!("[kiyoshi]   GALLIUM_DRIVER=llvmpipe");
         eprintln!("[kiyoshi]   GDK_GL=disable");
         eprintln!("[kiyoshi]   GDK_RENDERING=image");
-        eprintln!("[kiyoshi]   GDK_BACKEND=wayland (force, no x11 fallback)");
-        eprintln!("[kiyoshi]   WEBKIT_DEBUG=Compositor,Layers");
-        eprintln!("[kiyoshi]   LIBGL_DEBUG=verbose");
-        eprintln!("[kiyoshi]   EGL_LOG_LEVEL=debug");
+        eprintln!("[kiyoshi]   GDK_BACKEND=wayland (forced)");
         eprintln!("[kiyoshi] display server: {}",
             env::var("WAYLAND_DISPLAY").map(|_| "wayland").unwrap_or_else(|_|
                 env::var("DISPLAY").map(|_| "x11").unwrap_or("none")));
