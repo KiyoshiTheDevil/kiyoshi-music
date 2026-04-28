@@ -4,6 +4,14 @@ All notable changes to Kiyoshi Music are documented here.
 
 ---
 
+## [0.9.22-beta] — 2026-04-28
+
+### Diagnostics
+- **Verbose EGL/WebKit/Mesa logging** — v0.9.21 confirmed Steam Deck has libEGL/libGL but no system webkit2gtk (we use the bundled one). Same EGL_BAD_PARAMETER regardless of whether libEGL is bundled. This is now a WebKit platform identifier issue. New env vars: `WEBKIT_DEBUG=Compositor,Layers`, `LIBGL_DEBUG=verbose`, `EGL_LOG_LEVEL=debug` to capture the negotiation. Plus `/dev/dri/` listing to verify DRM device access.
+- **Forced GDK_BACKEND=wayland** (no x11 fallback) — mixed `wayland,x11` may have caused WebKit to pick x11 and fail.
+
+---
+
 ## [0.9.21-beta] — 2026-04-27
 
 ### Diagnostics

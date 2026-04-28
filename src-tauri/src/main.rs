@@ -59,13 +59,10 @@ fn update_tray_labels(app: tauri::AppHandle, show_label: String, quit_label: Str
 fn main() {
     #[cfg(target_os = "linux")]
     {
-        // ── WebKit env vars (the ones that actually matter) ─────────────────
+        // ── WebKit env vars ─────────────────────────────────────────────────
         env::set_var("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
         env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
         env::set_var("WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS", "1");
-        // Try forcing compositing the OTHER way — we've been disabling for 8
-        // attempts; some Steam Deck reports say forcing it helps.
-        // env::set_var("WEBKIT_FORCE_COMPOSITING_MODE", "1");
 
         // Force Mesa software rasterizer
         env::set_var("LIBGL_ALWAYS_SOFTWARE", "1");
@@ -76,12 +73,23 @@ fn main() {
         env::set_var("GDK_RENDERING", "image");
 
         // ── GDK backend ─────────────────────────────────────────────────────
-        if env::var("GDK_BACKEND").as_deref() == Ok("x11") && env::var("WAYLAND_DISPLAY").is_ok() {
-            env::set_var("GDK_BACKEND", "wayland,x11");
+        // Force Wayland-only (no x11 fallback) on Wayland systems. Mixed
+        // wayland,x11 may have caused WebKit to pick X11 first and fail.
+        if env::var("WAYLAND_DISPLAY").is_ok() {
+            env::set_var("GDK_BACKEND", "wayland");
         }
 
+        // ── Verbose debugging ───────────────────────────────────────────────
+        // Print WebKit's compositor / GL platform negotiation so we can see
+        // EXACTLY which EGL platform identifier is being rejected.
+        env::set_var("WEBKIT_DEBUG", "Compositor,Layers");
+        // Mesa GL/EGL debug output
+        env::set_var("LIBGL_DEBUG", "verbose");
+        env::set_var("EGL_LOG_LEVEL", "debug");
+        env::set_var("MESA_DEBUG", "silent");
+
         // ── Diagnostics ─────────────────────────────────────────────────────
-        eprintln!("[kiyoshi] linux env applied (minimal set, attempt 9):");
+        eprintln!("[kiyoshi] linux env applied (attempt 10 — verbose EGL debug):");
         eprintln!("[kiyoshi]   WEBKIT_DISABLE_COMPOSITING_MODE=1");
         eprintln!("[kiyoshi]   WEBKIT_DISABLE_DMABUF_RENDERER=1");
         eprintln!("[kiyoshi]   WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1");
@@ -89,6 +97,10 @@ fn main() {
         eprintln!("[kiyoshi]   GALLIUM_DRIVER=llvmpipe");
         eprintln!("[kiyoshi]   GDK_GL=disable");
         eprintln!("[kiyoshi]   GDK_RENDERING=image");
+        eprintln!("[kiyoshi]   GDK_BACKEND=wayland (force, no x11 fallback)");
+        eprintln!("[kiyoshi]   WEBKIT_DEBUG=Compositor,Layers");
+        eprintln!("[kiyoshi]   LIBGL_DEBUG=verbose");
+        eprintln!("[kiyoshi]   EGL_LOG_LEVEL=debug");
         eprintln!("[kiyoshi] display server: {}",
             env::var("WAYLAND_DISPLAY").map(|_| "wayland").unwrap_or_else(|_|
                 env::var("DISPLAY").map(|_| "x11").unwrap_or("none")));
@@ -133,6 +145,16 @@ fn main() {
                     }
                 }
             }
+        }
+
+        // DRM device check — needed for GBM-based EGL platforms
+        eprintln!("[kiyoshi] /dev/dri contents:");
+        if let Ok(entries) = std::fs::read_dir("/dev/dri") {
+            for entry in entries.flatten() {
+                eprintln!("[kiyoshi]   {}", entry.file_name().to_string_lossy());
+            }
+        } else {
+            eprintln!("[kiyoshi]   (no /dev/dri directory!)");
         }
     }
 
