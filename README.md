@@ -73,7 +73,7 @@
 
 Head to the [**Releases**](https://github.com/KiyoshiTheDevil/kiyoshi-music/releases/latest) page and grab the latest Windows installer (`.exe`).
 
-> **Linux:** Not officially supported. Multiple attempts to ship a working AppImage failed due to library incompatibilities (notably on Steam Deck with Mesa 25 vs the WebKitGTK build). Linux users are welcome to fork this repository and re-add a build pipeline — historical Linux work is preserved in the git history through `v0.9.23-beta`.
+> **Linux:** Not officially supported. - No support planned in the future.
 
 > **Google Account:** Not required to use the app. Only needed if you want to sync your YouTube Music library and playlists.
 
