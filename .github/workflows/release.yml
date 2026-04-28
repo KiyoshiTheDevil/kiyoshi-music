@@ -197,7 +197,7 @@ jobs:
         with:
           ref: master
 
-      - name: Publish release and generate latest.json
+      - name: Update draft release notes (no auto-publish)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -205,73 +205,24 @@ jobs:
           VERSION="${TAG#v}"
           RELEASE_ID="${{ needs.create-release.outputs.release_id }}"
 
-          # Extract changelog for this version and publish the draft
+          # Extract changelog for this version
           RELEASE_NOTES=""
           if [ -f CHANGELOG.md ]; then
             RELEASE_NOTES=$(awk "/^## \[${VERSION}\]/{found=1; next} found && /^## \[/{exit} found{print}" CHANGELOG.md | sed '/^[[:space:]]*$/d' | head -80)
           fi
 
+          # Set the body but KEEP draft=true so the release stays as a draft.
+          # Manual publish in the GitHub UI is required after review.
           gh api "repos/${{ github.repository }}/releases/$RELEASE_ID" \
             --method PATCH \
-            --field draft=false \
+            --field draft=true \
             --field body="${RELEASE_NOTES}"
 
-          # Poll for assets — tauri-action@v0 uploads .exe + .exe.sig (Tauri 2.x format)
-          EXE_URL=""
-          SIG_URL=""
-          for attempt in 1 2 3 4 5 6; do
-            echo "Fetching assets (attempt $attempt/6)..."
-            ASSETS=$(gh api "repos/${{ github.repository }}/releases/$RELEASE_ID/assets")
-            EXE_URL=$(echo "$ASSETS" | jq -r '.[] | select(.name | endswith("x64-setup.exe")) | .browser_download_url' | head -1)
-            SIG_URL=$(echo "$ASSETS" | jq -r '.[] | select(.name | endswith("x64-setup.exe.sig")) | .browser_download_url' | head -1)
-
-            if [ -n "$EXE_URL" ] && [ "$EXE_URL" != "null" ]; then
-              echo "Assets ready on attempt $attempt."
-              break
-            fi
-
-            echo "Assets not ready yet — waiting 15s..."
-            sleep 15
-          done
-
-          echo "EXE URL: $EXE_URL"
-          echo "SIG URL: $SIG_URL"
-
-          if [ -z "$EXE_URL" ] || [ "$EXE_URL" = "null" ]; then
-            echo "ERROR: .exe asset not found after all retries. Updater will not work." >&2
-            exit 1
-          fi
-
-          SIG_CONTENT=""
-          if [ -n "$SIG_URL" ] && [ "$SIG_URL" != "null" ]; then
-            for sig_attempt in 1 2 3 4 5; do
-              SIG_CONTENT=$(curl -fsSL "$SIG_URL" 2>/dev/null) && break
-              echo "SIG download failed (attempt $sig_attempt/5) — waiting 10s..."
-              sleep 10
-            done
-          fi
-
-          # Extract the changelog section for this version from CHANGELOG.md
-          # Matches everything between "## [X.Y.Z...]" and the next "## [" heading
-          NOTES=""
-          if [ -f CHANGELOG.md ]; then
-            NOTES=$(awk "/^## \[${VERSION}\]/{found=1; next} found && /^## \[/{exit} found{print}" CHANGELOG.md | sed '/^[[:space:]]*$/d' | head -80)
-          fi
-
-          # Use jq to build JSON safely (handles newlines in sig content)
-          jq -n \
-            --arg version "v${VERSION}" \
-            --arg pub_date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-            --arg url "${EXE_URL}" \
-            --arg sig "${SIG_CONTENT}" \
-            --arg notes "${NOTES}" \
-            '{version: $version, pub_date: $pub_date, notes: $notes, platforms: {"windows-x86_64": {url: $url, signature: $sig}}}' \
-            > updates/latest.json
-
-          # Commit to repo so the raw.githubusercontent.com endpoint always works
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git config user.name "github-actions[bot]"
-          git add updates/latest.json
-          git diff --cached --quiet && echo "No changes" || \
-            git commit -m "chore: update latest.json for $TAG [skip ci]"
-          git push origin master
+          echo ""
+          echo "═══════════════════════════════════════════════════════════════"
+          echo "  Release $TAG built — left as DRAFT for manual review."
+          echo "  → Publish in GitHub UI when ready."
+          echo "  → latest.json (auto-updater) will NOT be updated until then."
+          echo "  → To update latest.json after publishing, run the"
+          echo "    'Publish Release' workflow manually."
+          echo "═══════════════════════════════════════════════════════════════"
