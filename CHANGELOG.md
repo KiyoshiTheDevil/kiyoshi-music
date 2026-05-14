@@ -4,13 +4,13 @@ All notable changes to Kiyoshi Music are documented here.
 
 ---
 
-## [0.9.33-beta] — 2026-05-14
+## [0.9.33-beta] — 2026-05-15
 
 ### Bug Fixes
-- **Icons fehlten nach dem Update** — Font Awesome Fonts wurden über relative URLs (`../webfonts/`) aus `public/css/all.min.css` geladen, die Vite nicht verarbeitet. In WebView2's eingebettetem Dateisystem schlug diese Auflösung still fehl. Jetzt werden die drei kritischen Font-Dateien (Solid, Regular, Brands) direkt über Vites Asset-Pipeline geladen — identisch zu MiSans und OpenDyslexic.
-- **Font Awesome CSS lädt jetzt synchron** — Das `media="print"` / `onload`-Trick für nicht-blockierendes Laden wurde entfernt. In Desktop-Apps sind Assets eingebettet, daher kein Latenznachteil; der Trick konnte aber in bestimmten WebView2-Kontexten still fehlschlagen.
-- **Release-Workflow fixiert** — `github-script`'s `createRelease()` hatte einen Timing-Bug und erzeugte Releases mit `untagged-<hash>`-Tag-Namen statt dem echten Git-Tag. Umgestellt auf `tauri-apps/tauri-action`'s eingebaute Release-Erstellung, die korrekt wartet bis der Tag verfügbar ist.
-- **`Update latest.json` Workflow** — Tag-Eingabe ist jetzt Pflicht (kein auto-resolve mehr) und der Tag wird gegen Semver-Format validiert, bevor er verarbeitet wird. Verhindert `vuntagged-...`-Versionen die den Updater crashen.
+- **Icons missing after update** — Font Awesome fonts were loaded via relative URLs (`../webfonts/`) from `public/css/all.min.css`, which Vite does not process. In WebView2's embedded filesystem this resolution failed silently. The three critical font files (Solid, Regular, Brands) are now loaded through Vite's asset pipeline — identical to how MiSans and OpenDyslexic are handled.
+- **Font Awesome CSS now loads synchronously** — Removed the `media="print"` / `onload` non-blocking trick. In desktop apps assets are embedded so there is no latency penalty; the trick could however fail silently in certain WebView2 contexts.
+- **Release workflow fixed** — `github-script`'s `createRelease()` had a timing race between tag push and GitHub API availability, producing releases with `untagged-<hash>` tag names instead of the real git tag. Switched to `tauri-apps/tauri-action`'s built-in release creation which handles tag resolution correctly.
+- **`Update latest.json` workflow** — Tag input is now required (no more auto-resolve via `gh release list --limit 1`) and the tag is validated against semver format before processing. Prevents `vuntagged-...` versions that crash the in-app updater.
 
 ---
 
