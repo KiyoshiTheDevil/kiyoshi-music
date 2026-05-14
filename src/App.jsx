@@ -1201,14 +1201,10 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
           )}
           <div style={{ margin: "0 16px 4px", borderTop: "0.5px solid var(--border)" }} />
           <div ref={profileTriggerRef}
-            className="sidebar-nav-item"
-            style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", margin: "0 8px 4px" }}
+            style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", margin: "0 8px 4px", borderRadius: "var(--radius)", cursor: "default", transition: "background 0.15s", background: "transparent" }}
             onClick={() => setProfileDropdownOpen(o => !o)}
-            onMouseMove={e => {
-              const r = e.currentTarget.getBoundingClientRect();
-              e.currentTarget.style.setProperty("--rx", `${e.clientX - r.left}px`);
-              e.currentTarget.style.setProperty("--ry", `${e.clientY - r.top}px`);
-            }}
+            onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
+            onMouseLeave={e => e.currentTarget.style.background = "transparent"}
           >
             <div
               style={{
@@ -1244,35 +1240,30 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
           )}
           <div style={{ display: "flex", alignItems: "center", gap: 4, margin: "0 8px 10px" }}>
             <div
-              className="sidebar-nav-item"
               onClick={onOpenSettings}
-              onMouseMove={e => {
-                const r = e.currentTarget.getBoundingClientRect();
-                e.currentTarget.style.setProperty("--rx", `${e.clientX - r.left}px`);
-                e.currentTarget.style.setProperty("--ry", `${e.clientY - r.top}px`);
-              }}
               style={{
                 flex: 1, display: "flex", alignItems: "center", gap: 10,
-                padding: "8px 12px", fontSize: "var(--t13)",
+                padding: "8px 12px",
+                borderRadius: "var(--radius)", cursor: "default",
+                color: "var(--text-secondary)", background: "transparent",
+                transition: "all 0.15s", fontSize: "var(--t13)",
               }}
+              onMouseEnter={e => { e.currentTarget.style.background = "var(--bg-hover)"; e.currentTarget.style.color = "var(--text-primary)"; }}
+              onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--text-secondary)"; }}
             >
               <Gear size={16} style={{ flexShrink: 0 }} />
               {t("settings")}
             </div>
             {obsEnabled && (
               <div
-                className="sidebar-nav-item"
                 onClick={onOpenOverlaySettings}
-                onMouseMove={e => {
-                  const r = e.currentTarget.getBoundingClientRect();
-                  e.currentTarget.style.setProperty("--rx", `${e.clientX - r.left}px`);
-                  e.currentTarget.style.setProperty("--ry", `${e.clientY - r.top}px`);
-                }}
-                onMouseEnter={e => setTooltip({ text: t("overlay"), x: e.currentTarget.getBoundingClientRect().right + 10, y: e.currentTarget.getBoundingClientRect().top + e.currentTarget.getBoundingClientRect().height / 2 })}
-                onMouseLeave={() => setTooltip(null)}
+                onMouseEnter={e => { e.currentTarget.style.background = "var(--bg-hover)"; e.currentTarget.style.color = "var(--text-primary)"; setTooltip({ text: t("overlay"), x: e.currentTarget.getBoundingClientRect().right + 10, y: e.currentTarget.getBoundingClientRect().top + e.currentTarget.getBoundingClientRect().height / 2 }); }}
+                onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--text-muted)"; setTooltip(null); }}
                 style={{
                   flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center",
-                  width: 32, height: 32, position: "relative",
+                  width: 32, height: 32, borderRadius: "var(--radius)", cursor: "default",
+                  color: "var(--text-muted)", background: "transparent", transition: "all 0.15s",
+                  position: "relative",
                 }}
               >
                 <ScreencastSimple size={16} />
