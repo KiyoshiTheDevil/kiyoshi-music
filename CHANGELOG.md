@@ -4,6 +4,14 @@ All notable changes to Kiyoshi Music are documented here.
 
 ---
 
+## [0.9.34-beta] — 2026-05-15
+
+### Bug Fixes
+- **Page transition animations** — Added `fill-mode: both` to the `fadeSlideIn` animation so the element starts fully transparent from the very first rendered frame; removes any single-frame flash and makes the animation reliably visible.
+- **Release workflow** — Pre-create the GitHub draft release (using `gh release create`) before the tauri-action build step; tauri-action then uploads assets to the existing release via `releaseId`. This eliminates the race condition where GitHub's API had not yet associated the pushed tag, causing releases to appear as `untagged-<hash>` entries.
+
+---
+
 ## [0.9.33-beta] — 2026-05-15
 
 ### Bug Fixes
