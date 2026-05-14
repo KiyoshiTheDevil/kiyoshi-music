@@ -14,9 +14,8 @@
       .loaded #boot-splash { opacity: 0; transition: opacity 0.35s ease; }
     </style>
 
-    <!-- Local FontAwesome — non-blocking via media trick -->
-    <link rel="stylesheet" href="/css/all.min.css" media="print" onload="this.media='all'" />
-    <noscript><link rel="stylesheet" href="/css/all.min.css" /></noscript>
+    <!-- Local FontAwesome — synchronous load (embedded in binary, no latency penalty) -->
+    <link rel="stylesheet" href="/css/all.min.css" />
 
     <!-- Google Fonts — non-blocking, never block first paint -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
