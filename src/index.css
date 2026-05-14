@@ -1,3 +1,29 @@
+/* ─── Font Awesome — loaded via Vite asset pipeline (guaranteed absolute path) ─
+   The public/webfonts/ copies are kept for the @font-face rules in all.min.css,
+   but these declarations take priority (index.css loads first) and use Vite-
+   processed paths that are always accessible in the Tauri embedded filesystem. */
+@font-face {
+  font-family: 'Font Awesome 6 Pro';
+  font-style: normal;
+  font-weight: 900;
+  font-display: block;
+  src: url('./fonts/fa-solid-900.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Font Awesome 6 Pro';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url('./fonts/fa-regular-400.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Font Awesome 6 Brands';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url('./fonts/fa-brands-400.woff2') format('woff2');
+}
+
 @font-face {
   font-family: 'MiSans Latin';
   src: url('./fonts/MiSansLatin-Regular.ttf') format('truetype');
