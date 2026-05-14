@@ -4,6 +4,26 @@ All notable changes to Kiyoshi Music are documented here.
 
 ---
 
+## [0.9.30-beta] — 2026-05-14
+
+### UI / Design
+- **Fluent Design System migration** — comprehensive token-based redesign across the entire app:
+  - Sidebar nav items: radial cursor-follow glow effect via `--rx`/`--ry` CSS variables
+  - New `.sidebar-glow` CSS class for buttons with dropdowns (no `overflow: hidden`) — applied to Profile, Settings and OBS Overlay buttons
+  - New Playlist button in sidebar now matches nav item style with hover glow
+  - Queue panel: sliding pill tab bar with animated active indicator, Trash icon button for clearing the queue (opacity-hidden on About tab to preserve pill width)
+  - Queue rows: Fluent surface tokens, accent-dim active state, consistent thumbnail radius
+  - Play/Pause button icon color changed to `--bg-surface` for legibility on accent background
+  - Home page Quick Picks: three-dots menu button now has a proper 26×26 button box with surface hover state
+  - Cache settings: modernised layout with toggle and Clear button positions swapped; label updated to "Total Cache Usage"
+  - Debug menu: full Fluent Design modernisation with surface tokens and consistent spacing
+  - Debug floating window: fixed initial height so it doesn't overflow the app window
+
+### Removed
+- Separator line below Queue panel pill tab bar
+
+---
+
 ## [0.9.24-beta] — 2026-04-28
 
 ### Removed
