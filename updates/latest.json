@@ -1,11 +1,11 @@
 {
-  "version": "v0.9.22-beta",
-  "pub_date": "2026-04-28T06:11:30Z",
-  "notes": "### Diagnostics\n- **Verbose EGL/WebKit/Mesa logging** — v0.9.21 confirmed Steam Deck has libEGL/libGL but no system webkit2gtk (we use the bundled one). Same EGL_BAD_PARAMETER regardless of whether libEGL is bundled. This is now a WebKit platform identifier issue. New env vars: `WEBKIT_DEBUG=Compositor,Layers`, `LIBGL_DEBUG=verbose`, `EGL_LOG_LEVEL=debug` to capture the negotiation. Plus `/dev/dri/` listing to verify DRM device access.\n- **Forced GDK_BACKEND=wayland** (no x11 fallback) — mixed `wayland,x11` may have caused WebKit to pick x11 and fail.\n---",
+  "version": "vuntagged-7dd200cdc33ed4686ab0",
+  "pub_date": "2026-05-14T20:43:37Z",
+  "notes": "",
   "platforms": {
     "windows-x86_64": {
-      "url": "https://github.com/KiyoshiTheDevil/kiyoshi-music/releases/download/v0.9.22-beta/Kiyoshi.Music_0.9.22-beta_x64-setup.exe",
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTb3ErUzRRK3lrL2l0ZTg2cjZqZDdhcWpqMlFpS1NDZW1Ya28xOWhCb0QrN2llbTAzTzZENEtRcUNRSGdHbkpPdXcwN0pZcksxMGFCakNuMkxXMnZ1bFg5YmhzeFE1RWdJPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc3MzU2NjI1CWZpbGU6S2l5b3NoaSBNdXNpY18wLjkuMjItYmV0YV94NjQtc2V0dXAuZXhlCnREbFNiZFZDcTlJMnB4K1N2NGhTMkVaakVjU21TOG5xOTEraUh0bFFsN3FNL2ZXUHRtcnJZeXFuS0ZEQkpHQWJaeFY1UHIyZFNpL09PT1R1aWpZaEFRPT0K"
+      "url": "https://github.com/KiyoshiTheDevil/kiyoshi-music/releases/download/untagged-7dd200cdc33ed4686ab0/Kiyoshi.Music_0.9.30-beta_x64-setup.exe",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTb3ErUzRRK3lrL2xlNjZkdVVuWXJDZUd1RWxzTkI0bmRtM1JGQkdxNzN5QnpoRisrNEMvWnF3SVJHTHNzY0s3a2krRitONXpFZU1uU3dpRk1HcUFHcEhxU3IvRjhlaWdrPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc4NzkxMDAzCWZpbGU6S2l5b3NoaSBNdXNpY18wLjkuMzAtYmV0YV94NjQtc2V0dXAuZXhlClJQZ1M3Z1lsVXFUeXpkUHN6M1pRNUxPaFo4SzNGOGpLWk1PY2x4YmExMHYxQ1NOYmxKZGFoR1ZkM3RtVTkwS0VVZ1ZjNlJmT2JaTi9FakFib1VseENBPT0K"
     }
   }
 }
