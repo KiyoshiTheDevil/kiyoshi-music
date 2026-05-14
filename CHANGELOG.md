@@ -4,6 +4,16 @@ All notable changes to Kiyoshi Music are documented here.
 
 ---
 
+## [0.9.33-beta] — 2026-05-14
+
+### Bug Fixes
+- **Icons fehlten nach dem Update** — Font Awesome Fonts wurden über relative URLs (`../webfonts/`) aus `public/css/all.min.css` geladen, die Vite nicht verarbeitet. In WebView2's eingebettetem Dateisystem schlug diese Auflösung still fehl. Jetzt werden die drei kritischen Font-Dateien (Solid, Regular, Brands) direkt über Vites Asset-Pipeline geladen — identisch zu MiSans und OpenDyslexic.
+- **Font Awesome CSS lädt jetzt synchron** — Das `media="print"` / `onload`-Trick für nicht-blockierendes Laden wurde entfernt. In Desktop-Apps sind Assets eingebettet, daher kein Latenznachteil; der Trick konnte aber in bestimmten WebView2-Kontexten still fehlschlagen.
+- **Release-Workflow fixiert** — `github-script`'s `createRelease()` hatte einen Timing-Bug und erzeugte Releases mit `untagged-<hash>`-Tag-Namen statt dem echten Git-Tag. Umgestellt auf `tauri-apps/tauri-action`'s eingebaute Release-Erstellung, die korrekt wartet bis der Tag verfügbar ist.
+- **`Update latest.json` Workflow** — Tag-Eingabe ist jetzt Pflicht (kein auto-resolve mehr) und der Tag wird gegen Semver-Format validiert, bevor er verarbeitet wird. Verhindert `vuntagged-...`-Versionen die den Updater crashen.
+
+---
+
 ## [0.9.30-beta] — 2026-05-14
 
 ### UI / Design
