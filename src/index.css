@@ -339,6 +339,31 @@ html, body, #root {
   background: color-mix(in srgb, var(--accent) 14%, transparent);
 }
 
+/* ─── Radial hover glow — lightweight version without overflow:hidden ───────
+   Use on sidebar buttons that can't have overflow:hidden (e.g. profile button
+   which renders a dropdown). Gives the same cursor-follow glow as
+   sidebar-nav-item::after but without clipping children.                     */
+.sidebar-glow {
+  position: relative;
+}
+.sidebar-glow::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    circle 70px at var(--rx, 50%) var(--ry, 50%),
+    rgba(255,255,255,0.07) 0%,
+    transparent 100%
+  );
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s;
+  border-radius: inherit;
+  z-index: 0;
+}
+.sidebar-glow:hover::after { opacity: 1; }
+.sidebar-glow > * { position: relative; z-index: 1; }
+
 /* ─── Desktop cursor — no pointer hand on interactive elements ───────────── */
 button, a, select, label,
 [role="button"], [role="tab"], [role="option"],

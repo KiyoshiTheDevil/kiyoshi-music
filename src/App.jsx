@@ -1201,8 +1201,10 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
           )}
           <div style={{ margin: "0 16px 4px", borderTop: "0.5px solid var(--border)" }} />
           <div ref={profileTriggerRef}
+            className="sidebar-glow"
             style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", margin: "0 8px 4px", borderRadius: "var(--radius)", cursor: "default", transition: "background 0.15s", background: "transparent" }}
             onClick={() => setProfileDropdownOpen(o => !o)}
+            onMouseMove={e => { const r = e.currentTarget.getBoundingClientRect(); e.currentTarget.style.setProperty("--rx", `${e.clientX - r.left}px`); e.currentTarget.style.setProperty("--ry", `${e.clientY - r.top}px`); }}
             onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
             onMouseLeave={e => e.currentTarget.style.background = "transparent"}
           >
@@ -1240,7 +1242,9 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
           )}
           <div style={{ display: "flex", alignItems: "center", gap: 4, margin: "0 8px 10px" }}>
             <div
+              className="sidebar-glow"
               onClick={onOpenSettings}
+              onMouseMove={e => { const r = e.currentTarget.getBoundingClientRect(); e.currentTarget.style.setProperty("--rx", `${e.clientX - r.left}px`); e.currentTarget.style.setProperty("--ry", `${e.clientY - r.top}px`); }}
               style={{
                 flex: 1, display: "flex", alignItems: "center", gap: 10,
                 padding: "8px 12px",
@@ -1256,7 +1260,9 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
             </div>
             {obsEnabled && (
               <div
+                className="sidebar-glow"
                 onClick={onOpenOverlaySettings}
+                onMouseMove={e => { const r = e.currentTarget.getBoundingClientRect(); e.currentTarget.style.setProperty("--rx", `${e.clientX - r.left}px`); e.currentTarget.style.setProperty("--ry", `${e.clientY - r.top}px`); }}
                 onMouseEnter={e => { e.currentTarget.style.background = "var(--bg-hover)"; e.currentTarget.style.color = "var(--text-primary)"; setTooltip({ text: t("overlay"), x: e.currentTarget.getBoundingClientRect().right + 10, y: e.currentTarget.getBoundingClientRect().top + e.currentTarget.getBoundingClientRect().height / 2 }); }}
                 onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--text-muted)"; setTooltip(null); }}
                 style={{
@@ -5492,13 +5498,14 @@ function QueueRow({ track, globalIdx, isDraggable, isActive, dragOver, onPointer
       style={{
         display: "flex", alignItems: "center", gap: 8,
         padding: "6px 12px 6px 10px", cursor: "default",
-        background: dragOver === globalIdx ? "rgba(224,64,251,0.12)" : isActive ? "rgba(224,64,251,0.08)" : "transparent",
+        background: dragOver === globalIdx ? "rgba(224,64,251,0.12)" : isActive ? "var(--accent-dim)" : "transparent",
         borderTop: dragOver === globalIdx ? "2px solid var(--accent)" : "2px solid transparent",
+        borderRadius: "var(--r-md)",
         transition: "background 0.1s",
         opacity: isDraggable ? 1 : 0.45,
         userSelect: "none",
       }}
-      onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = "var(--bg-hover)"; }}
+      onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = "var(--fill-subtle)"; }}
       onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = dragOver === globalIdx ? "rgba(224,64,251,0.12)" : "transparent"; }}
     >
       {/* Drag handle */}
@@ -5506,11 +5513,11 @@ function QueueRow({ track, globalIdx, isDraggable, isActive, dragOver, onPointer
         onPointerDown={isDraggable ? e => { e.stopPropagation(); onPointerDown(e, globalIdx); } : undefined}
         style={{ flexShrink: 0, cursor: isDraggable ? "grab" : "default", padding: "2px 1px", touchAction: "none", opacity: isDraggable ? 1 : 0 }}
       >
-        <GripLines size={13} style={{ display: "block", pointerEvents: "none", color: "var(--text-muted)" }} />
+        <GripLines size={13} style={{ display: "block", pointerEvents: "none", color: "var(--t3)" }} />
       </div>
 
       {/* Thumbnail */}
-      <div style={{ width: 36, height: 36, borderRadius: 4, overflow: "hidden", background: "var(--bg-elevated)", flexShrink: 0 }}>
+      <div style={{ width: 36, height: 36, borderRadius: "var(--r-sm)", overflow: "hidden", background: "var(--surface-1)", flexShrink: 0 }}>
         {track.thumbnail
           ? <img src={thumb(track.thumbnail)} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
           : <div style={{ width: "100%", height: "100%", background: "linear-gradient(135deg,#2a1535,#1a0a25)" }} />}
@@ -5518,18 +5525,18 @@ function QueueRow({ track, globalIdx, isDraggable, isActive, dragOver, onPointer
 
       {/* Title + artist */}
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: "var(--t12)", fontWeight: 500, display: "flex", alignItems: "center", gap: 4, overflow: "hidden", color: isActive ? "var(--accent)" : "var(--text-primary)" }}>
+        <div style={{ fontSize: 12, fontWeight: 500, display: "flex", alignItems: "center", gap: 4, overflow: "hidden", color: isActive ? "var(--accent)" : "var(--t1)" }}>
           <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>{track.title}</span>
           {track.isExplicit && <ExplicitBadge />}
         </div>
-        <div style={{ fontSize: "var(--t11)", color: "var(--text-secondary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+        <div style={{ fontSize: 11, color: "var(--t2)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
           {track.artists}
         </div>
       </div>
 
       {/* Duration */}
       {track.duration && (
-        <div style={{ fontSize: "var(--t11)", color: "var(--text-muted)", flexShrink: 0, minWidth: 28, textAlign: "right" }}>
+        <div style={{ fontSize: 11, color: "var(--t3)", flexShrink: 0, minWidth: 28, textAlign: "right" }}>
           {track.duration}
         </div>
       )}
@@ -5537,13 +5544,9 @@ function QueueRow({ track, globalIdx, isDraggable, isActive, dragOver, onPointer
       {/* Like button */}
       <div
         onClick={e => { e.stopPropagation(); onToggleLike?.(track); }}
-        style={{
-          flexShrink: 0, padding: 4, borderRadius: 4, cursor: "default",
-          color: isLiked ? "var(--accent)" : "var(--text-muted)",
-          transition: "color 0.15s",
-        }}
-        onMouseEnter={e => e.currentTarget.style.color = isLiked ? "var(--accent)" : "var(--text-secondary)"}
-        onMouseLeave={e => e.currentTarget.style.color = isLiked ? "var(--accent)" : "var(--text-muted)"}
+        style={{ flexShrink: 0, padding: 4, borderRadius: "var(--r-sm)", cursor: "default", color: isLiked ? "var(--accent)" : "var(--t3)", transition: "color 0.15s" }}
+        onMouseEnter={e => e.currentTarget.style.color = isLiked ? "var(--accent)" : "var(--t2)"}
+        onMouseLeave={e => e.currentTarget.style.color = isLiked ? "var(--accent)" : "var(--t3)"}
       >
         <Heart size={14} weight={isLiked ? "fill" : "regular"} />
       </div>
@@ -5552,9 +5555,9 @@ function QueueRow({ track, globalIdx, isDraggable, isActive, dragOver, onPointer
       {isDraggable && (
         <div
           onClick={e => { e.stopPropagation(); onRemove(track.videoId); }}
-          style={{ color: "var(--text-muted)", cursor: "default", padding: 4, borderRadius: 4, flexShrink: 0, transition: "color 0.15s" }}
-          onMouseEnter={e => e.currentTarget.style.color = "#f44336"}
-          onMouseLeave={e => e.currentTarget.style.color = "var(--text-muted)"}
+          style={{ color: "var(--t3)", cursor: "default", padding: 4, borderRadius: "var(--r-sm)", flexShrink: 0, transition: "color 0.15s" }}
+          onMouseEnter={e => e.currentTarget.style.color = "#ff7070"}
+          onMouseLeave={e => e.currentTarget.style.color = "var(--t3)"}
         >
           <Trash size={13} />
         </div>
@@ -5682,28 +5685,47 @@ function QueuePanel({ queue, setQueue, currentTrack, setTrack, onClose, likedIds
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", position: "relative" }}>
       {/* Header */}
-      <div style={{ padding: "44px 16px 0", borderBottom: "0.5px solid var(--border)", flexShrink: 0 }}>
-        {/* Toggle row */}
-        <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 10 }}>
-          {[{ id: "queue", label: t("queue") }, { id: "about", label: t("aboutSong") }].map(tab => (
-            <button key={tab.id} onClick={() => setPanelTab(tab.id)} style={{
-              background: panelTab === tab.id ? "color-mix(in srgb, var(--accent) 18%, transparent)" : "none",
-              border: "none", borderRadius: 8, padding: "5px 12px",
-              fontSize: "var(--t12)", fontWeight: panelTab === tab.id ? 600 : 400,
-              color: panelTab === tab.id ? "var(--accent)" : "var(--text-muted)",
-              fontFamily: "var(--font)", cursor: "default", transition: "all 0.15s",
-            }}>{tab.label}</button>
-          ))}
-          {panelTab === "queue" && (
-            <button onClick={() => setQueue([])} style={{
-              marginLeft: "auto", background: "none", border: "none", cursor: "default", padding: "4px 8px",
-              fontSize: "var(--t11)", color: "var(--text-muted)", borderRadius: "var(--radius)",
-              fontFamily: "var(--font)", transition: "all 0.15s",
-            }}
-            onMouseEnter={e => { e.currentTarget.style.background = "var(--bg-hover)"; e.currentTarget.style.color = "#f44336"; }}
-            onMouseLeave={e => { e.currentTarget.style.background = "none"; e.currentTarget.style.color = "var(--text-muted)"; }}
-            >{t("clearQueue")}</button>
-          )}
+      <div style={{ padding: "44px 12px 0", flexShrink: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
+          {/* Sliding pill tab bar */}
+          {(() => {
+            const tabs = [{ id: "queue", label: t("queue") }, { id: "about", label: t("aboutSong") }];
+            const idx = tabs.findIndex(tab => tab.id === panelTab);
+            return (
+              <div style={{ position: "relative", display: "flex", flex: 1, background: "var(--surface-1)", borderRadius: "var(--r-lg)", padding: 4 }}>
+                <div style={{
+                  position: "absolute", top: 3, bottom: 3,
+                  left: `calc(3px + ${idx} * (100% - 6px) / 2)`,
+                  width: "calc((100% - 6px) / 2)",
+                  background: "var(--surface-2)", borderRadius: "var(--r-md)",
+                  transition: "left 0.25s cubic-bezier(0.4,0,0.2,1)", pointerEvents: "none",
+                }} />
+                {tabs.map(tab => (
+                  <button key={tab.id} onClick={() => setPanelTab(tab.id)} style={{
+                    flex: 1, padding: "6px 0", borderRadius: "var(--r-md)",
+                    background: "transparent", border: "none", cursor: "default",
+                    fontSize: 12, fontWeight: panelTab === tab.id ? 600 : 400,
+                    color: panelTab === tab.id ? "var(--t1)" : "var(--t2)",
+                    fontFamily: "var(--font)", transition: "color 0.2s",
+                    position: "relative", zIndex: 1,
+                  }}>{tab.label}</button>
+                ))}
+              </div>
+            );
+          })()}
+          {/* Clear queue icon button — always rendered to keep pill width stable */}
+          <Tooltip text={t("clearQueue")}>
+            <button onClick={() => setQueue([])}
+              onMouseEnter={e => { if (panelTab === "queue") { e.currentTarget.style.background = "var(--surface-2)"; e.currentTarget.style.color = "#ff7070"; } }}
+              onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--t3)"; }}
+              style={{
+                flexShrink: 0, width: 30, height: 30, borderRadius: "var(--r-md)",
+                background: "transparent", border: "none", cursor: "default",
+                color: "var(--t3)", display: "flex", alignItems: "center", justifyContent: "center",
+                transition: "background 0.15s, color 0.15s",
+                opacity: panelTab === "queue" ? 1 : 0, pointerEvents: panelTab === "queue" ? "auto" : "none",
+              }}><Trash size={13} /></button>
+          </Tooltip>
         </div>
       </div>
 
@@ -5713,52 +5735,53 @@ function QueuePanel({ queue, setQueue, currentTrack, setTrack, onClose, likedIds
           {currentTrack ? (
             <>
               {/* Song card */}
-              <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 20 }}>
+              <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 20, padding: "12px 14px", background: "var(--surface-1)", borderRadius: "var(--r-lg)" }}>
                 {currentTrack.thumbnail && (
-                  <img src={currentTrack.thumbnail} alt="" style={{ width: 64, height: 64, borderRadius: 8, objectFit: "cover", flexShrink: 0 }} />
+                  <img src={currentTrack.thumbnail} alt="" style={{ width: 52, height: 52, borderRadius: "var(--r-md)", objectFit: "cover", flexShrink: 0 }} />
                 )}
                 <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: "var(--t14)", fontWeight: 700, color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{currentTrack.title}</div>
-                  <div style={{ fontSize: "var(--t12)", color: "var(--text-secondary)", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{currentTrack.artists}</div>
-                  {currentTrack.album && <div style={{ fontSize: "var(--t11)", color: "var(--text-muted)", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{currentTrack.album}</div>}
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "var(--t1)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{currentTrack.title}</div>
+                  <div style={{ fontSize: 12, color: "var(--t2)", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{currentTrack.artists}</div>
+                  {currentTrack.album && <div style={{ fontSize: 11, color: "var(--t3)", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{currentTrack.album}</div>}
                 </div>
               </div>
 
               {/* Description */}
               {songDesc === null && !songDescError && (
-                <div style={{ color: "var(--text-muted)", fontSize: "var(--t12)" }}>{t("loadingDots")}</div>
+                <div style={{ color: "var(--t3)", fontSize: 12 }}>{t("loadingDots")}</div>
               )}
               {songDescError && (
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  <div style={{ color: "var(--text-muted)", fontSize: "var(--t12)" }}>{t("noCredits")}</div>
-                  <button onClick={() => { setSongDescId(null); fetchSongDesc(currentTrack?.videoId, true); }} style={{
-                    alignSelf: "flex-start", background: "var(--bg-elevated)", border: "0.5px solid var(--border)",
-                    borderRadius: 8, padding: "4px 12px", fontSize: "var(--t11)", color: "var(--text-secondary)",
-                    fontFamily: "var(--font)", cursor: "default", display: "flex", alignItems: "center", gap: 5,
-                  }}><ArrowClockwise size={11} /> {t("retry") || "Erneut versuchen"}</button>
+                  <div style={{ color: "var(--t3)", fontSize: 12 }}>{t("noCredits")}</div>
+                  <button onClick={() => { setSongDescId(null); fetchSongDesc(currentTrack?.videoId, true); }}
+                    onMouseEnter={e => e.currentTarget.style.background = "var(--surface-3)"}
+                    onMouseLeave={e => e.currentTarget.style.background = "var(--surface-2)"}
+                    style={{
+                      alignSelf: "flex-start", background: "var(--surface-2)", border: "none",
+                      borderRadius: "var(--r-md)", padding: "5px 12px", fontSize: 11, color: "var(--t2)",
+                      fontFamily: "var(--font)", cursor: "default", display: "flex", alignItems: "center", gap: 5,
+                      transition: "background 0.15s",
+                    }}><ArrowClockwise size={11} /> {t("retry") || "Erneut versuchen"}</button>
                 </div>
               )}
               {songDesc !== null && songDesc === "" && !songDescError && (
-                <div style={{ color: "var(--text-muted)", fontSize: "var(--t12)" }}>{t("noCredits")}</div>
+                <div style={{ color: "var(--t3)", fontSize: 12 }}>{t("noCredits")}</div>
               )}
               {songDesc && (
-                <p style={{
-                  margin: 0, fontSize: "var(--t12)", lineHeight: 1.7,
-                  color: "var(--text-secondary)", whiteSpace: "pre-wrap",
-                }}>{songDesc}</p>
+                <p style={{ margin: 0, fontSize: 12, lineHeight: 1.7, color: "var(--t2)", whiteSpace: "pre-wrap" }}>{songDesc}</p>
               )}
             </>
           ) : (
-            <div style={{ color: "var(--text-muted)", fontSize: "var(--t13)", textAlign: "center", marginTop: 40 }}>{t("selectSong")}</div>
+            <div style={{ color: "var(--t3)", fontSize: 13, textAlign: "center", marginTop: 40 }}>{t("selectSong")}</div>
           )}
         </div>
       )}
 
-      {panelTab === "queue" && <div ref={listRef} className="scrollable" style={{ flex: 1, overflowY: "auto", paddingBottom: 16 }}>
+      {panelTab === "queue" && <div ref={listRef} className="scrollable" style={{ flex: 1, overflowY: "auto", padding: "4px 8px 16px" }}>
         {/* Previously played */}
         {played.length > 0 && (
           <>
-            <div style={{ fontSize: "var(--t10)", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", padding: "12px 16px 6px" }}>{t("previouslyPlayed")}</div>
+            <div style={{ fontSize: 10, fontWeight: 600, color: "var(--t3)", textTransform: "uppercase", letterSpacing: "0.08em", padding: "10px 6px 4px" }}>{t("previouslyPlayed")}</div>
             {played.map((qt, i) => (
               <QueueRow key={qt.videoId || i} track={qt} globalIdx={i} isDraggable={false}
                 isActive={false} dragOver={dragOver}
@@ -5772,7 +5795,7 @@ function QueuePanel({ queue, setQueue, currentTrack, setTrack, onClose, likedIds
         {/* Now playing */}
         {currentTrack && (
           <>
-            <div ref={nowPlayingRef} style={{ fontSize: "var(--t10)", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", padding: "12px 16px 6px" }}>{t("nowPlaying")}</div>
+            <div ref={nowPlayingRef} style={{ fontSize: 10, fontWeight: 600, color: "var(--t3)", textTransform: "uppercase", letterSpacing: "0.08em", padding: "10px 6px 4px" }}>{t("nowPlaying")}</div>
             <QueueRow track={currentTrack} globalIdx={currentIdx} isDraggable={false}
               isActive={true} dragOver={dragOver}
               onPointerDown={handlePointerDown}
@@ -5784,7 +5807,7 @@ function QueuePanel({ queue, setQueue, currentTrack, setTrack, onClose, likedIds
         {/* Up next */}
         {upNext.length > 0 && (
           <>
-            <div style={{ fontSize: "var(--t10)", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", padding: "12px 16px 6px" }}>{t("upNext")}</div>
+            <div style={{ fontSize: 10, fontWeight: 600, color: "var(--t3)", textTransform: "uppercase", letterSpacing: "0.08em", padding: "10px 6px 4px" }}>{t("upNext")}</div>
             {upNext.map((qt, i) => (
               <QueueRow key={qt.videoId || i} track={qt} globalIdx={currentIdx + 1 + i} isDraggable={true}
                 isActive={false} dragOver={dragOver}
@@ -5796,7 +5819,7 @@ function QueuePanel({ queue, setQueue, currentTrack, setTrack, onClose, likedIds
         )}
 
         {queue.length === 0 && (
-          <div style={{ padding: 24, color: "var(--text-muted)", fontSize: "var(--t13)", textAlign: "center" }}>{t("emptyQueue")}</div>
+          <div style={{ padding: 24, color: "var(--t3)", fontSize: 13, textAlign: "center" }}>{t("emptyQueue")}</div>
         )}
       </div>}
 
@@ -9384,8 +9407,10 @@ function HomeView({ displayName, onPlay, onOpenPlaylist, onOpenAlbum, onOpenArti
                           <div style={{ fontSize: "var(--t11)", color: "var(--text-muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginTop: 2 }}>{item.artists}</div>
                         </div>
                         <div onClick={e => { e.stopPropagation(); onTrackContextMenu?.(e, item); }}
-                          style={{ flexShrink: 0, padding: "4px 2px", color: "var(--text-secondary)", cursor: "default" }}>
-                          <DotsThreeVertical size={16} />
+                          onMouseEnter={e => { e.currentTarget.style.background = "var(--surface-3)"; e.currentTarget.style.color = "var(--t1)"; }}
+                          onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--t2)"; }}
+                          style={{ flexShrink: 0, width: 26, height: 26, borderRadius: "var(--r-md)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--t2)", background: "transparent", transition: "background 0.12s, color 0.12s", cursor: "default" }}>
+                          <DotsThreeVertical size={15} />
                         </div>
                       </div>
                     ))}
