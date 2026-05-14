@@ -1,11 +1,11 @@
 {
-  "version": "vuntagged-7dd200cdc33ed4686ab0",
-  "pub_date": "2026-05-14T20:43:37Z",
+  "version": "vuntagged-d8b3c418f9926d0a512f",
+  "pub_date": "2026-05-14T21:18:57Z",
   "notes": "",
   "platforms": {
     "windows-x86_64": {
-      "url": "https://github.com/KiyoshiTheDevil/kiyoshi-music/releases/download/untagged-7dd200cdc33ed4686ab0/Kiyoshi.Music_0.9.30-beta_x64-setup.exe",
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTb3ErUzRRK3lrL2xlNjZkdVVuWXJDZUd1RWxzTkI0bmRtM1JGQkdxNzN5QnpoRisrNEMvWnF3SVJHTHNzY0s3a2krRitONXpFZU1uU3dpRk1HcUFHcEhxU3IvRjhlaWdrPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc4NzkxMDAzCWZpbGU6S2l5b3NoaSBNdXNpY18wLjkuMzAtYmV0YV94NjQtc2V0dXAuZXhlClJQZ1M3Z1lsVXFUeXpkUHN6M1pRNUxPaFo4SzNGOGpLWk1PY2x4YmExMHYxQ1NOYmxKZGFoR1ZkM3RtVTkwS0VVZ1ZjNlJmT2JaTi9FakFib1VseENBPT0K"
+      "url": "https://github.com/KiyoshiTheDevil/kiyoshi-music/releases/download/untagged-d8b3c418f9926d0a512f/Kiyoshi.Music_0.9.30-beta_x64-setup.exe",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTb3ErUzRRK3lrL254U214YWV2VEFQV2dCdUtIWHNFZHU1dElnZ0JUVnlMT1FpYmNxN01KemRZZjF5QmV3ZkEzczBYZThkWWN0cHA2alAwbkJYU21pNkh4ZUtzc1k0bHdnPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc4NzkzMjUxCWZpbGU6S2l5b3NoaSBNdXNpY18wLjkuMzAtYmV0YV94NjQtc2V0dXAuZXhlCjJEdTFxNzhJM3JlZzN6bllwd2VXb3QwRlc5cXBXZWg2SzR2emIwblZVV0oyWlgxNmgxYklsMGw5UkR4U3pxa0c5VnJkSVp3aGRCR2t6dzFqMVB0bER3PT0K"
     }
   }
 }
