@@ -12,7 +12,7 @@ export default function TrackRow({ track, index, onPlay }) {
     <div className="track-row" onDoubleClick={() => onPlay(track)}>
       <div className="track-num">
         <span className="track-idx">{index + 1}</span>
-        <button className="ctrl track-play" onClick={() => onPlay(track)} style={{background:"none",border:"none",cursor:"pointer",color:"var(--text-primary)",padding:0}}>
+        <button className="ctrl track-play" onClick={() => onPlay(track)} style={{background:"none",border:"none",cursor:"default",color:"var(--text-primary)",padding:0}}>
           <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><polygon points="2,1 11,6 2,11"/></svg>
         </button>
       </div>

@@ -88,12 +88,12 @@ export default function Sidebar({ view, setView }) {
         .sidebar-search {
           margin: 0 12px 14px; background: var(--bg-elevated); border: 0.5px solid var(--border);
           border-radius: 20px; padding: 7px 12px; display: flex; align-items: center; gap: 8px;
-          color: var(--text-muted); font-size: 12px; cursor: pointer;
+          color: var(--text-muted); font-size: 12px; cursor: default;
         }
         .sidebar-nav { padding: 0 8px; }
         .nav-item {
           display: flex; align-items: center; gap: 10px; padding: 7px 10px;
-          border-radius: var(--radius); cursor: pointer; color: var(--text-secondary);
+          border-radius: var(--radius); cursor: default; color: var(--text-secondary);
           font-size: 13px; transition: all 0.12s;
         }
         .nav-item:hover { background: var(--bg-elevated); color: var(--text-primary); }
@@ -105,7 +105,7 @@ export default function Sidebar({ view, setView }) {
         .sidebar-playlists { padding: 0 8px; flex: 1; overflow-y: auto; }
         .sidebar-playlist-item {
           display: flex; align-items: center; gap: 8px; padding: 6px 10px;
-          border-radius: var(--radius); cursor: pointer; color: var(--text-secondary);
+          border-radius: var(--radius); cursor: default; color: var(--text-secondary);
           font-size: 12px; transition: all 0.12s; white-space: nowrap; overflow: hidden;
         }
         .sidebar-playlist-item span { overflow: hidden; text-overflow: ellipsis; }

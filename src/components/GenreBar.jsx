@@ -21,7 +21,7 @@ export default function GenreBar() {
         .genre-pill {
           background: var(--bg-elevated); border: 0.5px solid var(--border);
           border-radius: 20px; padding: 5px 13px; font-size: 12px; color: var(--text-secondary);
-          cursor: pointer; white-space: nowrap; flex-shrink: 0; font-family: inherit;
+          cursor: default; white-space: nowrap; flex-shrink: 0; font-family: inherit;
           transition: all 0.12s;
         }
         .genre-pill:hover { background: var(--bg-hover); color: var(--text-primary); }

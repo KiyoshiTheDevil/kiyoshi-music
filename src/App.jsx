@@ -71,6 +71,7 @@ import {
   Robot,
   Eyedropper,
   Info,
+  WarningCircle,
   Star,
   BrandTwitch,
   BrandYoutube,
@@ -108,10 +109,10 @@ const _MAX_FRONTEND_LOGS = 500;
 })();
 
 // ─── App Version ─────────────────────────────────────────────────────────────
-const APP_VERSION = "0.9.24-beta";
+const APP_VERSION = "0.9.30-beta";
 
 // ─── Update Checker (GitHub Releases) ───────────────────────────────────────
-const APP_TAG = "v0.9.24-beta";
+const APP_TAG = "v0.9.30-beta";
 const GITHUB_RELEASES_API = "https://api.github.com/repos/KiyoshiTheDevil/kiyoshi-music/releases?per_page=1";
 
 function isNewerVersion(latest, current) {
@@ -265,8 +266,16 @@ const GLOBAL_KEYFRAMES = `
     to   { transform: translateX(110%); }
   }
   @keyframes fadeSlideIn {
-    from { opacity: 0; transform: translateY(12px) scale(0.98); }
-    to   { opacity: 1; transform: translateY(0)   scale(1); }
+    from { opacity: 0; transform: translateX(-18px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+  @keyframes fadeSlideOut {
+    from { opacity: 1; transform: translateX(0); }
+    to   { opacity: 0; transform: translateX(-18px); }
+  }
+  @keyframes toastOut {
+    from { opacity: 1; transform: translateX(0) scale(1); }
+    to   { opacity: 0; transform: translateX(16px) scale(0.96); }
   }
   @keyframes fadeIn {
     from { opacity: 0; }
@@ -311,7 +320,7 @@ const GLOBAL_KEYFRAMES = `
   .icon-btn {
     background: transparent;
     border: none;
-    cursor: pointer;
+    cursor: default;
     padding: 0;
     width: 32px;
     height: 32px;
@@ -613,7 +622,7 @@ function TitleBar() {
   }, []);
 
   const btnBase = {
-    background: "none", border: "none", cursor: "pointer",
+    background: "none", border: "none", cursor: "default",
     width: 36, height: 28, borderRadius: 5,
     display: "flex", alignItems: "center", justifyContent: "center",
     flexShrink: 0, transition: "background 0.12s",
@@ -696,7 +705,7 @@ function formatDuration(str) {
  * Falls back to a single span using track.artistBrowseId when artists is a plain string.
  */
 function ArtistLinks({ track, onOpenArtist, onBeforeNavigate, style }) {
-  const base = { cursor: "pointer", transition: "color 0.15s", ...style };
+  const base = { cursor: "default", transition: "color 0.15s", ...style };
   const hover   = e => { e.currentTarget.style.color = "var(--accent)"; };
   const unhover = e => { e.currentTarget.style.color = ""; };
 
@@ -747,7 +756,7 @@ function TrackRow({ track, isPlaying, onPlay, onOpenArtist, onContextMenu }) {
       onContextMenu={onContextMenu ? (e) => { e.preventDefault(); onContextMenu(e, track); } : undefined}
       style={{
         display: "flex", alignItems: "center", gap: 12,
-        padding: "8px 16px", borderRadius: "var(--radius)", cursor: "pointer",
+        padding: "8px 16px", borderRadius: "var(--radius)", cursor: "default",
         background: isPlaying ? "rgba(224,64,251,0.08)" : "transparent",
         transition: "background 0.15s",
       }}
@@ -803,7 +812,7 @@ function TrackRow({ track, isPlaying, onPlay, onOpenArtist, onContextMenu }) {
   );
 }
 
-const SIDEBAR_EXPANDED = 240;
+const SIDEBAR_EXPANDED = 260;
 const SIDEBAR_COLLAPSED = 56;
 
 // ─── Playlist Picker Dropdown ────────────────────────────────────────────────
@@ -845,7 +854,7 @@ function PlaylistPickerDropdown({ playlists, onPick, onNewPlaylist, style, conta
           {q && (
             <div
               onClick={e => { e.stopPropagation(); setQ(""); inputRef.current?.focus(); }}
-              style={{ cursor: "pointer", color: "var(--text-muted)", fontSize: 10, lineHeight: 1 }}
+              style={{ cursor: "default", color: "var(--text-muted)", fontSize: 10, lineHeight: 1 }}
             >✕</div>
           )}
         </div>
@@ -854,7 +863,7 @@ function PlaylistPickerDropdown({ playlists, onPick, onNewPlaylist, style, conta
       {/* New Playlist */}
       <div
         onClick={e => { e.stopPropagation(); onNewPlaylist(); }}
-        style={{ padding: "7px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t12)", color: "var(--accent)", display: "flex", alignItems: "center", gap: 8 }}
+        style={{ padding: "7px 12px", borderRadius: "var(--radius)", cursor: "default", fontSize: "var(--t12)", color: "var(--accent)", display: "flex", alignItems: "center", gap: 8 }}
         onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
         onMouseLeave={e => e.currentTarget.style.background = "transparent"}
       >
@@ -870,7 +879,7 @@ function PlaylistPickerDropdown({ playlists, onPick, onNewPlaylist, style, conta
         : filtered.map((pl, i) => (
           <div key={i}
             onClick={e => { e.stopPropagation(); onPick(pl); }}
-            style={{ padding: "7px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t12)", color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
+            style={{ padding: "7px 12px", borderRadius: "var(--radius)", cursor: "default", fontSize: "var(--t12)", color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
             onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
             onMouseLeave={e => e.currentTarget.style.background = "transparent"}
           >{pl.title}</div>
@@ -880,7 +889,7 @@ function PlaylistPickerDropdown({ playlists, onPick, onNewPlaylist, style, conta
   );
 }
 
-function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenSettings, onOpenUpdateTab, onOpenOverlaySettings, onCloseOverlay, onOpenPlaylist, onOpenAlbum, onOpenArtist, onAddRecent, onContextMenu, currentProfileData, onOpenProfileSwitcher, profiles, onSwitchProfile, onAddProfile, onDeleteProfile, onReauthProfile, onCreatePlaylist, updateInfo, offlineMode, isActuallyOffline, onToggleOffline, onRefreshView, obsEnabled }) {
+function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenSettings, onOpenUpdateTab, onOpenOverlaySettings, onCloseOverlay, onOpenPlaylist, onOpenAlbum, onOpenArtist, onAddRecent, onContextMenu, currentProfileData, onOpenProfileSwitcher, profiles, onSwitchProfile, onAddProfile, onDeleteProfile, onReauthProfile, onCreatePlaylist, updateInfo, offlineMode, isActuallyOffline, onToggleOffline, onRefreshView, obsEnabled, settingsOpen }) {
   const [query, setQuery] = useState("");
   const [tooltip, setTooltip] = useState(null);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
@@ -959,12 +968,11 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
 
   return (
     <div style={{
-      width: collapsed ? SIDEBAR_COLLAPSED : SIDEBAR_EXPANDED,
-      minWidth: collapsed ? SIDEBAR_COLLAPSED : SIDEBAR_EXPANDED,
-      transition: "width 0.22s cubic-bezier(0.4,0,0.2,1)",
+      width: "100%", height: "100%",
       background: "var(--bg-surface)", display: "flex", flexDirection: "column",
-      padding: "16px 0 0", flexShrink: 0, borderRight: "0.5px solid var(--border)",
-      height: "100%", overflow: "hidden",
+      padding: "16px 0 0", flexShrink: 0,
+      borderRadius: "var(--r-xl)",
+      overflow: "hidden",
     }}>
       {/* Fixed tooltip rendered via portal-like state */}
       {tooltip && (
@@ -981,9 +989,11 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
       <div style={{
         display: "flex", alignItems: "center", gap: 8,
         padding: "0 12px 16px",
+        justifyContent: collapsed ? "center" : "flex-start",
       }}>
         <div
           onClick={onToggleCollapse}
+          style={{ visibility: settingsOpen ? "hidden" : "visible" }}
           onMouseEnter={e => {
             e.currentTarget.style.background = "var(--bg-hover)"; e.currentTarget.style.color = "var(--text-primary)";
             if (collapsed) {
@@ -998,7 +1008,7 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
           style={{
             width: 28, height: 28, borderRadius: "var(--radius)", flexShrink: 0,
             display: "flex", alignItems: "center", justifyContent: "center",
-            cursor: "pointer", color: "var(--text-secondary)", background: "transparent",
+            cursor: "default", color: "var(--text-secondary)", background: "transparent",
             transition: "all 0.15s", position: "relative", zIndex: 201,
           }}
         >
@@ -1029,7 +1039,7 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
               style={{
                 marginLeft: "auto", width: 26, height: 26, borderRadius: "var(--radius)",
                 display: "flex", alignItems: "center", justifyContent: "center",
-                cursor: "pointer", color: "var(--text-muted)", background: "transparent",
+                cursor: "default", color: "var(--text-muted)", background: "transparent",
                 transition: "all 0.15s", flexShrink: 0,
               }}
               title={t("refresh")}
@@ -1059,7 +1069,7 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
                 fontSize: "var(--t13)", width: "100%", fontFamily: "var(--font)"
               }}
             />
-            {query && <div onClick={() => setQuery("")} style={{ cursor: "pointer", color: "var(--text-muted)", lineHeight: 1 }}>✕</div>}
+            {query && <div onClick={() => setQuery("")} style={{ cursor: "default", color: "var(--text-muted)", lineHeight: 1 }}>✕</div>}
           </div>
         </div>
       )}
@@ -1069,36 +1079,28 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
         <React.Fragment key={item.id}>
           {/* Divider before secondary items */}
           {idx === mainNavItems.length && (
-            <div style={{ margin: "8px 16px", borderTop: "0.5px solid var(--border)" }} />
+            <div style={{ margin: "8px 16px", borderTop: "0.5px solid var(--stroke)" }} />
           )}
           <div
-            onClick={() => {
-                setView(item.id);
-                onCloseOverlay?.();
-                if (anim) { /* brief pop on click */ }
-              }}
+            className={`sidebar-nav-item${view === item.id ? " active" : ""}`}
+            onClick={() => { setView(item.id); onCloseOverlay?.(); }}
+            onMouseMove={e => {
+              const r = e.currentTarget.getBoundingClientRect();
+              e.currentTarget.style.setProperty("--rx", `${e.clientX - r.left}px`);
+              e.currentTarget.style.setProperty("--ry", `${e.clientY - r.top}px`);
+            }}
             onMouseEnter={e => {
-              if (view !== item.id) e.currentTarget.style.background = "var(--bg-hover)";
               if (collapsed && item.label) {
                 const r = e.currentTarget.getBoundingClientRect();
                 setTooltip({ text: item.label, x: r.right + 10, y: r.top + r.height / 2 });
               }
             }}
-            onMouseLeave={e => {
-              if (view !== item.id) e.currentTarget.style.background = "transparent";
-              setTooltip(null);
-            }}
+            onMouseLeave={() => setTooltip(null)}
             style={{
               display: "flex", alignItems: "center",
               justifyContent: collapsed ? "center" : "flex-start",
               gap: 10, padding: collapsed ? "10px 0" : "8px 12px",
               margin: collapsed ? "2px 6px" : "0 8px",
-              borderRadius: "var(--radius)", cursor: "pointer",
-              color: view === item.id ? "var(--accent)" : "var(--text-secondary)",
-              background: view === item.id ? "rgba(224,64,251,0.08)" : "transparent",
-              transition: anim
-                ? `background 0.15s, color 0.15s, transform 0.22s cubic-bezier(0.34,1.56,0.64,1)`
-                : "background 0.15s, color 0.15s",
               fontSize: "var(--t13)",
             }}
           >
@@ -1117,11 +1119,11 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
               <div style={{ fontSize: "var(--t10)", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", padding: "6px 20px 4px" }}>{t("pinned")}</div>
               {pinnedPlaylists.map(pl => (
                 <div key={sidebarItemId(pl)}
+                  className="sidebar-nav-item"
                   onClick={() => { openItem(pl); onCloseOverlay?.(); }}
                   onContextMenu={e => onContextMenu?.(e, pl)}
-                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 12px", margin: "0 8px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t12)", color: "var(--text-secondary)" }}
-                  onMouseEnter={e => { e.currentTarget.style.background = "var(--bg-hover)"; e.currentTarget.style.color = "var(--text-primary)"; }}
-                  onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--text-secondary)"; }}
+                  onMouseMove={e => { const r = e.currentTarget.getBoundingClientRect(); e.currentTarget.style.setProperty("--rx", `${e.clientX - r.left}px`); e.currentTarget.style.setProperty("--ry", `${e.clientY - r.top}px`); }}
+                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 12px", margin: "0 8px", fontSize: "var(--t12)" }}
                 >
                   {pl.type === "album"
                     ? <VinylRecord size={14} style={{ flexShrink: 0, color: "var(--accent)" }} />
@@ -1139,11 +1141,11 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
               <div style={{ fontSize: "var(--t10)", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", padding: "6px 20px 4px" }}>{t("recentlyOpened")}</div>
               {recentPlaylists.filter(pl => !isPinned(pl)).map(pl => (
                 <div key={sidebarItemId(pl)}
+                  className="sidebar-nav-item"
                   onClick={() => { openItem(pl); onCloseOverlay?.(); }}
                   onContextMenu={e => onContextMenu?.(e, pl)}
-                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 12px", margin: "0 8px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t12)", color: "var(--text-secondary)" }}
-                  onMouseEnter={e => { e.currentTarget.style.background = "var(--bg-hover)"; e.currentTarget.style.color = "var(--text-primary)"; }}
-                  onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--text-secondary)"; }}
+                  onMouseMove={e => { const r = e.currentTarget.getBoundingClientRect(); e.currentTarget.style.setProperty("--rx", `${e.clientX - r.left}px`); e.currentTarget.style.setProperty("--ry", `${e.clientY - r.top}px`); }}
+                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 12px", margin: "0 8px", fontSize: "var(--t12)" }}
                 >
                   {pl.type === "album"
                     ? <VinylRecord size={14} style={{ flexShrink: 0, opacity: 0.4 }} />
@@ -1162,16 +1164,23 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
       {/* New Playlist button */}
       {!collapsed && (
         <div
+          className="sidebar-nav-item"
           onClick={onCreatePlaylist}
-          style={{
-            display: "flex", alignItems: "center", gap: 8, padding: "8px 20px",
-            fontSize: "var(--t12)", color: "var(--text-muted)", cursor: "pointer", transition: "all 0.15s",
+          onMouseMove={e => {
+            const r = e.currentTarget.getBoundingClientRect();
+            e.currentTarget.style.setProperty("--rx", `${e.clientX - r.left}px`);
+            e.currentTarget.style.setProperty("--ry", `${e.clientY - r.top}px`);
           }}
-          onMouseEnter={e => { e.currentTarget.style.color = "var(--text-primary)"; }}
-          onMouseLeave={e => { e.currentTarget.style.color = "var(--text-muted)"; }}
+          style={{
+            display: "flex", alignItems: "center", justifyContent: "flex-start",
+            gap: 10, padding: "8px 12px", margin: "0 8px 6px",
+            fontSize: "var(--t13)",
+          }}
         >
-          <Plus size={14} weight="bold" />
-          <span>{t("newPlaylist")}</span>
+          <span style={{ flexShrink: 0, width: 18, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <Plus size={14} weight="bold" />
+          </span>
+          {t("newPlaylist")}
         </div>
       )}
 
@@ -1192,10 +1201,14 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
           )}
           <div style={{ margin: "0 16px 4px", borderTop: "0.5px solid var(--border)" }} />
           <div ref={profileTriggerRef}
-            style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", margin: "0 8px 4px", borderRadius: "var(--radius)", cursor: "pointer", transition: "background 0.15s", background: "transparent" }}
+            className="sidebar-nav-item"
+            style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", margin: "0 8px 4px" }}
             onClick={() => setProfileDropdownOpen(o => !o)}
-            onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
-            onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+            onMouseMove={e => {
+              const r = e.currentTarget.getBoundingClientRect();
+              e.currentTarget.style.setProperty("--rx", `${e.clientX - r.left}px`);
+              e.currentTarget.style.setProperty("--ry", `${e.clientY - r.top}px`);
+            }}
           >
             <div
               style={{
@@ -1218,7 +1231,7 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
             <div onClick={onOpenUpdateTab} style={{
               display: "flex", alignItems: "center", gap: 8,
               padding: "6px 12px", margin: "0 8px 2px",
-              borderRadius: "var(--radius)", cursor: "pointer",
+              borderRadius: "var(--radius)", cursor: "default",
               background: "rgba(224,64,251,0.08)", color: "var(--accent)",
               fontSize: "var(--t12)", fontWeight: 500, transition: "all 0.15s",
             }}
@@ -1231,30 +1244,35 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
           )}
           <div style={{ display: "flex", alignItems: "center", gap: 4, margin: "0 8px 10px" }}>
             <div
+              className="sidebar-nav-item"
               onClick={onOpenSettings}
+              onMouseMove={e => {
+                const r = e.currentTarget.getBoundingClientRect();
+                e.currentTarget.style.setProperty("--rx", `${e.clientX - r.left}px`);
+                e.currentTarget.style.setProperty("--ry", `${e.clientY - r.top}px`);
+              }}
               style={{
                 flex: 1, display: "flex", alignItems: "center", gap: 10,
-                padding: "8px 12px",
-                borderRadius: "var(--radius)", cursor: "pointer",
-                color: "var(--text-secondary)", background: "transparent",
-                transition: "all 0.15s", fontSize: "var(--t13)",
+                padding: "8px 12px", fontSize: "var(--t13)",
               }}
-              onMouseEnter={e => { e.currentTarget.style.background = "var(--bg-hover)"; e.currentTarget.style.color = "var(--text-primary)"; }}
-              onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--text-secondary)"; }}
             >
               <Gear size={16} style={{ flexShrink: 0 }} />
               {t("settings")}
             </div>
             {obsEnabled && (
               <div
+                className="sidebar-nav-item"
                 onClick={onOpenOverlaySettings}
-                onMouseEnter={e => { e.currentTarget.style.background = "var(--bg-hover)"; e.currentTarget.style.color = "var(--text-primary)"; setTooltip({ text: t("overlay"), x: e.currentTarget.getBoundingClientRect().right + 10, y: e.currentTarget.getBoundingClientRect().top + e.currentTarget.getBoundingClientRect().height / 2 }); }}
-                onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--text-muted)"; setTooltip(null); }}
+                onMouseMove={e => {
+                  const r = e.currentTarget.getBoundingClientRect();
+                  e.currentTarget.style.setProperty("--rx", `${e.clientX - r.left}px`);
+                  e.currentTarget.style.setProperty("--ry", `${e.clientY - r.top}px`);
+                }}
+                onMouseEnter={e => setTooltip({ text: t("overlay"), x: e.currentTarget.getBoundingClientRect().right + 10, y: e.currentTarget.getBoundingClientRect().top + e.currentTarget.getBoundingClientRect().height / 2 })}
+                onMouseLeave={() => setTooltip(null)}
                 style={{
                   flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center",
-                  width: 32, height: 32, borderRadius: "var(--radius)", cursor: "pointer",
-                  color: "var(--text-muted)", background: "transparent", transition: "all 0.15s",
-                  position: "relative",
+                  width: 32, height: 32, position: "relative",
                 }}
               >
                 <ScreencastSimple size={16} />
@@ -1283,7 +1301,7 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
               onMouseEnter={e => { const r = e.currentTarget.getBoundingClientRect(); setTooltip({ text: t("updateAvailable"), x: r.right + 10, y: r.top + r.height / 2 }); }}
               onMouseLeave={() => setTooltip(null)}
               style={{
-                width: 36, height: 36, borderRadius: "var(--radius)", cursor: "pointer",
+                width: 36, height: 36, borderRadius: "var(--radius)", cursor: "default",
                 display: "flex", alignItems: "center", justifyContent: "center",
                 color: "var(--accent)", background: "rgba(224,64,251,0.08)",
               }}
@@ -1302,7 +1320,7 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
               setTooltip(null);
             }}
             style={{
-              width: 36, height: 36, borderRadius: "var(--radius)", cursor: "pointer",
+              width: 36, height: 36, borderRadius: "var(--radius)", cursor: "default",
               display: "flex", alignItems: "center", justifyContent: "center",
               color: "var(--text-secondary)", background: "transparent", transition: "all 0.15s",
             }}
@@ -1504,7 +1522,7 @@ function ColorPickerPopover({ value, onChange, onClose, anchorRef, inline = fals
         onPointerMove={e => { if (e.buttons) moveHue(e); }}
         style={{
           width: "100%", height: 12, borderRadius: 6, marginBottom: 12,
-          cursor: "pointer", position: "relative",
+          cursor: "default", position: "relative",
           background: "linear-gradient(to right,#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00)",
         }}
       >
@@ -1558,7 +1576,7 @@ function ColorPickerPopover({ value, onChange, onClose, anchorRef, inline = fals
                 style={{
                   position: "absolute", right: 4, top: "50%", transform: "translateY(-50%)",
                   background: "none", border: "none", padding: 2,
-                  color: "var(--text-muted)", cursor: "pointer",
+                  color: "var(--text-muted)", cursor: "default",
                   display: "flex", alignItems: "center", justifyContent: "center",
                 }}
               >
@@ -1602,7 +1620,7 @@ function Slider({ min, max, step = 1, value, onChange, onChangeCommit, width = 1
       onPointerDown={handlePointerDown}
       onMouseEnter={e => e.currentTarget.querySelector(".slider-bar").style.height = "5px"}
       onMouseLeave={e => e.currentTarget.querySelector(".slider-bar").style.height = "3px"}
-      style={{ width, height: 16, display: "flex", alignItems: "center", cursor: "pointer", flexShrink: 0 }}
+      style={{ width, height: 16, display: "flex", alignItems: "center", cursor: "default", flexShrink: 0 }}
     >
       <div className="slider-bar" style={{ width: "100%", height: 3, background: "var(--slider-track)", borderRadius: 2, overflow: "hidden", transition: "height 0.15s ease", pointerEvents: "none" }}>
         <div style={{ width: `${pct}%`, height: "100%", background: "var(--accent)", borderRadius: 2 }} />
@@ -1612,20 +1630,25 @@ function Slider({ min, max, step = 1, value, onChange, onChangeCommit, width = 1
 }
 
 function Toggle({ value, onChange }) {
+  const [hovered, setHovered] = useState(false);
+  const knobSize = hovered ? 16 : 14;
+  const offset = hovered ? 3 : 4;
   return (
-    <div onClick={() => onChange(!value)} style={{
-      width: 44, height: 24, borderRadius: 7,
-      background: value ? "var(--accent)" : "var(--bg-elevated)",
-      border: "0.5px solid var(--border)",
-      position: "relative", cursor: "pointer",
-      transition: "background 0.25s ease-in-out", flexShrink: 0,
-    }}>
+    <div onClick={() => onChange(!value)}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        width: 44, height: 22, borderRadius: 100,
+        background: value ? "var(--accent)" : "var(--surface-2)",
+        position: "relative", cursor: "default", flexShrink: 0,
+        transition: "background 0.3s cubic-bezier(0.4,0,0.2,1)",
+      }}>
       <div style={{
-        position: "absolute", top: "50%", transform: "translateY(-50%)",
-        left: value ? 23 : 3,
-        width: 18, height: 18, borderRadius: 4, background: "#fff",
-        transition: "left 0.25s ease-in-out",
-        boxShadow: "0 1px 4px rgba(0,0,0,0.25)",
+        position: "absolute", top: "50%",
+        transform: `translateX(${value ? 44 - knobSize - offset : offset}px) translateY(-50%)`,
+        width: knobSize, height: knobSize, borderRadius: "50%", background: "var(--bg-base)",
+        transition: "transform 0.3s cubic-bezier(0.4,0,0.2,1), width 0.15s ease, height 0.15s ease",
+        boxShadow: "0 1px 6px rgba(0,0,0,0.35)",
       }} />
     </div>
   );
@@ -1633,12 +1656,18 @@ function Toggle({ value, onChange }) {
 
 function SettingRow({ label, description, icon, children }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, padding: "14px 0", borderBottom: "0.5px solid var(--border)" }}>
+    <div style={{
+      display: "flex", alignItems: "center", justifyContent: "space-between",
+      gap: 16, padding: "14px 18px",
+      background: "var(--surface-1)",
+      borderRadius: "var(--r-lg)",
+      marginBottom: 6,
+    }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
         {icon && (
           <div style={{
-            width: 32, height: 32, borderRadius: 8, flexShrink: 0,
-            background: "var(--bg-elevated)",
+            width: 30, height: 30, borderRadius: "var(--r-md)", flexShrink: 0,
+            background: "transparent",
             display: "flex", alignItems: "center", justifyContent: "center",
             color: "var(--accent)",
           }}>
@@ -1646,8 +1675,8 @@ function SettingRow({ label, description, icon, children }) {
           </div>
         )}
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: "var(--t13)", fontWeight: 500 }}>{label}</div>
-          {description && <div style={{ fontSize: "var(--t11)", color: "var(--text-muted)", marginTop: 2 }}>{description}</div>}
+          <div style={{ fontSize: 13, fontWeight: 500, color: "var(--t1)" }}>{label}</div>
+          {description && <div style={{ fontSize: 11, color: "var(--t3)", marginTop: 2, lineHeight: 1.4 }}>{description}</div>}
         </div>
       </div>
       <div style={{ flexShrink: 0 }}>{children}</div>
@@ -1668,13 +1697,9 @@ const MAX_CACHE_STEPS = [100, 250, 500, 1000, 2000, 5000, 0]; // 0 = unlimited
 function StorageTab({ t }) {
   return (
     <div>
-      <div style={{ fontSize: "var(--t11)", fontWeight: 700, textTransform: "uppercase", color: "var(--text-secondary)", letterSpacing: 0.8, marginBottom: 14 }}>
-        {t("storageDownloads")}
-      </div>
+      <SettingsSectionLabel>{t("storageDownloads")}</SettingsSectionLabel>
       <DownloadsTab t={t} />
-      <div style={{ fontSize: "var(--t11)", fontWeight: 700, textTransform: "uppercase", color: "var(--text-secondary)", letterSpacing: 0.8, marginTop: 32, marginBottom: 14 }}>
-        {t("storageCache")}
-      </div>
+      <SettingsSectionLabel style={{ marginTop: 28 }}>{t("storageCache")}</SettingsSectionLabel>
       <CacheTab t={t} />
     </div>
   );
@@ -1701,30 +1726,29 @@ function DownloadsTab({ t }) {
 
   return (
     <div>
-      {/* Default save path */}
-      <div style={{ fontSize: "var(--t11)", fontWeight: 600, textTransform: "uppercase", color: "var(--text-secondary)", letterSpacing: 0.5, marginTop: 24, marginBottom: 10 }}>
-        {t("defaultSavePath")}
-      </div>
-      <div style={{
-        display: "flex", alignItems: "center", gap: 10, padding: "12px 16px",
-        background: "var(--bg-elevated)", borderRadius: "var(--radius-lg)",
-        marginBottom: 8,
-      }}>
-        <DownloadSimple size={16} style={{ color: "var(--accent)", flexShrink: 0 }} />
-        <div style={{ flex: 1, fontSize: "var(--t12)", color: mp3Dir ? "var(--text-primary)" : "var(--text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {mp3Dir || t("noPathSet")}
+      <SettingRow label={t("defaultSavePath")} icon={<DownloadSimple size={15} />}
+        description={mp3Dir || t("noPathSet")}>
+        <div style={{ display: "flex", gap: 6 }}>
+          {mp3Dir && (
+            <button onClick={handleResetPath}
+              onMouseEnter={e => e.currentTarget.style.background = "var(--surface-3)"}
+              onMouseLeave={e => e.currentTarget.style.background = "var(--surface-2)"}
+              style={{
+                padding: "5px 12px", borderRadius: "var(--r-md)", border: "none",
+                background: "var(--surface-2)", color: "var(--t2)",
+                fontSize: 12, cursor: "default", fontFamily: "var(--font)", transition: "background 0.15s",
+              }}>{t("resetPath")}</button>
+          )}
+          <button onClick={handleChangePath}
+            onMouseEnter={e => e.currentTarget.style.opacity = "0.85"}
+            onMouseLeave={e => e.currentTarget.style.opacity = "1"}
+            style={{
+              padding: "5px 12px", borderRadius: "var(--r-md)", border: "none",
+              background: "var(--accent)", color: "#fff",
+              fontSize: 12, fontWeight: 500, cursor: "default", fontFamily: "var(--font)", transition: "opacity 0.15s",
+            }}>{t("changePath")}</button>
         </div>
-        {mp3Dir && (
-          <button onClick={handleResetPath} style={{
-            padding: "4px 10px", borderRadius: 6, border: "none",
-            background: "transparent", color: "var(--text-secondary)", fontSize: "var(--t11)", cursor: "pointer",
-          }}>{t("resetPath")}</button>
-        )}
-        <button onClick={handleChangePath} style={{
-          padding: "4px 12px", borderRadius: 6, border: "none",
-          background: "var(--accent)", color: "#fff", fontSize: "var(--t11)", fontWeight: 500, cursor: "pointer",
-        }}>{t("changePath")}</button>
-      </div>
+      </SettingRow>
     </div>
   );
 }
@@ -1793,157 +1817,162 @@ function CacheTab({ t }) {
   const overLimit = maxCacheMb > 0 && totalBytes > maxCacheMb * 1024 * 1024;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
       {fetchError && (
-        <div style={{ padding: "8px 12px", marginBottom: 12, borderRadius: 8, background: "rgba(255,60,60,0.15)", color: "#ff6b6b", fontSize: "var(--t11)" }}>
+        <div style={{
+          padding: "12px 16px", marginBottom: 6, borderRadius: "var(--r-lg)",
+          background: "rgba(255,60,60,0.12)", color: "#ff7070", fontSize: 12,
+        }}>
           Cache-Stats Fehler: {fetchError}
         </div>
       )}
 
-      {/* ── One big box ── */}
+      {/* ── Summary card ── */}
       <div style={{
-        background: "var(--bg-elevated)", borderRadius: 14, overflow: "hidden",
-        transition: "background 0.2s",
+        background: overLimit ? "color-mix(in srgb, #ff4444 8%, var(--surface-1))" : "var(--surface-1)",
+        borderRadius: "var(--r-lg)", padding: "16px 18px",
+        transition: "background 0.3s",
       }}>
-
-        {/* Summary header */}
-        <div style={{
-          padding: "16px 20px",
-          background: overLimit ? "rgba(255,60,60,0.07)" : "transparent",
-          transition: "background 0.2s",
-        }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 10 }}>
-            <div style={{ fontSize: "var(--t11)", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
-              {t("cacheTotal") || "Gesamt"}
-            </div>
-            <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
-              {overLimit && (
-                <div style={{ fontSize: "var(--t11)", color: "#ff6b6b", fontWeight: 600 }}>
-                  {t("cacheWarning")}
-                </div>
-              )}
-              <div style={{ fontSize: "var(--t18)", fontWeight: 700, color: overLimit ? "#ff6b6b" : "var(--text-primary)" }}>
-                {stats ? fmtBytes(totalBytes) : "…"}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: "var(--t1)" }}>
+            Total Cache Usage
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            {overLimit && (
+              <div style={{ fontSize: 11, color: "#ff7070", fontWeight: 600 }}>
+                {t("cacheWarning")}
               </div>
+            )}
+            <div style={{ fontSize: 22, fontWeight: 700, color: overLimit ? "#ff7070" : "var(--t1)" }}>
+              {stats ? fmtBytes(totalBytes) : "…"}
             </div>
           </div>
-          {/* Stacked bar */}
-          <div style={{ height: 6, borderRadius: 99, overflow: "hidden", background: "var(--bg-base)", display: "flex" }}>
-            {stats && totalBytes > 0 && categories.map(c => {
-              const pct = (stats[c.key]?.size ?? 0) / totalBytes * 100;
-              return pct > 0 ? (
-                <div key={c.key} style={{ width: `${pct}%`, background: c.color, transition: "width 0.4s ease" }} />
-              ) : null;
-            })}
-          </div>
-          {/* Legend */}
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 16px", marginTop: 8 }}>
-            {categories.map(c => (
-              <div key={c.key} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: "var(--t10)", color: "var(--text-muted)" }}>
-                <div style={{ width: 8, height: 8, borderRadius: 99, background: c.color, flexShrink: 0 }} />
-                {c.label}
-              </div>
-            ))}
-          </div>
         </div>
-
-        {/* Divider */}
-        <div style={{ height: "0.5px", background: "var(--border)" }} />
-
-        {/* ── Category rows ── */}
-        {categories.map(({ key, label, icon, color, colorRaw }, idx) => {
-          const s = stats?.[key];
-          const isClearing = clearing[key];
-          const wasCleared = cleared[key];
-          const pct = (totalBytes > 0 && s?.size) ? s.size / totalBytes * 100 : 0;
-
-          return (
-            <div key={key} style={{ opacity: s?.enabled === false ? 0.5 : 1, transition: "opacity 0.2s" }}>
-              {idx > 0 && <div style={{ height: "0.5px", background: "var(--border)", marginLeft: 64 }} />}
-              <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "12px 16px" }}>
-                {/* Colored icon badge */}
-                <div style={{
-                  width: 34, height: 34, borderRadius: 9, flexShrink: 0,
-                  background: `rgba(${colorRaw},0.15)`, color: color,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                }}>{icon}</div>
-
-                {/* Label + stats */}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: "var(--t13)", fontWeight: 600, color: "var(--text-primary)" }}>{label}</div>
-                  <div style={{ fontSize: "var(--t11)", color: "var(--text-muted)", marginTop: 1 }}>
-                    {s ? <span style={{ color: color, fontWeight: 600 }}>{fmtBytes(s.size)}</span> : "…"}
-                    {s?.count != null && <span> · {s.count} {key === "images" ? t("cacheFiles") : t("cacheEntries")}</span>}
-                  </div>
-                </div>
-
-                {/* Toggle */}
-                <Toggle value={s?.enabled ?? true} onChange={v => toggleEnabled(key, v)} />
-
-                {/* Clear button */}
-                <button onClick={() => clear(key)} disabled={isClearing || wasCleared} style={{
-                  padding: "5px 12px", borderRadius: 7, border: "none",
-                  background: wasCleared ? "rgba(76,175,80,0.12)" : "var(--bg-base)",
-                  color: wasCleared ? "#4caf50" : isClearing ? "var(--text-muted)" : "var(--text-secondary)",
-                  fontSize: "var(--t11)", fontWeight: 500, cursor: isClearing || wasCleared ? "default" : "pointer",
-                  transition: "all 0.2s", whiteSpace: "nowrap", minWidth: 68, fontFamily: "var(--font)",
-                }}>
-                  {wasCleared ? <><Check size={11} style={{ marginRight: 4 }} />{t("cacheCleared")}</> : isClearing ? "…" : t("cacheClear")}
-                </button>
-              </div>
-
-              {/* Usage bar */}
-              {pct > 0 && (
-                <div style={{ height: 2, background: "var(--bg-base)" }}>
-                  <div style={{ height: "100%", width: `${pct}%`, background: color, transition: "width 0.4s ease", opacity: 0.6 }} />
-                </div>
-              )}
+        {/* Stacked bar */}
+        <div style={{ height: 6, borderRadius: 99, overflow: "hidden", background: "var(--bg-base)", display: "flex" }}>
+          {stats && totalBytes > 0 && categories.map(c => {
+            const pct = (stats[c.key]?.size ?? 0) / totalBytes * 100;
+            return pct > 0 ? (
+              <div key={c.key} style={{ width: `${pct}%`, background: c.color, transition: "width 0.4s ease" }} />
+            ) : null;
+          })}
+        </div>
+        {/* Legend */}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 18px", marginTop: 10 }}>
+          {categories.map(c => (
+            <div key={c.key} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--t3)" }}>
+              <div style={{ width: 8, height: 8, borderRadius: 99, background: c.color, flexShrink: 0 }} />
+              {c.label}
             </div>
-          );
-        })}
-
-        {/* Divider */}
-        <div style={{ height: "0.5px", background: "var(--border)" }} />
-
-        {/* ── Max cache size slider ── */}
-        <div style={{ padding: "14px 20px" }}>
-          <div style={{ fontSize: "var(--t11)", fontWeight: 600, textTransform: "uppercase", color: "var(--text-muted)", letterSpacing: 0.5, marginBottom: 12 }}>
-            {t("maxCacheSize")}
-          </div>
-          <Slider
-            min={0}
-            max={MAX_CACHE_STEPS.length - 1}
-            step={1}
-            value={sliderIndex >= 0 ? sliderIndex : MAX_CACHE_STEPS.length - 1}
-            onChange={handleSlider}
-            width="100%"
-          />
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: "var(--t10)", color: "var(--text-muted)", marginTop: 8 }}>
-            {MAX_CACHE_STEPS.map((v, i) => (
-              <span key={i} style={{ fontWeight: i === sliderIndex ? 600 : 400, color: i === sliderIndex ? "var(--accent)" : undefined }}>{stepLabel(v)}</span>
-            ))}
-          </div>
+          ))}
         </div>
-
-        {/* Divider */}
-        <div style={{ height: "0.5px", background: "var(--border)" }} />
-
-        {/* Clear all */}
-        <div style={{ padding: "10px 16px", display: "flex", justifyContent: "flex-end" }}>
-          <button onClick={() => categories.forEach(c => clear(c.key))} style={{
-            padding: "6px 16px", borderRadius: 8, border: "none",
-            background: "var(--bg-base)", color: "var(--text-secondary)",
-            fontSize: "var(--t12)", fontWeight: 500, cursor: "pointer", transition: "all 0.15s",
-            fontFamily: "var(--font)",
-          }}
-          onMouseEnter={e => { e.currentTarget.style.background = "var(--bg-hover)"; e.currentTarget.style.color = "var(--text-primary)"; }}
-          onMouseLeave={e => { e.currentTarget.style.background = "var(--bg-base)"; e.currentTarget.style.color = "var(--text-secondary)"; }}
-          >
-            {t("cacheClearAll")}
-          </button>
-        </div>
-
       </div>
+
+      {/* ── Category rows — one card each ── */}
+      {categories.map(({ key, label, icon, color, colorRaw }) => {
+        const s = stats?.[key];
+        const isClearing = clearing[key];
+        const wasCleared = cleared[key];
+
+        return (
+          <div key={key} style={{
+            display: "flex", alignItems: "center", gap: 14,
+            padding: "14px 18px",
+            background: "var(--surface-1)", borderRadius: "var(--r-lg)",
+            opacity: s?.enabled === false ? 0.5 : 1,
+            transition: "opacity 0.2s",
+          }}>
+            {/* Colored icon badge */}
+            <div style={{
+              width: 32, height: 32, borderRadius: "var(--r-md)", flexShrink: 0,
+              background: `rgba(${colorRaw},0.15)`, color: color,
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}>{icon}</div>
+
+            {/* Label + stats */}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13, fontWeight: 500, color: "var(--t1)" }}>{label}</div>
+              <div style={{ fontSize: 11, color: "var(--t3)", marginTop: 2 }}>
+                {s ? <span style={{ color: color, fontWeight: 600 }}>{fmtBytes(s.size)}</span> : "…"}
+                {s?.count != null && <span> · {s.count} {key === "images" ? t("cacheFiles") : t("cacheEntries")}</span>}
+              </div>
+            </div>
+
+            {/* Clear button */}
+            <button
+              onClick={() => clear(key)}
+              disabled={isClearing || wasCleared}
+              onMouseEnter={e => { if (!isClearing && !wasCleared) e.currentTarget.style.background = "var(--surface-3)"; }}
+              onMouseLeave={e => { if (!isClearing && !wasCleared) e.currentTarget.style.background = wasCleared ? "rgba(107,223,150,0.12)" : "var(--surface-2)"; }}
+              style={{
+                padding: "5px 12px", borderRadius: "var(--r-md)", border: "none",
+                background: wasCleared ? "rgba(107,223,150,0.12)" : "var(--surface-2)",
+                color: wasCleared ? "#6bdf96" : isClearing ? "var(--t3)" : "var(--t2)",
+                fontSize: 12, fontWeight: 500, cursor: "default",
+                transition: "background 0.15s, color 0.15s", whiteSpace: "nowrap",
+                minWidth: 72, fontFamily: "var(--font)",
+              }}>
+              {wasCleared
+                ? <><Check size={11} style={{ marginRight: 4 }} />{t("cacheCleared")}</>
+                : isClearing ? "…" : t("cacheClear")}
+            </button>
+
+            {/* Toggle */}
+            <Toggle value={s?.enabled ?? true} onChange={v => toggleEnabled(key, v)} />
+          </div>
+        );
+      })}
+
+      {/* ── Max cache size slider ── */}
+      <div style={{
+        background: "var(--surface-1)", borderRadius: "var(--r-lg)", padding: "14px 18px",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+          <div style={{
+            width: 32, height: 32, borderRadius: "var(--r-md)", flexShrink: 0,
+            background: "transparent", color: "var(--accent)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}>
+            <HardDrives size={15} />
+          </div>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 500, color: "var(--t1)" }}>{t("maxCacheSize")}</div>
+            <div style={{ fontSize: 11, color: "var(--t3)", marginTop: 2 }}>
+              {stepLabel(maxCacheMb)}
+            </div>
+          </div>
+        </div>
+        <Slider
+          min={0}
+          max={MAX_CACHE_STEPS.length - 1}
+          step={1}
+          value={sliderIndex >= 0 ? sliderIndex : MAX_CACHE_STEPS.length - 1}
+          onChange={handleSlider}
+          width="100%"
+        />
+        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "var(--t3)", marginTop: 8 }}>
+          {MAX_CACHE_STEPS.map((v, i) => (
+            <span key={i} style={{
+              fontWeight: i === sliderIndex ? 600 : 400,
+              color: i === sliderIndex ? "var(--accent)" : undefined,
+            }}>{stepLabel(v)}</span>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Clear all ── */}
+      <button
+        onClick={() => categories.forEach(c => clear(c.key))}
+        onMouseEnter={e => e.currentTarget.style.background = "var(--surface-3)"}
+        onMouseLeave={e => e.currentTarget.style.background = "var(--surface-2)"}
+        style={{
+          width: "100%", padding: "10px 0", borderRadius: "var(--r-lg)", border: "none",
+          background: "var(--surface-2)", color: "var(--t2)",
+          fontSize: 13, fontWeight: 500, cursor: "default",
+          transition: "background 0.15s, color 0.15s", fontFamily: "var(--font)",
+        }}>
+        {t("cacheClearAll")}
+      </button>
     </div>
   );
 }
@@ -2010,7 +2039,7 @@ function CreatePlaylistModal({ onClose, onCreated, t }) {
             {t("createPlaylist")}
           </div>
           <button onClick={onClose} style={{
-            background: "transparent", border: "none", cursor: "pointer",
+            background: "transparent", border: "none", cursor: "default",
             color: "var(--text-muted)", display: "flex", alignItems: "center", justifyContent: "center",
             borderRadius: 8, width: 28, height: 28, padding: 0, transition: "background 0.15s, color 0.15s",
           }}
@@ -2063,7 +2092,7 @@ function CreatePlaylistModal({ onClose, onCreated, t }) {
                       background: active ? "color-mix(in srgb, var(--accent) 14%, transparent)" : "transparent",
                       color: active ? "var(--accent)" : "var(--text-secondary)",
                       fontSize: "var(--t13)", fontWeight: active ? 600 : 400,
-                      cursor: "pointer", textAlign: "left", fontFamily: "var(--font)",
+                      cursor: "default", textAlign: "left", fontFamily: "var(--font)",
                       transition: "background 0.15s, color 0.15s, border-color 0.15s",
                       display: "flex", alignItems: "center", gap: 9,
                     }}>
@@ -2084,7 +2113,7 @@ function CreatePlaylistModal({ onClose, onCreated, t }) {
           <button onClick={onClose} style={{
             padding: "9px 20px", borderRadius: 8, border: "0.5px solid var(--border)",
             background: "transparent", color: "var(--text-secondary)",
-            fontSize: "var(--t13)", fontWeight: 500, cursor: "pointer", fontFamily: "var(--font)",
+            fontSize: "var(--t13)", fontWeight: 500, cursor: "default", fontFamily: "var(--font)",
             transition: "background 0.15s, color 0.15s",
           }}
           onMouseEnter={e => { e.currentTarget.style.background = "var(--bg-hover)"; e.currentTarget.style.color = "var(--text-primary)"; }}
@@ -2094,7 +2123,7 @@ function CreatePlaylistModal({ onClose, onCreated, t }) {
             padding: "9px 20px", borderRadius: 8, border: "none",
             background: "var(--accent)", color: "#fff",
             fontSize: "var(--t13)", fontWeight: 600, fontFamily: "var(--font)",
-            cursor: !title.trim() || creating ? "default" : "pointer",
+            cursor: !title.trim() || creating ? "default" : "default",
             opacity: !title.trim() || creating ? 0.35 : 1,
             transition: "opacity 0.15s",
           }}>{creating ? t("loadingDots") : t("create")}</button>
@@ -2219,10 +2248,10 @@ const _debugLevelBg = (level) => {
 };
 const _debugFmtTs = (ts) => new Date(ts * 1000).toTimeString().slice(0, 8);
 const _debugBtnStyle = (active) => ({
-  padding: "3px 9px", borderRadius: 5, border: "none",
-  background: active ? "rgba(224,64,251,0.15)" : "transparent",
-  color: active ? "var(--accent)" : "var(--text-secondary)",
-  fontSize: "var(--t11)", cursor: "pointer", transition: "all 0.12s",
+  padding: "3px 9px", borderRadius: "var(--r-sm)", border: "none",
+  background: active ? "var(--surface-2)" : "transparent",
+  color: active ? "var(--t1)" : "var(--t2)",
+  fontSize: 11, cursor: "default", transition: "background 0.12s, color 0.12s",
   fontFamily: "var(--font)", fontWeight: active ? 600 : 400,
 });
 
@@ -2326,29 +2355,29 @@ function DebugFloatingWindow({ onClose }) {
   return createPortal(
     <div style={{
       position: "fixed", left: pos.x, top: pos.y, zIndex: 9998,
-      width: 660, display: "flex", flexDirection: "column",
-      background: "var(--bg-surface)", border: "0.5px solid var(--border)",
-      borderRadius: 10, boxShadow: "0 20px 60px rgba(0,0,0,0.75)",
+      width: 660, height: 480, display: "flex", flexDirection: "column",
+      background: "var(--bg-surface)", border: "0.5px solid var(--stroke)",
+      borderRadius: "var(--r-xl)", boxShadow: "0 20px 60px rgba(0,0,0,0.75)",
       fontFamily: "var(--font)", overflow: "hidden",
       resize: "both", minWidth: 380, minHeight: 260,
     }}>
       {/* Title bar */}
       <div onMouseDown={startDrag} style={{
         display: "flex", alignItems: "center", gap: 8,
-        padding: "7px 10px", background: "var(--bg-elevated)",
-        borderBottom: "0.5px solid var(--border)",
+        padding: "8px 10px", background: "var(--surface-1)",
+        borderBottom: "0.5px solid var(--stroke)",
         cursor: "grab", userSelect: "none", flexShrink: 0,
       }}>
         <Bug size={13} style={{ color: "var(--accent)", flexShrink: 0 }} />
-        <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)", flex: 1 }}>Debug</span>
-        <button className="dbg-btn" style={_debugBtnStyle(activeTab === "info")}  onClick={() => setActiveTab("info")}>Sysinfo</button>
-        <button className="dbg-btn" style={_debugBtnStyle(activeTab === "logs")}  onClick={() => setActiveTab("logs")}>Logs</button>
-        <div style={{ width: 1, height: 12, background: "var(--border)", margin: "0 2px" }} />
+        <span style={{ fontSize: 12, fontWeight: 600, color: "var(--t1)", flex: 1 }}>Debug</span>
+        <button style={_debugBtnStyle(activeTab === "info")}  onClick={() => setActiveTab("info")}>Sysinfo</button>
+        <button style={_debugBtnStyle(activeTab === "logs")}  onClick={() => setActiveTab("logs")}>Logs</button>
+        <div style={{ width: 1, height: 12, background: "var(--stroke)", margin: "0 2px" }} />
         <button
           onClick={onClose}
           style={{
-            width: 20, height: 20, borderRadius: "50%", border: "none", cursor: "pointer",
-            background: "rgba(255,80,80,0.15)", color: "#ff6b6b",
+            width: 22, height: 22, borderRadius: "50%", border: "none", cursor: "default",
+            background: "rgba(255,80,80,0.15)", color: "#ff7070",
             display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, padding: 0,
             transition: "background 0.15s",
           }}
@@ -2362,13 +2391,13 @@ function DebugFloatingWindow({ onClose }) {
         {activeTab === "info" && (
           <div style={{ overflowY: "auto" }}>
             {!info ? (
-              <div style={{ color: "var(--text-muted)", fontSize: "var(--t12)", padding: 8 }}>Laden…</div>
+              <div style={{ color: "var(--t3)", fontSize: 12, padding: 8 }}>Laden…</div>
             ) : (
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5 }}>
                 {sysRows.map(([k, v]) => (
-                  <div key={k} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 10px", borderRadius: 6, background: "var(--bg-elevated)", border: "0.5px solid var(--border)" }}>
-                    <span style={{ fontSize: "var(--t11)", color: "var(--text-muted)", minWidth: 72, flexShrink: 0 }}>{k}</span>
-                    <span style={{ fontSize: "var(--t11)", color: "var(--text-primary)", fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{v}</span>
+                  <div key={k} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", borderRadius: "var(--r-lg)", background: "var(--surface-1)" }}>
+                    <span style={{ fontSize: 11, color: "var(--t3)", minWidth: 72, flexShrink: 0 }}>{k}</span>
+                    <span style={{ fontSize: 11, color: "var(--t1)", fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{v}</span>
                   </div>
                 ))}
               </div>
@@ -2383,7 +2412,7 @@ function DebugFloatingWindow({ onClose }) {
               {["ALL","INFO","WARN","ERROR"].map(f => (
                 <button key={f} style={_debugBtnStyle(filter === f)} onClick={() => setFilter(f)}>{f}</button>
               ))}
-              <div style={{ width: 1, height: 12, background: "var(--border)", margin: "0 1px" }} />
+              <div style={{ width: 1, height: 12, background: "var(--stroke)", margin: "0 1px" }} />
               {["ALL","frontend","backend"].map(s => (
                 <button key={s} style={_debugBtnStyle(source === s)} onClick={() => setSource(s)}>{s === "ALL" ? "Alle" : s}</button>
               ))}
@@ -2398,9 +2427,9 @@ function DebugFloatingWindow({ onClose }) {
             </div>
 
             {/* Log list */}
-            <div ref={logRef} style={{
-              flex: 1, overflowY: "auto", background: "var(--bg-elevated)",
-              border: "0.5px solid var(--border)", borderRadius: 7,
+            <div ref={logRef} className="scrollable" style={{
+              flex: 1, overflowY: "auto", background: "var(--surface-1)",
+              borderRadius: "var(--r-lg)",
               padding: "4px 2px", fontFamily: "monospace", fontSize: 10, minHeight: 0,
             }}
               onScroll={e => {
@@ -2409,16 +2438,16 @@ function DebugFloatingWindow({ onClose }) {
               }}
             >
               {visibleLogs.length === 0
-                ? <div style={{ color: "var(--text-muted)", padding: "10px 8px", textAlign: "center" }}>Keine Einträge.</div>
+                ? <div style={{ color: "var(--t3)", padding: "10px 8px", textAlign: "center" }}>Keine Einträge.</div>
                 : visibleLogs.map((entry, i) => (
                   <div key={i} style={{
                     display: "flex", alignItems: "flex-start", gap: 5, padding: "1px 5px",
-                    borderRadius: 3, marginBottom: 1, background: _debugLevelBg(entry.level),
+                    borderRadius: "var(--r-xs)", marginBottom: 1, background: _debugLevelBg(entry.level),
                   }}>
-                    <span style={{ color: "var(--text-muted)", flexShrink: 0, userSelect: "none" }}>{_debugFmtTs(entry.ts)}</span>
+                    <span style={{ color: "var(--t3)", flexShrink: 0, userSelect: "none" }}>{_debugFmtTs(entry.ts)}</span>
                     <span style={{ color: _debugLevelColor(entry.level), flexShrink: 0, minWidth: 36, fontWeight: 700, userSelect: "none" }}>{entry.level}</span>
                     <span style={{ color: entry.source === "frontend" ? "rgba(224,64,251,0.7)" : "rgba(100,181,246,0.6)", flexShrink: 0, minWidth: 50, userSelect: "none" }}>[{entry.source}]</span>
-                    <span style={{ color: "var(--text-secondary)", wordBreak: "break-all", lineHeight: 1.4 }}>{entry.msg}</span>
+                    <span style={{ color: "var(--t2)", wordBreak: "break-all", lineHeight: 1.4 }}>{entry.msg}</span>
                   </div>
                 ))
               }
@@ -2468,26 +2497,41 @@ function DebugTab({ t }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16, height: "100%" }}>
-      {/* System Info */}
+
+      {/* ── System Info ── */}
       <div>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-          <div style={{ fontSize: "var(--t11)", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em" }}>{t("debugSysInfo")}</div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: "var(--t1)" }}>{t("debugSysInfo")}</div>
           <button
-            className="dbg-btn"
             onClick={openFloat}
-            style={{ ..._debugBtnStyle(false), display: "flex", alignItems: "center", gap: 5, padding: "4px 10px" }}
-            title={t("debugOpenFloat")}
+            onMouseEnter={e => e.currentTarget.style.background = "var(--surface-3)"}
+            onMouseLeave={e => e.currentTarget.style.background = "var(--surface-2)"}
+            style={{
+              display: "flex", alignItems: "center", gap: 6,
+              padding: "5px 12px", borderRadius: "var(--r-md)", border: "none",
+              background: "var(--surface-2)", color: "var(--t2)",
+              fontSize: 12, cursor: "default", fontFamily: "var(--font)",
+              transition: "background 0.15s",
+            }}
           >
             <ArrowSquareOut size={12} />
             {t("debugOpenFloat")}
           </button>
         </div>
         {error ? (
-          <div style={{ padding: "10px 14px", borderRadius: 8, background: "rgba(255,60,60,0.12)", color: "#ff6b6b", fontSize: "var(--t12)", display: "flex", alignItems: "center", gap: 8 }}>
-            <X size={14} weight="bold" /> {t("debugBackendUnreachable")}: {error}
+          <div style={{
+            padding: "12px 16px", borderRadius: "var(--r-lg)",
+            background: "rgba(255,60,60,0.12)", color: "#ff7070",
+            fontSize: 12, display: "flex", alignItems: "center", gap: 8,
+          }}>
+            <WarningCircle size={14} weight="fill" style={{ flexShrink: 0 }} />
+            {t("debugBackendUnreachable")}: {error}
           </div>
         ) : !info ? (
-          <div style={{ padding: "10px 14px", borderRadius: 8, background: "var(--bg-elevated)", color: "var(--text-muted)", fontSize: "var(--t12)" }}>{t("loading")}…</div>
+          <div style={{
+            padding: "12px 16px", borderRadius: "var(--r-lg)",
+            background: "var(--surface-1)", color: "var(--t3)", fontSize: 12,
+          }}>{t("loading")}…</div>
         ) : (
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
             {[
@@ -2495,58 +2539,67 @@ function DebugTab({ t }) {
               ["yt-dlp",     info.ytdlp],
               ["ytmusicapi", info.ytmusicapi],
               ["Flask",      info.flask],
-              ["Node.js",    info.node ? <span style={{ color: "#4caf50", display: "flex", alignItems: "center", gap: 4 }}><Check size={11} weight="bold" />{info.node.split(/[/\\]/).pop()}</span> : <span style={{ color: "#ff6b6b" }}>—</span>],
+              ["Node.js",    info.node
+                ? <span style={{ color: "#6bdf96", display: "flex", alignItems: "center", gap: 4 }}><Check size={11} weight="bold" />{info.node.split(/[/\\]/).pop()}</span>
+                : <span style={{ color: "#ff7070" }}>—</span>],
               ["Profil",     info.profile],
               ["Plattform",  info.platform],
               ["Uptime",     info.uptime],
             ].map(([k, v]) => (
-              <div key={k} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderRadius: 6, background: "var(--bg-elevated)" }}>
-                <span style={{ fontSize: "var(--t11)", color: "var(--text-muted)", minWidth: 76, flexShrink: 0 }}>{k}</span>
-                <span style={{ fontSize: "var(--t12)", color: "var(--text-primary)", fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{v}</span>
+              <div key={k} style={{
+                display: "flex", alignItems: "center", gap: 10,
+                padding: "10px 14px", borderRadius: "var(--r-lg)",
+                background: "var(--surface-1)",
+              }}>
+                <span style={{ fontSize: 11, color: "var(--t3)", minWidth: 76, flexShrink: 0 }}>{k}</span>
+                <span style={{ fontSize: 12, color: "var(--t1)", fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{v}</span>
               </div>
             ))}
           </div>
         )}
       </div>
 
-      {/* Log viewer */}
+      {/* ── Log viewer ── */}
       <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6, flexWrap: "wrap" }}>
-          <span style={{ fontSize: "var(--t11)", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginRight: 4 }}>Logs</span>
+        {/* Toolbar */}
+        <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 8, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: "var(--t1)", marginRight: 6 }}>Logs</span>
           {["ALL","INFO","WARN","ERROR"].map(f => (
-            <button key={f} className="dbg-btn" style={_debugBtnStyle(filter === f)} onClick={() => setFilter(f)}>{f}</button>
+            <button key={f} style={_debugBtnStyle(filter === f)} onClick={() => setFilter(f)}>{f}</button>
           ))}
-          <div style={{ width: 1, height: 14, background: "var(--border)", margin: "0 2px" }} />
+          <div style={{ width: 1, height: 14, background: "var(--stroke)", margin: "0 2px" }} />
           {["ALL","frontend","backend"].map(s => (
-            <button key={s} className="dbg-btn" style={_debugBtnStyle(source === s)} onClick={() => setSource(s)}>{s === "ALL" ? "Alle" : s}</button>
+            <button key={s} style={_debugBtnStyle(source === s)} onClick={() => setSource(s)}>{s === "ALL" ? "Alle" : s}</button>
           ))}
-          <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
-            <button className="dbg-btn" style={{ ..._debugBtnStyle(autoScroll), display: "flex", alignItems: "center", gap: 4 }} onClick={() => setAutoScroll(a => !a)}>
+          <div style={{ marginLeft: "auto", display: "flex", gap: 4 }}>
+            <button style={{ ..._debugBtnStyle(autoScroll), display: "flex", alignItems: "center", gap: 4 }} onClick={() => setAutoScroll(a => !a)}>
               <CaretDown size={11} /> Auto-Scroll
             </button>
-            <button className="dbg-btn" style={{ ..._debugBtnStyle(false), display: "flex", alignItems: "center", gap: 4 }} onClick={() => setRefreshKey(k => k + 1)}>
+            <button style={{ ..._debugBtnStyle(false), display: "flex", alignItems: "center", gap: 4 }} onClick={() => setRefreshKey(k => k + 1)}>
               <ArrowClockwise size={11} /> {t("refresh")}
             </button>
-            <button className="dbg-btn" style={{ ..._debugBtnStyle(false), display: "flex", alignItems: "center", gap: 4 }} onClick={handleCopy}>
+            <button style={{ ..._debugBtnStyle(false), display: "flex", alignItems: "center", gap: 4 }} onClick={handleCopy}>
               {copied ? <><Check size={11} weight="bold" /> {t("copied")}</> : <><Copy size={11} /> {t("copyAll")}</>}
             </button>
           </div>
         </div>
-        <div ref={logRef} style={{
-          flex: 1, overflowY: "auto", background: "var(--bg-elevated)",
-          border: "0.5px solid var(--border)", borderRadius: 8,
-          padding: "6px 4px", fontFamily: "monospace", fontSize: "var(--t11)", minHeight: 180,
+
+        {/* Log area */}
+        <div ref={logRef} className="scrollable" style={{
+          flex: 1, overflowY: "auto", background: "var(--surface-1)",
+          borderRadius: "var(--r-lg)",
+          padding: "6px 4px", fontFamily: "monospace", fontSize: 11, minHeight: 180,
         }}
           onScroll={e => { const el = e.currentTarget; if (el.scrollHeight - el.scrollTop - el.clientHeight > 40 && autoScroll) setAutoScroll(false); }}
         >
           {visibleLogs.length === 0
-            ? <div style={{ color: "var(--text-muted)", padding: "12px 8px", textAlign: "center" }}>{t("debugNoLogs")}</div>
+            ? <div style={{ color: "var(--t3)", padding: "12px 8px", textAlign: "center" }}>{t("debugNoLogs")}</div>
             : visibleLogs.map((entry, i) => (
-              <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 6, padding: "2px 6px", borderRadius: 4, marginBottom: 1, background: _debugLevelBg(entry.level) }}>
-                <span style={{ color: "var(--text-muted)", flexShrink: 0, userSelect: "none" }}>{_debugFmtTs(entry.ts)}</span>
+              <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 6, padding: "2px 6px", borderRadius: "var(--r-xs)", marginBottom: 1, background: _debugLevelBg(entry.level) }}>
+                <span style={{ color: "var(--t3)", flexShrink: 0, userSelect: "none" }}>{_debugFmtTs(entry.ts)}</span>
                 <span style={{ color: _debugLevelColor(entry.level), flexShrink: 0, minWidth: 38, fontWeight: 700, userSelect: "none" }}>{entry.level}</span>
                 <span style={{ color: entry.source === "frontend" ? "rgba(224,64,251,0.7)" : "rgba(100,181,246,0.6)", flexShrink: 0, minWidth: 52, userSelect: "none" }}>[{entry.source}]</span>
-                <span style={{ color: "var(--text-secondary)", wordBreak: "break-all", lineHeight: 1.45 }}>{entry.msg}</span>
+                <span style={{ color: "var(--t2)", wordBreak: "break-all", lineHeight: 1.45 }}>{entry.msg}</span>
               </div>
             ))
           }
@@ -2557,9 +2610,15 @@ function DebugTab({ t }) {
 }
 
 // Extracted outside SettingsPanel to avoid remount on every parent render
-function SettingsSectionLabel({ children }) {
+function SettingsSectionLabel({ children, style }) {
   return (
-    <div style={{ fontSize: "var(--t11)", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", margin: "24px 0 8px" }}>{children}</div>
+    <div style={{
+      fontSize: 13,
+      fontWeight: 600,
+      color: "var(--t1)",
+      margin: "24px 0 10px 2px",
+      ...style,
+    }}>{children}</div>
   );
 }
 
@@ -2676,7 +2735,7 @@ function ColorPicker({ value, onChange }) {
       <div ref={triggerRef} onClick={openPicker} style={{
         width: 32, height: 32, borderRadius: 8,
         background: safe, border: "0.5px solid var(--border)",
-        cursor: "pointer", flexShrink: 0,
+        cursor: "default", flexShrink: 0,
       }} />
 
       {open && createPortal(
@@ -2713,7 +2772,7 @@ function ColorPicker({ value, onChange }) {
             style={{
               width: "100%", height: 14, borderRadius: 7,
               background: "linear-gradient(to right,#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00)",
-              position: "relative", cursor: "pointer", marginBottom: 12,
+              position: "relative", cursor: "default", marginBottom: 12,
             }}>
             <div style={{
               position: "absolute",
@@ -2767,7 +2826,7 @@ function ColorPicker({ value, onChange }) {
                   style={{
                     position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)",
                     background: "none", border: "none", padding: 2,
-                    color: "var(--text-muted)", cursor: "pointer",
+                    color: "var(--text-muted)", cursor: "default",
                     display: "flex", alignItems: "center", justifyContent: "center",
                   }}
                 >
@@ -2876,7 +2935,7 @@ function CornerInput({ corner, value, onChange, min, max }) {
     setDraft(String(n)); onChange(corner, n);
   };
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 7, background: "var(--bg-elevated)", borderRadius: 8, padding: "9px 10px" }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 7, background: "var(--surface-1)", borderRadius: "var(--r-lg)", padding: "9px 10px" }}>
       <CornerIcon corner={corner} />
       <input type="number" min={min} max={max} value={draft}
         onChange={e => setDraft(e.target.value)}
@@ -2886,9 +2945,9 @@ function CornerInput({ corner, value, onChange, min, max }) {
           if (e.key === "ArrowUp") { e.preventDefault(); adjust(1); }
           if (e.key === "ArrowDown") { e.preventDefault(); adjust(-1); }
         }}
-        style={{ flex: 1, minWidth: 0, width: 0, background: "none", border: "none", outline: "none", color: "var(--text-primary)", fontSize: "var(--t13)", fontFamily: "monospace" }}
+        style={{ flex: 1, minWidth: 0, width: 0, background: "none", border: "none", outline: "none", color: "var(--t1)", fontSize: 13, fontFamily: "var(--font)" }}
       />
-      <span style={{ fontSize: "var(--t11)", color: "var(--text-muted)", flexShrink: 0 }}>px</span>
+      <span style={{ fontSize: 11, color: "var(--t3)", flexShrink: 0 }}>px</span>
     </div>
   );
 }
@@ -2937,25 +2996,31 @@ function CornerInputMixed({ corner, type, value, onChangeType, onChangeValue, mi
     setDraft(String(n)); onChangeValue(corner, n);
   };
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 5, background: "var(--bg-elevated)", borderRadius: 8, padding: "7px 10px" }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 5, background: "var(--surface-1)", borderRadius: "var(--r-lg)", padding: "7px 10px" }}>
       {/* Round button */}
-      <button onClick={() => onChangeType(corner, "r")} style={{
-        display: "flex", alignItems: "center", justifyContent: "center",
-        width: 28, height: 22, borderRadius: 5, border: "none", cursor: "pointer", flexShrink: 0,
-        background: type === "r" ? "color-mix(in srgb, var(--accent) 22%, transparent)" : "transparent",
-        color: type === "r" ? "var(--accent)" : "var(--text-muted)",
-        transition: "background 0.12s, color 0.12s",
-      }}>
+      <button onClick={() => onChangeType(corner, "r")}
+        onMouseEnter={e => { if (type !== "r") e.currentTarget.style.background = "var(--surface-2)"; }}
+        onMouseLeave={e => { if (type !== "r") e.currentTarget.style.background = "transparent"; }}
+        style={{
+          display: "flex", alignItems: "center", justifyContent: "center",
+          width: 28, height: 22, borderRadius: "var(--r-sm)", border: "none", cursor: "default", flexShrink: 0,
+          background: type === "r" ? "color-mix(in srgb, var(--accent) 22%, transparent)" : "transparent",
+          color: type === "r" ? "var(--accent)" : "var(--t3)",
+          transition: "background 0.12s, color 0.12s",
+        }}>
         <RoundCornerIcon corner={corner} />
       </button>
       {/* Bevel button */}
-      <button onClick={() => onChangeType(corner, "b")} style={{
-        display: "flex", alignItems: "center", justifyContent: "center",
-        width: 28, height: 22, borderRadius: 5, border: "none", cursor: "pointer", flexShrink: 0,
-        background: type === "b" ? "color-mix(in srgb, var(--accent) 22%, transparent)" : "transparent",
-        color: type === "b" ? "var(--accent)" : "var(--text-muted)",
-        transition: "background 0.12s, color 0.12s",
-      }}>
+      <button onClick={() => onChangeType(corner, "b")}
+        onMouseEnter={e => { if (type !== "b") e.currentTarget.style.background = "var(--surface-2)"; }}
+        onMouseLeave={e => { if (type !== "b") e.currentTarget.style.background = "transparent"; }}
+        style={{
+          display: "flex", alignItems: "center", justifyContent: "center",
+          width: 28, height: 22, borderRadius: "var(--r-sm)", border: "none", cursor: "default", flexShrink: 0,
+          background: type === "b" ? "color-mix(in srgb, var(--accent) 22%, transparent)" : "transparent",
+          color: type === "b" ? "var(--accent)" : "var(--t3)",
+          transition: "background 0.12s, color 0.12s",
+        }}>
         <BevelCornerIcon corner={corner} />
       </button>
       <input type="number" min={min} max={max} value={draft}
@@ -2966,9 +3031,9 @@ function CornerInputMixed({ corner, type, value, onChangeType, onChangeValue, mi
           if (e.key === "ArrowUp") { e.preventDefault(); adjust(1); }
           if (e.key === "ArrowDown") { e.preventDefault(); adjust(-1); }
         }}
-        style={{ flex: 1, minWidth: 0, width: 0, background: "none", border: "none", outline: "none", color: "var(--text-primary)", fontSize: "var(--t13)", fontFamily: "monospace" }}
+        style={{ flex: 1, minWidth: 0, width: 0, background: "none", border: "none", outline: "none", color: "var(--t1)", fontSize: 13, fontFamily: "var(--font)" }}
       />
-      <span style={{ fontSize: "var(--t11)", color: "var(--text-muted)", flexShrink: 0 }}>px</span>
+      <span style={{ fontSize: 11, color: "var(--t3)", flexShrink: 0 }}>px</span>
     </div>
   );
 }
@@ -2986,16 +3051,22 @@ function CornerGridMixed({ tl, tr, bl, br, onChangeType, onChangeValue, min = 0,
 // Top-level so React never recreates them between renders (hooks stay stable)
 function OvlRow({ label, desc, icon, children }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, padding: "14px 0", borderBottom: "0.5px solid var(--border)" }}>
+    <div style={{
+      display: "flex", alignItems: "center", justifyContent: "space-between",
+      gap: 16, padding: "14px 18px",
+      background: "var(--surface-1)",
+      borderRadius: "var(--r-lg)",
+      marginBottom: 6,
+    }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0, flex: 1 }}>
         {icon && (
-          <div style={{ width: 32, height: 32, borderRadius: 8, flexShrink: 0, background: "var(--bg-elevated)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--accent)" }}>
+          <div style={{ width: 30, height: 30, borderRadius: "var(--r-md)", flexShrink: 0, background: "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--accent)" }}>
             {icon}
           </div>
         )}
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: "var(--t13)", fontWeight: 500, color: "var(--text-primary)" }}>{label}</div>
-          {desc && <div style={{ fontSize: "var(--t11)", color: "var(--text-muted)", marginTop: 2 }}>{desc}</div>}
+          <div style={{ fontSize: 13, fontWeight: 500, color: "var(--t1)" }}>{label}</div>
+          {desc && <div style={{ fontSize: 11, color: "var(--t3)", marginTop: 2, lineHeight: 1.4 }}>{desc}</div>}
         </div>
       </div>
       <div style={{ flexShrink: 0 }}>{children}</div>
@@ -3005,7 +3076,7 @@ function OvlRow({ label, desc, icon, children }) {
 
 function OvlSLabel({ children }) {
   return (
-    <div style={{ fontSize: "var(--t11)", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", margin: "20px 0 4px" }}>
+    <div style={{ fontSize: 13, fontWeight: 600, color: "var(--t1)", margin: "24px 0 10px 2px" }}>
       {children}
     </div>
   );
@@ -3085,7 +3156,7 @@ function FontRow({ fontFamily, fontLabel, active, onClick }) {
     <div onClick={onClick}
       style={{
         display: "flex", alignItems: "center", justifyContent: "space-between",
-        padding: "10px 12px", borderRadius: "var(--radius)", cursor: "pointer",
+        padding: "10px 12px", borderRadius: "var(--radius)", cursor: "default",
         background: active ? "var(--accent-dim)" : "var(--bg-elevated)",
         border: `0.5px solid ${active ? "var(--accent)" : "var(--border)"}`,
         transition: "all 0.15s",
@@ -3151,7 +3222,7 @@ function TypographyTab({ t, obsConfig, applyObsConfig }) {
             flex: 1, padding: "6px 0", borderRadius: "calc(var(--radius) - 2px)",
             background: fontSource === s.id ? "var(--bg-hover)" : "transparent",
             color: fontSource === s.id ? "var(--text-primary)" : "var(--text-muted)",
-            border: "none", cursor: "pointer", fontSize: "var(--t12)",
+            border: "none", cursor: "default", fontSize: "var(--t12)",
             fontWeight: fontSource === s.id ? 600 : 400,
             transition: "all 0.15s", fontFamily: "var(--font)",
           }}>{s.label}</button>
@@ -3209,7 +3280,7 @@ function TypographyTab({ t, obsConfig, applyObsConfig }) {
                   style={{
                     flexShrink: 0, padding: "0 10px", borderRadius: "var(--radius)",
                     background: "var(--bg-elevated)", border: "0.5px solid var(--border)",
-                    color: "var(--text-muted)", cursor: localLoading ? "default" : "pointer",
+                    color: "var(--text-muted)", cursor: localLoading ? "default" : "default",
                     display: "flex", alignItems: "center", justifyContent: "center",
                     transition: "color 0.15s",
                   }}
@@ -3426,13 +3497,13 @@ function OverlayPreviewFloat({ config, onClose }) {
             padding: "3px 8px", borderRadius: 4, border: "0.5px solid var(--border)",
             background: bg === id ? "var(--accent-dim)" : "var(--bg-elevated)",
             color: bg === id ? "var(--accent)" : "var(--text-muted)",
-            cursor: "pointer", fontSize: 11, fontFamily: "var(--font)",
+            cursor: "default", fontSize: 11, fontFamily: "var(--font)",
             fontWeight: bg === id ? 600 : 400, transition: "all 0.15s",
           }}>{id.charAt(0).toUpperCase() + id.slice(1)}</button>
         ))}
         <div style={{ width: 1, height: 12, background: "var(--border)", margin: "0 2px" }} />
         <button onClick={onClose} style={{
-          width: 20, height: 20, borderRadius: "50%", border: "none", cursor: "pointer",
+          width: 20, height: 20, borderRadius: "50%", border: "none", cursor: "default",
           background: "rgba(255,80,80,0.15)", color: "#ff6b6b",
           display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, padding: 0,
           transition: "background 0.15s",
@@ -3469,22 +3540,38 @@ function OverlayTab({ t, obsEnabled, obsPort, obsPortInput, setObsPortInput, obs
     { id: "typography", label: t("overlayTypography") },
   ];
 
+  const activeSubIdx = subTabs.findIndex(s => s.id === obsSubTab);
+  const N = subTabs.length;
+
   return (
-    <div>
-      {/* Sub-tab bar — sticky so it stays visible while content scrolls */}
-      <div style={{ display: "flex", gap: 4, marginBottom: 20, background: "var(--bg-elevated)", borderRadius: "var(--radius)", padding: 4, position: "sticky", top: 0, zIndex: 10 }}>
+    <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
+      {/* Sub-tab bar — fixed header, never scrolls */}
+      <div style={{ position: "relative", display: "flex", marginBottom: 12, background: "var(--surface-1)", borderRadius: "var(--r-lg)", padding: 6, flexShrink: 0 }}>
+        {/* Sliding pill */}
+        <div style={{
+          position: "absolute",
+          top: 4, bottom: 4,
+          left: `calc(4px + ${activeSubIdx} * (100% - 8px) / ${N})`,
+          width: `calc((100% - 8px) / ${N})`,
+          background: "var(--surface-2)",
+          borderRadius: "var(--r-md)",
+          transition: "left 0.28s cubic-bezier(0.4,0,0.2,1)",
+          pointerEvents: "none",
+        }} />
         {subTabs.map(s => (
           <button key={s.id} onClick={() => setObsSubTab(s.id)} style={{
-            flex: 1, padding: "6px 0", borderRadius: "calc(var(--radius) - 2px)",
-            background: obsSubTab === s.id ? "var(--bg-hover)" : "transparent",
-            color: obsSubTab === s.id ? "var(--text-primary)" : "var(--text-secondary)",
-            border: "none", cursor: "pointer", fontSize: "var(--t12)",
+            flex: 1, padding: "8px 0", borderRadius: "var(--r-md)",
+            background: "transparent",
+            color: obsSubTab === s.id ? "var(--t1)" : "var(--t2)",
+            border: "none", cursor: "default", fontSize: 12,
             fontWeight: obsSubTab === s.id ? 600 : 400,
-            transition: "all 0.15s", fontFamily: "var(--font)",
+            transition: "color 0.2s", fontFamily: "var(--font)",
+            position: "relative", zIndex: 1,
           }}>{s.label}</button>
         ))}
       </div>
 
+      <div key={obsSubTab} className="scrollable" style={{ flex: 1, overflowY: "auto", paddingBottom: 32, animation: "fadeSlideIn 0.22s cubic-bezier(0.4,0,0.2,1)" }}>
       {/* ── General ────────────────────────────────────────────────────────── */}
       {obsSubTab === "general" && (
         <>
@@ -3500,9 +3587,9 @@ function OverlayTab({ t, obsEnabled, obsPort, obsPortInput, setObsPortInput, obs
               onBlur={e => onPortSave(e.target.value)}
               onKeyDown={e => e.key === "Enter" && onPortSave(e.target.value)}
               style={{
-                width: 88, padding: "5px 10px", borderRadius: "var(--radius)",
-                background: "var(--bg-elevated)", border: "0.5px solid var(--border)",
-                color: "var(--text-primary)", fontSize: "var(--t13)", fontFamily: "monospace",
+                width: 88, height: 32, padding: "0 10px", borderRadius: "var(--r-md)",
+                background: "var(--surface-2)", border: "none",
+                color: "var(--t1)", fontSize: 13, fontFamily: "var(--font)",
                 textAlign: "center", outline: "none",
               }}
             />
@@ -3511,29 +3598,34 @@ function OverlayTab({ t, obsEnabled, obsPort, obsPortInput, setObsPortInput, obs
             <OvlRow icon={<Link size={15} />} label={t("overlayUrl")} desc={t("overlayUrlDesc")}>
               <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                 <code style={{
-                  fontSize: "var(--t12)", color: "var(--accent)",
-                  background: "var(--bg-elevated)", padding: "5px 10px",
-                  borderRadius: "var(--radius)", border: "0.5px solid var(--border)",
-                  letterSpacing: "0.01em",
+                  fontSize: 12, color: "var(--accent)",
+                  background: "var(--surface-2)", padding: "0 10px",
+                  borderRadius: "var(--r-md)", border: "none",
+                  height: 32, display: "flex", alignItems: "center",
+                  fontFamily: "var(--font)", letterSpacing: "0.01em",
                 }}>
                   {overlayUrl}
                 </code>
                 <button onClick={() => { navigator.clipboard.writeText(overlayUrl); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
+                  onMouseEnter={e => { if (!copied) e.currentTarget.style.background = "var(--surface-3)"; }}
+                  onMouseLeave={e => { if (!copied) e.currentTarget.style.background = "var(--surface-2)"; }}
                   style={{
                     width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center",
-                    background: copied ? "var(--accent-dim)" : "var(--bg-elevated)",
-                    border: `0.5px solid ${copied ? "var(--accent)" : "var(--border)"}`,
-                    borderRadius: "var(--radius)", cursor: "pointer",
-                    color: copied ? "var(--accent)" : "var(--text-muted)",
+                    background: copied ? "var(--accent-dim)" : "var(--surface-2)",
+                    border: copied ? "0.5px solid var(--accent)" : "none",
+                    borderRadius: "var(--r-md)", cursor: "default",
+                    color: copied ? "var(--accent)" : "var(--t2)",
                     transition: "all 0.15s",
                   }}>
                   {copied ? <Check size={13} /> : <Copy size={13} />}
                 </button>
                 <button onClick={() => setPreviewOpen(true)}
+                  onMouseEnter={e => e.currentTarget.style.background = "var(--surface-3)"}
+                  onMouseLeave={e => e.currentTarget.style.background = "var(--surface-2)"}
                   style={{
                     width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center",
-                    background: "var(--bg-elevated)", border: "0.5px solid var(--border)",
-                    borderRadius: "var(--radius)", cursor: "pointer", color: "var(--text-muted)",
+                    background: "var(--surface-2)", border: "none",
+                    borderRadius: "var(--r-md)", cursor: "default", color: "var(--t2)",
                     transition: "all 0.15s",
                   }}>
                   <Eye size={13} />
@@ -3542,8 +3634,8 @@ function OverlayTab({ t, obsEnabled, obsPort, obsPortInput, setObsPortInput, obs
             </OvlRow>
           )}
           {obsEnabled && (
-            <div style={{ marginTop: 16, padding: "14px 16px", background: "var(--bg-elevated)", borderRadius: "var(--radius)", fontSize: "var(--t13)", color: "var(--text-muted)", lineHeight: 1.6 }}>
-              <div style={{ fontWeight: 600, color: "var(--text-primary)", marginBottom: 6, fontSize: "var(--t13)" }}>OBS Setup</div>
+            <div style={{ marginTop: 8, padding: "14px 4px", background: "transparent", fontSize: 13, color: "var(--t3)", lineHeight: 1.6 }}>
+              <div style={{ fontWeight: 600, color: "var(--t1)", marginBottom: 6, fontSize: 13 }}>OBS Setup</div>
               {t("overlayObsHint")}
             </div>
           )}
@@ -3562,14 +3654,14 @@ function OverlayTab({ t, obsEnabled, obsPort, obsPortInput, setObsPortInput, obs
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 3, marginBottom: 4 }}>
               {obsProfiles.map(p => (
-                <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "9px 12px", background: "var(--bg-elevated)", borderRadius: 8, cursor: "default" }}>
+                <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "9px 14px", background: "var(--surface-1)", borderRadius: "var(--r-lg)", cursor: "default" }}>
                   <button onClick={() => onLoadProfile(p)} style={{
-                    flex: 1, textAlign: "left", background: "none", border: "none", cursor: "pointer",
+                    flex: 1, textAlign: "left", background: "none", border: "none", cursor: "default",
                     color: "var(--text-primary)", fontSize: "var(--t13)", fontFamily: "var(--font)", fontWeight: 500, padding: 0,
                   }}>{p.name}</button>
                   <button onClick={() => onExportProfile(p)} title={t("overlayProfileExport")} style={{
                     display: "flex", alignItems: "center", padding: "4px 6px", borderRadius: 5,
-                    background: "none", border: "none", cursor: "pointer",
+                    background: "none", border: "none", cursor: "default",
                     color: "var(--text-muted)", transition: "color 0.12s",
                   }} onMouseEnter={e => e.currentTarget.style.color = "var(--text-primary)"}
                      onMouseLeave={e => e.currentTarget.style.color = "var(--text-muted)"}>
@@ -3577,7 +3669,7 @@ function OverlayTab({ t, obsEnabled, obsPort, obsPortInput, setObsPortInput, obs
                   </button>
                   <button onClick={() => onDeleteProfile(p.id)} title={t("overlayProfileDelete")} style={{
                     display: "flex", alignItems: "center", padding: "4px 6px", borderRadius: 5,
-                    background: "none", border: "none", cursor: "pointer",
+                    background: "none", border: "none", cursor: "default",
                     color: "var(--text-muted)", transition: "color 0.12s",
                   }} onMouseEnter={e => e.currentTarget.style.color = "var(--error, #e05252)"}
                      onMouseLeave={e => e.currentTarget.style.color = "var(--text-muted)"}>
@@ -3605,39 +3697,48 @@ function OverlayTab({ t, obsEnabled, obsPort, obsPortInput, setObsPortInput, obs
               />
               <button onClick={() => { if (profileName.trim()) { onSaveProfile(profileName); setSavingProfile(false); setProfileName(""); } }}
                 disabled={!profileName.trim()} style={{
-                  padding: "7px 12px", borderRadius: 7, border: "none", cursor: "pointer",
+                  padding: "7px 12px", borderRadius: 7, border: "none", cursor: "default",
                   background: "var(--accent)", color: "#fff", fontSize: "var(--t12)", fontFamily: "var(--font)",
                   opacity: profileName.trim() ? 1 : 0.4,
                 }}>{t("overlayProfileSave")}</button>
               <button onClick={() => { setSavingProfile(false); setProfileName(""); }} style={{
                 padding: "7px 10px", borderRadius: 7, border: "1px solid var(--border)",
-                background: "none", color: "var(--text-muted)", fontSize: "var(--t12)", fontFamily: "var(--font)", cursor: "pointer",
+                background: "none", color: "var(--text-muted)", fontSize: "var(--t12)", fontFamily: "var(--font)", cursor: "default",
               }}><X size={13} /></button>
             </div>
           ) : (
             <div style={{ display: "flex", gap: 4, marginBottom: 6 }}>
-              <button onClick={() => setSavingProfile(true)} style={{
-                flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-                padding: "7px 0", borderRadius: 7, border: "none",
-                background: "var(--bg-elevated)", color: "var(--text-secondary)",
-                fontSize: "var(--t12)", fontFamily: "var(--font)", cursor: "pointer",
-              }}><FaIcon name="floppy-disk" size={13} /> {t("overlayProfileSaveCurrent")}</button>
-              <button onClick={() => importFileRef.current?.click()} style={{
-                flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-                padding: "7px 0", borderRadius: 7, border: "none",
-                background: "var(--bg-elevated)", color: "var(--text-secondary)",
-                fontSize: "var(--t12)", fontFamily: "var(--font)", cursor: "pointer",
-              }}><FaIcon name="file-import" size={13} /> {t("overlayProfileImport")}</button>
+              <button onClick={() => setSavingProfile(true)}
+                onMouseEnter={e => e.currentTarget.style.background = "var(--surface-3)"}
+                onMouseLeave={e => e.currentTarget.style.background = "var(--surface-2)"}
+                style={{
+                  flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                  padding: "7px 0", borderRadius: "var(--r-lg)", border: "none",
+                  background: "var(--surface-2)", color: "var(--t2)",
+                  fontSize: 12, fontFamily: "var(--font)", cursor: "default", transition: "background 0.15s",
+                }}><FaIcon name="floppy-disk" size={13} /> {t("overlayProfileSaveCurrent")}</button>
+              <button onClick={() => importFileRef.current?.click()}
+                onMouseEnter={e => e.currentTarget.style.background = "var(--surface-3)"}
+                onMouseLeave={e => e.currentTarget.style.background = "var(--surface-2)"}
+                style={{
+                  flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                  padding: "7px 0", borderRadius: "var(--r-lg)", border: "none",
+                  background: "var(--surface-2)", color: "var(--t2)",
+                  fontSize: 12, fontFamily: "var(--font)", cursor: "default", transition: "background 0.15s",
+                }}><FaIcon name="file-import" size={13} /> {t("overlayProfileImport")}</button>
             </div>
           )}
           <input ref={importFileRef} type="file" accept=".json" style={{ display: "none" }}
             onChange={e => { if (e.target.files[0]) { onImportProfiles(e.target.files[0]); e.target.value = ""; } }} />
           {/* Reset */}
-          <button onClick={onResetConfig} style={{
-            width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-            padding: "7px 0", borderRadius: 7, border: "none",
-            background: "none", color: "var(--text-muted)", fontSize: "var(--t12)", fontFamily: "var(--font)", cursor: "pointer", marginBottom: 8,
-          }}><ArrowClockwise size={13} /> {t("overlayProfileReset")}</button>
+          <button onClick={onResetConfig}
+            onMouseEnter={e => e.currentTarget.style.color = "var(--t1)"}
+            onMouseLeave={e => e.currentTarget.style.color = "var(--t3)"}
+            style={{
+              width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+              padding: "7px 0", borderRadius: "var(--r-lg)", border: "none",
+              background: "none", color: "var(--t3)", fontSize: 12, fontFamily: "var(--font)", cursor: "default", marginBottom: 8, transition: "color 0.15s",
+            }}><ArrowClockwise size={13} /> {t("overlayProfileReset")}</button>
 
           <OvlSLabel>{t("overlayBgColor")}</OvlSLabel>
           <OvlColorRow label={t("overlayBgColor")} icon={<Palette size={15} />} value={obsConfig.bgColor}
@@ -3668,12 +3769,15 @@ function OverlayTab({ t, obsEnabled, obsPort, obsPortInput, setObsPortInput, obs
                 cornerTypeTL: p.types, cornerTypeTR: p.types,
                 cornerTypeBR: p.types, cornerTypeBL: p.types,
                 preset: "custom",
-              })} style={{
-                flex: 1, padding: "6px 0", borderRadius: 7, border: "1px solid var(--border)",
-                background: "var(--bg-elevated)", color: "var(--text-secondary)",
-                fontSize: "var(--t12)", cursor: "pointer", fontFamily: "var(--font)",
+              })}
+              onMouseEnter={e => e.currentTarget.style.background = "var(--surface-3)"}
+              onMouseLeave={e => e.currentTarget.style.background = "var(--surface-2)"}
+              style={{
+                flex: 1, padding: "6px 0", borderRadius: "var(--r-lg)", border: "none",
+                background: "var(--surface-2)", color: "var(--t2)",
+                fontSize: 12, cursor: "default", fontFamily: "var(--font)",
                 display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-                transition: "background 0.12s",
+                transition: "background 0.15s",
               }}>
                 <CornerMaskIcon file={p.file} corner="tl" size={13} />
                 {p.label}
@@ -3726,7 +3830,7 @@ function OverlayTab({ t, obsEnabled, obsPort, obsPortInput, setObsPortInput, obs
                   flex: 1, padding: "6px 0", borderRadius: "calc(var(--radius) - 2px)",
                   background: active ? "var(--bg-hover)" : "transparent",
                   color: active ? "var(--text-primary)" : "var(--text-muted)",
-                  border: "none", cursor: "pointer", fontSize: "var(--t12)",
+                  border: "none", cursor: "default", fontSize: "var(--t12)",
                   fontWeight: active ? 600 : 400, transition: "all 0.15s", fontFamily: "var(--font)",
                 }}>{opt.label}</button>
               );
@@ -3754,12 +3858,15 @@ function OverlayTab({ t, obsEnabled, obsPort, obsPortInput, setObsPortInput, obs
               <button key={p.types} onClick={() => applyObsConfig({
                 artCornerTypeTL: p.types, artCornerTypeTR: p.types,
                 artCornerTypeBR: p.types, artCornerTypeBL: p.types,
-              })} style={{
-                flex: 1, padding: "6px 0", borderRadius: 7, border: "1px solid var(--border)",
-                background: "var(--bg-elevated)", color: "var(--text-secondary)",
-                fontSize: "var(--t12)", cursor: "pointer", fontFamily: "var(--font)",
+              })}
+              onMouseEnter={e => e.currentTarget.style.background = "var(--surface-3)"}
+              onMouseLeave={e => e.currentTarget.style.background = "var(--surface-2)"}
+              style={{
+                flex: 1, padding: "6px 0", borderRadius: "var(--r-lg)", border: "none",
+                background: "var(--surface-2)", color: "var(--t2)",
+                fontSize: 12, cursor: "default", fontFamily: "var(--font)",
                 display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-                transition: "background 0.12s",
+                transition: "background 0.15s",
               }}>
                 <CornerMaskIcon file={p.file} corner="tl" size={13} />
                 {p.label}
@@ -3840,17 +3947,198 @@ function OverlayTab({ t, obsEnabled, obsPort, obsPortInput, setObsPortInput, obs
       {obsSubTab === "typography" && (
         <TypographyTab t={t} obsConfig={obsConfig} applyObsConfig={applyObsConfig} />
       )}
+      </div>
     </div>
   );
 }
 
-function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, animations, onAnimationsChange, lyricsFontSize, onLyricsFontSizeChange, lyricsTranslationFontSize, onLyricsTranslationFontSizeChange, lyricsRomajiFontSize, onLyricsRomajiFontSizeChange, lyricsProviders, onLyricsProvidersChange, autoplay, onAutoplayChange, crossfade, onCrossfadeChange, closeTray, onCloseTrayChange, discordRpc, onDiscordRpcChange, language, onLanguageChange, updateInfo, onCheckUpdate, updateDownloading, updateDownloadProgress, updateDownloaded, onDownloadUpdate, onInstallUpdate, onCancelDownload, initialTab, onTabOpened, hideExplicit, onHideExplicitChange, uiZoom, onUiZoomChange, appFontScale, onFontScaleChange, showRomaji, onToggleRomaji, showAgentTags, onToggleAgentTags, highContrast, onToggleHighContrast, appFont, onAppFontChange, ambientVisualizer, onToggleAmbientVisualizer,
+function SettingsSidebarContent({ tab, setTab, updateInfo, onClose, collapsed, closing }) {
+  const t = useLang();
+  const anim = useAnimations();
+  const [debugUnlocked, setDebugUnlocked] = useState(() => localStorage.getItem("kiyoshi-debug-unlocked") === "true");
+  const [debugTapCount, setDebugTapCount] = useState(0);
+  const [debugToast, setDebugToast] = useState(null);
+  const debugTapTimer = useRef(null);
+  const chromiumVersion = window.navigator.userAgent.match(/Chrome\/([\d.]+)/)?.[1] ?? "—";
+  useEffect(() => {
+    const handler = (e) => setDebugUnlocked(e.detail.unlocked);
+    window.addEventListener("kiyoshi-debug-change", handler);
+    return () => window.removeEventListener("kiyoshi-debug-change", handler);
+  }, []);
+  const handleTauriVersionTap = () => {
+    if (debugUnlocked) { setDebugToast("already"); clearTimeout(debugTapTimer.current); debugTapTimer.current = setTimeout(() => setDebugToast(null), 1800); return; }
+    setDebugTapCount(n => {
+      const next = n + 1;
+      clearTimeout(debugTapTimer.current);
+      if (next >= 5) {
+        localStorage.setItem("kiyoshi-debug-unlocked", "true");
+        setDebugUnlocked(true);
+        window.dispatchEvent(new CustomEvent("kiyoshi-debug-change", { detail: { unlocked: true } }));
+        setDebugToast("unlocked");
+        debugTapTimer.current = setTimeout(() => setDebugToast(null), 2500);
+        return 0;
+      }
+      debugTapTimer.current = setTimeout(() => setDebugTapCount(0), 2000);
+      return next;
+    });
+  };
+
+  const navItems = [
+    { id: "darstellung",   label: t("appearance"),    iconEl: <PaintBrushBroad size={18} /> },
+    { id: "wiedergabe",    label: t("playback"),      iconEl: <Play size={18} /> },
+    { id: "lyrics",        label: t("lyrics"),        iconEl: <ChatText size={18} /> },
+    { id: "accessibility", label: t("accessibility"), iconEl: <PersonArmsSpread size={18} /> },
+    { id: "shortcuts",     label: t("shortcuts"),     iconEl: <Keyboard size={18} /> },
+    { id: "language",      label: t("language"),      iconEl: <Translate size={18} /> },
+    { id: "storage",       label: t("storage"),       iconEl: <HardDrives size={18} /> },
+    { id: "sicherheit",    label: t("security"),      iconEl: <Lock size={18} /> },
+    { id: "overlay",       label: t("overlay"),       iconEl: <ScreencastSimple size={18} />, badge: "Beta" },
+    { id: "update",        label: t("update"),        iconEl: <ArrowsClockwise size={18} /> },
+    { id: "about",         label: t("about"),         iconEl: <Info size={18} /> },
+    ...(debugUnlocked ? [{ id: "debug", label: t("debug"), iconEl: <Bug size={18} /> }] : []),
+  ];
+
+  return (
+    <div style={{
+      position: "absolute", top: 8, right: 4, bottom: 8, left: 8, zIndex: 300,
+      background: "var(--bg-surface)",
+      borderRadius: "var(--r-xl)",
+      display: "flex", flexDirection: "column",
+      overflow: "hidden",
+      animation: anim ? (closing ? "fadeSlideOut 0.22s cubic-bezier(0.4,0,0.2,1) forwards" : "fadeSlideIn 0.25s cubic-bezier(0.4,0,0.2,1)") : undefined,
+    }}>
+      {/* Header */}
+      <div style={{
+        display: "flex", alignItems: "center",
+        gap: collapsed ? 0 : 8,
+        padding: collapsed ? "16px 0 8px" : "16px 12px 8px",
+        justifyContent: collapsed ? "center" : "flex-start",
+        flexShrink: 0,
+      }}>
+        <button
+          onClick={onClose}
+          title={t("back") || "Back"}
+          style={{
+            background: "transparent", border: "none", cursor: "default",
+            color: "var(--t2)", padding: "5px", borderRadius: "var(--r-md)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            transition: "color 0.12s, background 0.12s", flexShrink: 0,
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = "var(--fill-subtle)"; e.currentTarget.style.color = "var(--t1)"; }}
+          onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--t2)"; }}
+        >
+          <ArrowLeft size={16} weight="bold" />
+        </button>
+        {!collapsed && (
+          <span style={{ fontSize: "var(--t13)", fontWeight: 600, color: "var(--t1)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            {t("appSettings")}
+          </span>
+        )}
+      </div>
+
+      <div style={{ height: 1, background: "var(--stroke)", margin: collapsed ? "0 8px 8px" : "0 12px 8px", flexShrink: 0 }} />
+
+      {/* Nav items */}
+      <div className="scrollable" style={{ flex: 1, overflowY: "auto", overflowX: "hidden", padding: collapsed ? "0 4px 8px" : "0 8px 8px" }}>
+        {navItems.map(item => (
+          <div
+            key={item.id}
+            className={`sidebar-nav-item${tab === item.id ? " active" : ""}`}
+            onClick={() => setTab(item.id)}
+            onMouseMove={e => {
+              const r = e.currentTarget.getBoundingClientRect();
+              e.currentTarget.style.setProperty("--rx", `${e.clientX - r.left}px`);
+              e.currentTarget.style.setProperty("--ry", `${e.clientY - r.top}px`);
+            }}
+            title={collapsed ? item.label : undefined}
+            style={{
+              display: "flex", alignItems: "center",
+              gap: collapsed ? 0 : 10,
+              padding: collapsed ? "8px 0" : "8px 10px",
+              justifyContent: collapsed ? "center" : "flex-start",
+              marginBottom: 2,
+              fontSize: "var(--t13)", fontWeight: tab === item.id ? 500 : 400,
+            }}
+          >
+            <span style={{ flexShrink: 0, width: 20, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              {item.iconEl}
+            </span>
+            {!collapsed && item.label}
+            {!collapsed && item.badge && (
+              <span style={{
+                marginLeft: "auto", flexShrink: 0,
+                fontSize: 9, fontWeight: 700, letterSpacing: "0.06em",
+                padding: "2px 6px", borderRadius: 4,
+                background: "var(--accent)", color: "#fff", textTransform: "uppercase",
+              }}>{item.badge}</span>
+            )}
+            {!collapsed && item.id === "update" && updateInfo && !item.badge && (
+              <span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--accent)", marginLeft: "auto", flexShrink: 0 }} />
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Footer — version info + debug tap + quit */}
+      <div style={{ borderTop: "0.5px solid var(--stroke)", paddingTop: 8, flexShrink: 0, position: "relative", margin: "0 8px 8px" }}>
+        {debugToast && (
+          <div style={{
+            position: "absolute", bottom: "calc(100% + 6px)", left: 0, right: 0,
+            background: debugToast === "unlocked" ? "var(--accent)" : "var(--bg-elevated)",
+            color: debugToast === "unlocked" ? "#fff" : "var(--t2)",
+            border: "0.5px solid var(--stroke)",
+            borderRadius: "var(--r-lg)", padding: "6px 10px",
+            fontSize: "var(--t11)", fontWeight: 500, textAlign: "center",
+            animation: "fadeIn 0.2s ease", pointerEvents: "none", zIndex: 10,
+          }}>
+            {debugToast === "unlocked" ? "🐛 Debug-Menü freigeschaltet!" : "Debug-Menü bereits aktiv"}
+          </div>
+        )}
+        {!collapsed && (
+          <div style={{ padding: "4px 2px 6px" }}>
+            <div style={{ fontSize: "var(--t11)", fontWeight: 600, color: "var(--t1)", marginBottom: 2 }}>{APP_VERSION}</div>
+            <div style={{ fontSize: "var(--t10)", color: "var(--t3)", lineHeight: 1.7 }}>
+              <span onClick={handleTauriVersionTap} style={{ cursor: "default", userSelect: "none" }}>Tauri 2.10.3</span><br />
+              Chromium {chromiumVersion}
+            </div>
+          </div>
+        )}
+        <div
+          onClick={() => import("@tauri-apps/api/core").then(({ invoke }) => invoke("quit_app"))}
+          className="sidebar-nav-item"
+          onMouseMove={e => {
+            const r = e.currentTarget.getBoundingClientRect();
+            e.currentTarget.style.setProperty("--rx", `${e.clientX - r.left}px`);
+            e.currentTarget.style.setProperty("--ry", `${e.clientY - r.top}px`);
+          }}
+          style={{
+            display: "flex", alignItems: "center",
+            gap: collapsed ? 0 : 10,
+            padding: collapsed ? "8px 0" : "6px 8px",
+            justifyContent: collapsed ? "center" : "flex-start",
+            fontSize: "var(--t13)", color: "var(--t3)",
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = "rgba(244,67,54,0.08)"; e.currentTarget.style.color = "#f44336"; }}
+          onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--t3)"; }}
+          title={collapsed ? t("quit") : undefined}
+        >
+          <span style={{ width: 20, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <ArrowSquareOut size={16} />
+          </span>
+          {!collapsed && t("quit")}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, animations, onAnimationsChange, lyricsFontSize, onLyricsFontSizeChange, lyricsTranslationFontSize, onLyricsTranslationFontSizeChange, lyricsRomajiFontSize, onLyricsRomajiFontSizeChange, lyricsProviders, onLyricsProvidersChange, autoplay, onAutoplayChange, crossfade, onCrossfadeChange, closeTray, onCloseTrayChange, discordRpc, onDiscordRpcChange, language, onLanguageChange, updateInfo, onCheckUpdate, updateDownloading, updateDownloadProgress, updateDownloaded, onDownloadUpdate, onInstallUpdate, onCancelDownload, hideExplicit, onHideExplicitChange, uiZoom, onUiZoomChange, appFontScale, onFontScaleChange, showRomaji, onToggleRomaji, showAgentTags, onToggleAgentTags, highContrast, onToggleHighContrast, appFont, onAppFontChange, ambientVisualizer, onToggleAmbientVisualizer,
   obsEnabled, obsPort, obsPortInput, setObsPortInput, obsConfig, obsSubTab, setObsSubTab, toggleObs, applyObsConfig, onObsPortSave, OVERLAY_PRESETS, DEFAULT_OVERLAY_CONFIG,
   obsProfiles, onSaveProfile, onLoadProfile, onDeleteProfile, onExportProfile, onImportProfiles, onResetConfig,
-  customShortcuts, shortcutLabels, recordingShortcut, setRecordingShortcut, getShortcutLabel, resetShortcut }) {
+  customShortcuts, shortcutLabels, recordingShortcut, setRecordingShortcut, getShortcutLabel, resetShortcut,
+  tab, setTab }) {
   const anim = useAnimations();
   const t = useLang();
-  const [tab, setTab] = useState(initialTab || "darstellung");
   const [debugUnlocked, setDebugUnlocked] = useState(() => localStorage.getItem("kiyoshi-debug-unlocked") === "true");
   const [debugTapCount, setDebugTapCount] = useState(0);
   const [debugToast, setDebugToast] = useState(null); // "unlocked" | "already" | null
@@ -3875,7 +4163,6 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
   const [colorPickerOpen, setColorPickerOpen] = useState(false);
   const [overlayPreviewOpen, setOverlayPreviewOpen] = useState(false);
   const colorPickerTriggerRef = useRef(null);
-  useEffect(() => { if (initialTab) { setTab(initialTab); onTabOpened?.(); } }, [initialTab]);
   const chromiumVersion = window.navigator.userAgent.match(/Chrome\/([\d.]+)/)?.[1] ?? "—";
 
   // ── PIN protection state ──────────────────────────────────────────────────
@@ -4013,7 +4300,7 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
         return (
           <button key={i} onClick={() => onKey(k === "del" ? "del" : k)}
             style={{
-              height: 58, borderRadius: 12, border: "none", cursor: "pointer",
+              height: 58, borderRadius: 12, border: "none", cursor: "default",
               background: k === "del" ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.1)",
               color: "#fff", fontSize: k === "del" ? 18 : 22, fontWeight: 600,
               fontFamily: "var(--font)", display: "flex", alignItems: "center", justifyContent: "center",
@@ -4076,7 +4363,7 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
           onClick={onToggleShow}
           style={{
             position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)",
-            background: "none", border: "none", cursor: "pointer",
+            background: "none", border: "none", cursor: "default",
             color: "rgba(255,255,255,0.5)", display: "flex", alignItems: "center", padding: 4,
           }}
           onMouseEnter={e => e.currentTarget.style.color = "rgba(255,255,255,0.9)"}
@@ -4091,7 +4378,7 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
         onClick={() => value.length > 0 && onSubmit(value)}
         style={{
           padding: "10px 32px", borderRadius: 10, border: "none",
-          cursor: value.length > 0 ? "pointer" : "default",
+          cursor: "default",
           background: value.length > 0 ? "var(--accent)" : "rgba(255,255,255,0.1)",
           color: "#fff", fontSize: "var(--t14)", fontWeight: 600, fontFamily: "var(--font)",
           transition: "background 0.15s, opacity 0.15s",
@@ -4122,9 +4409,7 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
   const SectionLabel = SettingsSectionLabel;
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", animation: anim ? "fadeIn 0.18s ease" : undefined }}>
-      <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.7)" }} />
-      <div style={{ position: "relative", borderRadius: 12, overflow: "hidden", width: 1140, height: 740, maxWidth: "calc(100% - 40px)", maxHeight: "calc(100% - 40px)", display: "flex", boxShadow: "0 32px 80px rgba(0,0,0,0.7)", animation: anim ? "fadeSlideIn 0.28s cubic-bezier(0.34,1.56,0.64,1)" : undefined, border: "0.5px solid var(--border)" }}>
+    <div style={{ position: "relative", width: "100%", height: "100%", display: "flex", overflow: "hidden", background: "var(--bg-base)" }}>
         {/* ── PIN entry overlay ─────────────────────────────────────────────── */}
         {pinEnabled && !pinVerified && (
           <div style={{
@@ -4213,7 +4498,7 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                     }}
                     style={{
                       background: "#f44336", border: "none", borderRadius: 8,
-                      cursor: "pointer", padding: "7px 16px",
+                      cursor: "default", padding: "7px 16px",
                       color: "#fff", fontSize: "var(--t12)", fontWeight: 600,
                       fontFamily: "var(--font)", transition: "background 0.15s",
                     }}
@@ -4226,7 +4511,7 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                     onClick={() => setPinEmergencyConfirm(false)}
                     style={{
                       background: "rgba(255,255,255,0.08)", border: "none", borderRadius: 8,
-                      cursor: "pointer", padding: "7px 16px",
+                      cursor: "default", padding: "7px 16px",
                       color: "rgba(255,255,255,0.7)", fontSize: "var(--t12)", fontWeight: 500,
                       fontFamily: "var(--font)", transition: "background 0.15s",
                     }}
@@ -4280,7 +4565,7 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
 
             <button onClick={() => { setPinSetup(null); setPinSetupDigits([]); setPinSetupError(""); }}
               style={{
-                background: "transparent", border: "none", cursor: "pointer",
+                background: "transparent", border: "none", cursor: "default",
                 color: "rgba(255,255,255,0.45)", fontSize: "var(--t13)", fontFamily: "var(--font)",
               }}
               onMouseEnter={e => e.currentTarget.style.color = "rgba(255,255,255,0.8)"}
@@ -4302,100 +4587,8 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
           <X size={16} />
         </button>
 
-        {/* Left Sidebar */}
-        <div style={{ width: 220, background: "var(--bg-elevated)", flexShrink: 0, display: "flex", flexDirection: "column", padding: "20px 12px", borderRight: "0.5px solid var(--border)" }}>
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "8px 0 20px" }}>
-            <div style={{ position: "relative" }}>
-              <svg width="52" height="52" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M0 16C0 7.16344 7.16344 0 16 0C24.8366 0 32 7.16344 32 16C32 24.8366 24.8366 32 16 32H6.4C2.86538 32 0 29.1346 0 25.6V16Z" fill="url(#slogo_g)"/>
-                <path d="M16 5C22.0751 5 27 9.92487 27 16C27 22.0751 22.0751 27 16 27H8.7998C6.70128 26.9999 5.00011 25.2987 5 23.2002V16C5 9.92487 9.92487 5 16 5Z" stroke="white" strokeWidth="2" style={{mixBlendMode:"overlay"}}/>
-                <path d="M16.5547 11.5C16.6656 11.5 16.7695 11.5552 16.8311 11.6475L18.2139 13.7227C18.3258 13.8906 18.3258 14.1094 18.2139 14.2773L16.8311 16.3525C16.7695 16.4448 16.6656 16.5 16.5547 16.5C16.2895 16.5 16.1312 16.2041 16.2783 15.9834L17.252 14.5234C17.4631 14.2067 17.4631 13.7933 17.252 13.4766L16.2783 12.0166C16.1312 11.7959 16.2895 11.5 16.5547 11.5Z" stroke="white" style={{mixBlendMode:"overlay"}}/>
-                <rect x="20.5" y="11.5" width="1" height="5" rx="0.5" stroke="white" style={{mixBlendMode:"overlay"}}/>
-                <defs><linearGradient id="slogo_g" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse"><stop stopColor="#EEA8FF"/><stop offset="1" stopColor="#FF008C"/></linearGradient></defs>
-              </svg>
-              <div style={{
-                position: "absolute", bottom: -4, right: -10,
-                background: "var(--accent)", color: "#fff",
-                fontSize: 8, fontWeight: 700, letterSpacing: "0.04em",
-                padding: "2px 5px", borderRadius: 4, lineHeight: 1.4,
-                boxShadow: "0 1px 4px rgba(0,0,0,0.4)",
-              }}>Beta</div>
-            </div>
-          </div>
-
-          <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}>
-          <div style={{ fontSize: "var(--t10)", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", padding: "0 8px 8px" }}>{t("appSettings")}</div>
-
-          {navItems.map(item => (
-            <div key={item.id} onClick={() => setTab(item.id)} style={{
-              display: "flex", alignItems: "center", gap: 10,
-              padding: "8px 10px", borderRadius: "var(--radius)", cursor: "pointer",
-              background: tab === item.id ? "rgba(224,64,251,0.12)" : "transparent",
-              color: tab === item.id ? "var(--accent)" : "var(--text-secondary)",
-              fontSize: "var(--t13)", fontWeight: tab === item.id ? 500 : 400,
-              transition: "background 0.15s, color 0.15s", marginBottom: 2,
-            }}
-            onMouseEnter={e => { if (tab !== item.id) { e.currentTarget.style.background = "var(--bg-hover)"; e.currentTarget.style.color = "var(--text-primary)"; }}}
-            onMouseLeave={e => { if (tab !== item.id) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--text-secondary)"; }}}
-            >
-              <span style={{ flexShrink: 0, width: 20, display: "flex", alignItems: "center", justifyContent: "center" }}>{item.iconEl || <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor">{item.icon}</svg>}</span>
-              {item.label}
-              {item.badge && (
-                <span style={{
-                  marginLeft: "auto", flexShrink: 0,
-                  fontSize: 9, fontWeight: 700, letterSpacing: "0.06em",
-                  padding: "2px 6px", borderRadius: 4,
-                  background: "var(--accent)", color: "#fff",
-                  textTransform: "uppercase",
-                }}>{item.badge}</span>
-              )}
-              {item.id === "update" && updateInfo && !item.badge && (
-                <span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--accent)", marginLeft: "auto", flexShrink: 0 }} />
-              )}
-            </div>
-          ))}
-          </div>{/* end scrollable nav */}
-
-          <div style={{ borderTop: "0.5px solid var(--border)", paddingTop: 12, position: "relative" }}>
-            {debugToast && (
-              <div style={{
-                position: "absolute", bottom: "calc(100% + 8px)", left: 8, right: 8,
-                background: debugToast === "unlocked" ? "var(--accent)" : "var(--bg-surface)",
-                color: debugToast === "unlocked" ? "#fff" : "var(--text-secondary)",
-                border: "0.5px solid var(--border)",
-                borderRadius: "var(--radius)", padding: "8px 12px",
-                fontSize: "var(--t12)", fontWeight: 500, textAlign: "center",
-                animation: "fadeIn 0.2s ease", pointerEvents: "none", zIndex: 10,
-              }}>
-                {debugToast === "unlocked" ? "🐛 Debug-Menü freigeschaltet!" : "Debug-Menü bereits aktiv"}
-              </div>
-            )}
-            <div style={{ padding: "0 8px 12px" }}>
-              <div style={{ fontSize: "var(--t11)", fontWeight: 600, color: "var(--text-primary)", marginBottom: 4 }}>{APP_VERSION}</div>
-              <div style={{ fontSize: "var(--t10)", color: "var(--text-muted)", lineHeight: 1.7 }}>
-                <span
-                  onClick={handleTauriVersionTap}
-                  style={{ cursor: "pointer", userSelect: "none" }}
-                >Tauri 2.10.3</span><br/>
-                Chromium {chromiumVersion}
-              </div>
-            </div>
-            <div onClick={() => import("@tauri-apps/api/core").then(({ invoke }) => invoke("quit_app"))} style={{
-              display: "flex", alignItems: "center", gap: 10,
-              padding: "8px 10px", borderRadius: "var(--radius)", cursor: "pointer",
-              color: "var(--text-muted)", fontSize: "var(--t13)", transition: "all 0.15s",
-            }}
-            onMouseEnter={e => { e.currentTarget.style.background = "rgba(244,67,54,0.08)"; e.currentTarget.style.color = "#f44336"; }}
-            onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--text-muted)"; }}
-            >
-              <span style={{ width: 20, display: "flex", alignItems: "center", justifyContent: "center" }}><ArrowSquareOut size={16} /></span>
-              {t("quit")}
-            </div>
-          </div>
-        </div>
-
         {/* Right Content */}
-        <div style={{ flex: 1, background: "var(--bg-surface)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        <div style={{ flex: 1, background: "var(--bg-base)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
           <div style={{ padding: "24px 32px 0", flexShrink: 0 }}>
             <div style={{ fontSize: "var(--t20)", fontWeight: 700, marginBottom: 4, display: "flex", alignItems: "center", gap: 10 }}>
               {navItems.find(i => i.id === tab)?.label}
@@ -4411,7 +4604,7 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
             <div style={{ height: 1, background: "var(--border)", marginTop: 20 }} />
           </div>
 
-          <div className="scrollable" style={{ flex: 1, overflowY: "auto", padding: "8px 32px 32px" }}>
+          <div key={tab} className={tab === "overlay" ? undefined : "scrollable"} style={{ flex: 1, overflowY: tab === "overlay" ? "hidden" : "auto", padding: tab === "overlay" ? "8px 32px 0" : "8px 32px 32px", animation: anim ? "fadeSlideIn 0.22s cubic-bezier(0.4,0,0.2,1)" : "none", display: tab === "overlay" ? "flex" : undefined, flexDirection: tab === "overlay" ? "column" : undefined }}>
 
             {tab === "darstellung" && (
               <>
@@ -4423,7 +4616,7 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                     { id: "light", label: t("themeLight"), bg: "#f0f0f0", surface: "#ffffff", elevated: "#e4e4e4", text: "#111111" },
                   ].map(th => (
                     <div key={th.id} onClick={() => onThemeChange(th.id)} style={{
-                      flex: 1, borderRadius: 10, overflow: "hidden", cursor: "pointer",
+                      flex: 1, borderRadius: 10, overflow: "hidden", cursor: "default",
                       border: theme === th.id ? `2px solid var(--accent)` : "2px solid var(--border)",
                       transition: anim ? "border-color 0.15s, transform 0.15s" : "border-color 0.15s",
                       transform: theme === th.id && anim ? "scale(1.02)" : "scale(1)",
@@ -4469,7 +4662,7 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                         }}>
                           {ACCENT_PRESETS.map(p => (
                             <Tooltip key={p.value} text={p.label}><div onClick={() => onAccentChange(p.value)} style={{
-                              borderRadius: 7, background: p.value, cursor: "pointer",
+                              borderRadius: 7, background: p.value, cursor: "default",
                               transition: anim ? spring("transform") : "none",
                               outline: accent === p.value ? `2.5px solid ${p.value}` : "2.5px solid transparent", outlineOffset: 2,
                             }}
@@ -4604,7 +4797,7 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                   ].map(f => (
                     <div key={f.id} onClick={() => onAppFontChange(f.id)} style={{
                       display: "flex", alignItems: "center", justifyContent: "space-between",
-                      padding: "12px 16px", borderRadius: 10, cursor: "pointer",
+                      padding: "12px 16px", borderRadius: 10, cursor: "default",
                       border: appFont === f.id ? "1.5px solid var(--accent)" : "1.5px solid transparent",
                       background: appFont === f.id ? "var(--accent-dim)" : "var(--bg-elevated)",
                       transition: "border-color 0.15s, background 0.15s",
@@ -4670,7 +4863,7 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                               <button
                                 onClick={() => setRecordingShortcut(isRecording ? null : id)}
                                 title={isRecording ? t("scCancelRecord") : t("scRecordBtn")}
-                                style={{ background: isRecording ? "var(--accent)" : "var(--bg-surface)", border: "0.5px solid var(--border)", borderRadius: 6, padding: "6px 10px", cursor: "pointer", color: isRecording ? "#fff" : "var(--text-secondary)", display: "flex", alignItems: "center", justifyContent: "center" }}
+                                style={{ background: isRecording ? "var(--accent)" : "var(--bg-surface)", border: "0.5px solid var(--border)", borderRadius: 6, padding: "6px 10px", cursor: "default", color: isRecording ? "#fff" : "var(--text-secondary)", display: "flex", alignItems: "center", justifyContent: "center" }}
                               >
                                 {isRecording ? <X size={14} /> : <PencilSimple size={14} />}
                               </button>
@@ -4679,7 +4872,7 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                               <button
                                 onClick={() => resetShortcut(id)}
                                 title={t("scResetShortcut")}
-                                style={{ background: "var(--bg-surface)", border: "0.5px solid var(--border)", borderRadius: 6, padding: "6px 10px", cursor: "pointer", color: "var(--text-muted)", display: "flex", alignItems: "center", justifyContent: "center" }}
+                                style={{ background: "var(--bg-surface)", border: "0.5px solid var(--border)", borderRadius: 6, padding: "6px 10px", cursor: "default", color: "var(--text-muted)", display: "flex", alignItems: "center", justifyContent: "center" }}
                               >
                                 <ArrowClockwise size={14} />
                               </button>
@@ -4696,7 +4889,7 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                         setCustomShortcuts({ ...DEFAULT_SHORTCUTS });
                         localStorage.setItem("kiyoshi-shortcuts", "{}");
                       }}
-                      style={{ marginTop: 8, padding: "6px 14px", borderRadius: 8, border: "0.5px solid var(--border)", background: "var(--bg-elevated)", color: "var(--text-secondary)", cursor: "pointer", fontSize: "var(--t12)" }}
+                      style={{ marginTop: 8, padding: "6px 14px", borderRadius: 8, border: "0.5px solid var(--border)", background: "var(--bg-elevated)", color: "var(--text-secondary)", cursor: "default", fontSize: "var(--t12)" }}
                     >
                       {t("scResetAll")}
                     </button>
@@ -4718,9 +4911,11 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                       {["pin", "password"].map(type => (
                         <button key={type}
                           onClick={() => { setPinType(type); localStorage.setItem("kiyoshi-pin-type", type); }}
+                          onMouseEnter={e => { if (pinType !== type) e.currentTarget.style.background = "var(--surface-3)"; }}
+                          onMouseLeave={e => { if (pinType !== type) e.currentTarget.style.background = "var(--surface-2)"; }}
                           style={{
-                            padding: "6px 14px", borderRadius: 8, border: "none", cursor: "pointer",
-                            background: pinType === type ? "var(--accent)" : "var(--bg-hover)",
+                            padding: "6px 14px", borderRadius: 8, border: "none", cursor: "default",
+                            background: pinType === type ? "var(--accent)" : "var(--surface-2)",
                             color: pinType === type ? "#fff" : "var(--text-secondary)",
                             fontSize: "var(--t12)", fontWeight: 600, fontFamily: "var(--font)",
                             transition: "background 0.15s, color 0.15s",
@@ -4740,9 +4935,11 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                       {[4, 6].map(len => (
                         <button key={len}
                           onClick={() => { setPinLength(len); localStorage.setItem("kiyoshi-pin-length", String(len)); }}
+                          onMouseEnter={e => { if (pinLength !== len) e.currentTarget.style.background = "var(--surface-3)"; }}
+                          onMouseLeave={e => { if (pinLength !== len) e.currentTarget.style.background = "var(--surface-2)"; }}
                           style={{
-                            padding: "6px 14px", borderRadius: 8, border: "none", cursor: "pointer",
-                            background: pinLength === len ? "var(--accent)" : "var(--bg-hover)",
+                            padding: "6px 14px", borderRadius: 8, border: "none", cursor: "default",
+                            background: pinLength === len ? "var(--accent)" : "var(--surface-2)",
                             color: pinLength === len ? "#fff" : "var(--text-secondary)",
                             fontSize: "var(--t12)", fontWeight: 600, fontFamily: "var(--font)",
                             transition: "background 0.15s, color 0.15s",
@@ -4773,7 +4970,7 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                       }
                     }}
                     style={{
-                      width: 44, height: 24, borderRadius: 12, cursor: "pointer", flexShrink: 0,
+                      width: 44, height: 24, borderRadius: 12, cursor: "default", flexShrink: 0,
                       background: pinEnabled ? "var(--accent)" : "var(--bg-hover)",
                       position: "relative", transition: "background 0.2s",
                     }}
@@ -4791,7 +4988,7 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                     <button
                       onClick={() => { setPinSetup({ mode: "change", step: "current", first: null }); setPinSetupDigits([]); setPinSetupPasswordInput(""); setPinSetupError(""); }}
                       style={{
-                        background: "var(--bg-hover)", border: "none", borderRadius: 8, cursor: "pointer",
+                        background: "var(--bg-hover)", border: "none", borderRadius: 8, cursor: "default",
                         color: "var(--text-primary)", fontSize: "var(--t13)", fontFamily: "var(--font)",
                         padding: "7px 14px", transition: "background 0.15s",
                       }}
@@ -4815,7 +5012,7 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                       onClick={() => setPinEmergencyConfirm(true)}
                       style={{
                         background: "rgba(244,67,54,0.12)", border: "none",
-                        borderRadius: 8, cursor: "pointer", padding: "8px 16px",
+                        borderRadius: 8, cursor: "default", padding: "8px 16px",
                         color: "#f44336", fontSize: "var(--t12)", fontWeight: 600,
                         fontFamily: "var(--font)", transition: "background 0.15s",
                       }}
@@ -4848,7 +5045,7 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                           }}
                           style={{
                             background: "#f44336", border: "none", borderRadius: 8,
-                            cursor: "pointer", padding: "8px 16px",
+                            cursor: "default", padding: "8px 16px",
                             color: "#fff", fontSize: "var(--t12)", fontWeight: 600,
                             fontFamily: "var(--font)", transition: "background 0.15s",
                           }}
@@ -4861,7 +5058,7 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                           onClick={() => setPinEmergencyConfirm(false)}
                           style={{
                             background: "var(--bg-hover)", border: "none", borderRadius: 8,
-                            cursor: "pointer", padding: "8px 16px",
+                            cursor: "default", padding: "8px 16px",
                             color: "var(--text-secondary)", fontSize: "var(--t12)", fontWeight: 500,
                             fontFamily: "var(--font)", transition: "background 0.15s",
                           }}
@@ -4883,7 +5080,7 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                 {LANGUAGES.map(lang => (
                   <div key={lang.code} onClick={() => onLanguageChange(lang.code)} style={{
                     display: "flex", alignItems: "center", gap: 14,
-                    padding: "12px 16px", borderRadius: "var(--radius)", cursor: "pointer",
+                    padding: "12px 16px", borderRadius: "var(--radius)", cursor: "default",
                     background: language === lang.code ? "rgba(224,64,251,0.08)" : "var(--bg-elevated)",
                     border: `0.5px solid ${language === lang.code ? "var(--accent)" : "transparent"}`,
                     marginBottom: 8, transition: "all 0.15s",
@@ -4919,7 +5116,7 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                     onClick={e => { e.stopPropagation(); openUrl("https://crowdin.com/project/kiyoshi-music").catch(console.error); }}
                     style={{
                       flexShrink: 0, fontSize: "var(--t12)", fontWeight: 600,
-                      color: "var(--accent)", cursor: "pointer", whiteSpace: "nowrap",
+                      color: "var(--accent)", cursor: "default", whiteSpace: "nowrap",
                     }}
                   >
                     Crowdin →
@@ -4958,98 +5155,94 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
 
             {tab === "update" && (
               <>
-                <SectionLabel>{t("currentVersion")}</SectionLabel>
-                <div style={{
-                  padding: "12px 16px", borderRadius: "var(--radius)",
-                  background: "var(--bg-elevated)",
-                  marginBottom: 16,
-                }}>
-                  <div style={{ fontSize: "var(--t14)", fontWeight: 600, color: "var(--text-primary)" }}>{APP_VERSION}</div>
-                </div>
+                {/* Current version row */}
+                <SettingRow label={t("currentVersion")} icon={<Info size={15} />}>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: "var(--t1)" }}>{APP_VERSION}</span>
+                </SettingRow>
 
                 {updateInfo ? (
                   <>
-                    <SectionLabel>{t("latestVersion")}</SectionLabel>
+                    {/* New version card */}
                     <div style={{
-                      padding: "16px", borderRadius: "var(--radius)",
-                      background: "rgba(224,64,251,0.06)", border: "0.5px solid var(--accent)",
-                      marginBottom: 16,
+                      padding: "14px 18px", borderRadius: "var(--r-lg)",
+                      background: "color-mix(in srgb, var(--accent) 8%, var(--surface-1))",
+                      border: "0.5px solid color-mix(in srgb, var(--accent) 40%, transparent)",
+                      margin: "6px 0",
                     }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-                        <ArrowCircleUp size={18} style={{ color: "var(--accent)" }} />
-                        <div style={{ fontSize: "var(--t14)", fontWeight: 600, color: "var(--accent)" }}>{updateInfo.version}</div>
-                      </div>
-                      {updateInfo.releasedAt && (
-                        <div style={{ fontSize: "var(--t11)", color: "var(--text-muted)", marginBottom: 12 }}>
-                          {t("released")}: {new Date(updateInfo.releasedAt).toLocaleDateString()}
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: updateInfo.releasedAt || updateInfo.changelog ? 10 : 0 }}>
+                        <ArrowCircleUp size={20} style={{ color: "var(--accent)", flexShrink: 0 }} />
+                        <div>
+                          <div style={{ fontSize: 15, fontWeight: 700, color: "var(--accent)" }}>{updateInfo.version}</div>
+                          {updateInfo.releasedAt && (
+                            <div style={{ fontSize: 11, color: "var(--t3)", marginTop: 2 }}>
+                              {t("released")}: {new Date(updateInfo.releasedAt).toLocaleDateString()}
+                            </div>
+                          )}
                         </div>
-                      )}
+                      </div>
                       {updateInfo.changelog && (
                         <>
-                          <div style={{ fontSize: "var(--t11)", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>{t("changelog")}</div>
-                          <div style={{ fontSize: "var(--t12)", color: "var(--text-secondary)", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{updateInfo.changelog}</div>
+                          <div style={{ height: "0.5px", background: "color-mix(in srgb, var(--accent) 25%, transparent)", margin: "10px 0 10px" }} />
+                          <div style={{ fontSize: 11, fontWeight: 600, color: "var(--t3)", marginBottom: 6 }}>{t("changelog")}</div>
+                          <div style={{ fontSize: 12, color: "var(--t2)", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{updateInfo.changelog}</div>
                         </>
                       )}
                     </div>
+
+                    {/* Action area */}
                     {updateDownloaded ? (
                       <>
-                        <div style={{ fontSize: "var(--t12)", color: "#4caf50", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
-                          <CheckCircle size={14} weight="fill" style={{ color: "#4caf50" }} />
+                        <div style={{ fontSize: 12, color: "#4caf50", margin: "8px 0 8px", display: "flex", alignItems: "center", gap: 6 }}>
+                          <CheckCircle size={14} weight="fill" />
                           {t("savedToDownloads")}
                         </div>
-                        <button
-                          onClick={onInstallUpdate}
-                          style={{
-                            display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-                            width: "100%", padding: "10px 16px", borderRadius: "var(--radius)",
-                            background: "var(--accent)", border: "none", color: "#fff",
-                            fontSize: "var(--t13)", fontWeight: 600, cursor: "pointer",
-                            fontFamily: "var(--font)", transition: "opacity 0.15s",
-                          }}
+                        <button onClick={onInstallUpdate}
                           onMouseEnter={e => e.currentTarget.style.opacity = "0.85"}
                           onMouseLeave={e => e.currentTarget.style.opacity = "1"}
-                        >
+                          style={{
+                            display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                            width: "100%", padding: "11px 16px", borderRadius: "var(--r-lg)",
+                            background: "var(--accent)", border: "none", color: "#fff",
+                            fontSize: 13, fontWeight: 600, cursor: "default",
+                            fontFamily: "var(--font)", transition: "opacity 0.15s",
+                          }}>
                           <DownloadSimple size={16} />
                           {t("installNow")}
                         </button>
                       </>
                     ) : updateDownloading ? (
                       <>
-                        <div style={{ fontSize: "var(--t12)", color: "var(--text-muted)", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+                        <div style={{ fontSize: 12, color: "var(--t3)", margin: "8px 0 8px", display: "flex", alignItems: "center", gap: 6 }}>
                           <ArrowClockwise size={13} style={{ animation: "spin2 0.8s linear infinite" }} />
-                          {t("downloadingUpdate")}
+                          {t("downloadingUpdate")} — {updateDownloadProgress ?? 0}%
                         </div>
-                        <div style={{ height: 4, background: "var(--bg-hover)", borderRadius: 2, overflow: "hidden", marginBottom: 10 }}>
-                          <div style={{ height: "100%", width: `${updateDownloadProgress ?? 0}%`, background: "var(--accent)", transition: "width 0.3s" }} />
+                        <div style={{ height: 3, background: "var(--surface-2)", borderRadius: 100, overflow: "hidden", marginBottom: 10 }}>
+                          <div style={{ height: "100%", width: `${updateDownloadProgress ?? 0}%`, background: "var(--accent)", borderRadius: 100, transition: "width 0.3s" }} />
                         </div>
-                        <button
-                          onClick={onCancelDownload}
+                        <button onClick={onCancelDownload}
+                          onMouseEnter={e => e.currentTarget.style.background = "var(--surface-3)"}
+                          onMouseLeave={e => e.currentTarget.style.background = "var(--surface-2)"}
                           style={{
                             display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-                            width: "100%", padding: "9px 16px", borderRadius: "var(--radius)",
-                            background: "var(--bg-elevated)", border: "0.5px solid var(--border)", color: "var(--text-secondary)",
-                            fontSize: "var(--t13)", fontWeight: 500, cursor: "pointer",
-                            fontFamily: "var(--font)", transition: "all 0.15s",
-                          }}
-                          onMouseEnter={e => { e.currentTarget.style.background = "var(--bg-hover)"; e.currentTarget.style.color = "var(--text-primary)"; }}
-                          onMouseLeave={e => { e.currentTarget.style.background = "var(--bg-elevated)"; e.currentTarget.style.color = "var(--text-secondary)"; }}
-                        >
+                            width: "100%", padding: "11px 16px", borderRadius: "var(--r-lg)",
+                            background: "var(--surface-2)", border: "none", color: "var(--t2)",
+                            fontSize: 13, fontWeight: 500, cursor: "default",
+                            fontFamily: "var(--font)", transition: "background 0.15s",
+                          }}>
                           {t("cancel")}
                         </button>
                       </>
                     ) : (
-                      <button
-                        onClick={onDownloadUpdate}
-                        style={{
-                          display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-                          width: "100%", padding: "10px 16px", borderRadius: "var(--radius)",
-                          background: "var(--accent)", border: "none", color: "#fff",
-                          fontSize: "var(--t13)", fontWeight: 600, cursor: "pointer",
-                          fontFamily: "var(--font)", transition: "opacity 0.15s",
-                        }}
+                      <button onClick={onDownloadUpdate}
                         onMouseEnter={e => e.currentTarget.style.opacity = "0.85"}
                         onMouseLeave={e => e.currentTarget.style.opacity = "1"}
-                      >
+                        style={{
+                          display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                          width: "100%", padding: "11px 16px", marginTop: 6, borderRadius: "var(--r-lg)",
+                          background: "var(--accent)", border: "none", color: "#fff",
+                          fontSize: 13, fontWeight: 600, cursor: "default",
+                          fontFamily: "var(--font)", transition: "opacity 0.15s",
+                        }}>
                         <DownloadSimple size={16} />
                         {t("downloadUpdate")}
                       </button>
@@ -5058,27 +5251,27 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                 ) : (
                   <div style={{
                     display: "flex", flexDirection: "column", alignItems: "center", gap: 10,
-                    padding: "32px 16px", color: "var(--text-muted)",
+                    padding: "40px 16px", color: "var(--t3)",
                   }}>
-                    <CheckCircle size={32} style={{ color: "#4caf50" }} />
-                    <div style={{ fontSize: "var(--t13)", textAlign: "center" }}>{t("upToDate")}</div>
+                    <CheckCircle size={36} weight="fill" style={{ color: "#4caf50" }} />
+                    <div style={{ fontSize: 13, fontWeight: 500, color: "var(--t2)", textAlign: "center" }}>{t("upToDate")}</div>
                   </div>
                 )}
 
+                {/* Check for updates button */}
                 <button
                   onClick={() => { setCheckingUpdate(true); onCheckUpdate(true).finally(() => setCheckingUpdate(false)); }}
                   disabled={checkingUpdate}
+                  onMouseEnter={e => { if (!checkingUpdate) e.currentTarget.style.background = "var(--surface-3)"; }}
+                  onMouseLeave={e => e.currentTarget.style.background = "var(--surface-2)"}
                   style={{
                     display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-                    width: "100%", padding: "9px 16px", marginTop: 8, borderRadius: "var(--radius)",
-                    background: "var(--bg-elevated)", border: "0.5px solid var(--border)", color: "var(--text-secondary)",
-                    fontSize: "var(--t13)", fontWeight: 500, cursor: checkingUpdate ? "default" : "pointer",
-                    fontFamily: "var(--font)", transition: "all 0.15s",
+                    width: "100%", padding: "11px 16px", marginTop: 6, borderRadius: "var(--r-lg)",
+                    background: "var(--surface-2)", border: "none", color: "var(--t2)",
+                    fontSize: 13, fontWeight: 500, cursor: "default",
+                    fontFamily: "var(--font)", transition: "background 0.15s",
                     opacity: checkingUpdate ? 0.6 : 1,
-                  }}
-                  onMouseEnter={e => { if (!checkingUpdate) { e.currentTarget.style.background = "var(--bg-hover)"; e.currentTarget.style.color = "var(--text-primary)"; }}}
-                  onMouseLeave={e => { e.currentTarget.style.background = "var(--bg-elevated)"; e.currentTarget.style.color = "var(--text-secondary)"; }}
-                >
+                  }}>
                   <ArrowClockwise size={14} style={checkingUpdate ? { animation: "spin2 0.8s linear infinite" } : undefined} />
                   {checkingUpdate ? t("checking") : t("checkForUpdates")}
                 </button>
@@ -5104,7 +5297,7 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                   <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                     <button onClick={() => openUrl("https://github.com/KiyoshiTheDevil/kiyoshi-music")} style={{
                       display: "flex", alignItems: "center", gap: 7,
-                      padding: "7px 16px", borderRadius: "var(--radius)", cursor: "pointer",
+                      padding: "7px 16px", borderRadius: "var(--radius)", cursor: "default",
                       background: "var(--bg-elevated)", border: "0.5px solid var(--border)",
                       color: "var(--text-primary)", fontSize: "var(--t13)", fontFamily: "var(--font)",
                       transition: "all 0.15s",
@@ -5117,7 +5310,7 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                     </button>
                     <button onClick={() => openUrl("https://buymeacoffee.com/kiyoshi_the_devil")} style={{
                       display: "flex", alignItems: "center", gap: 7,
-                      padding: "7px 16px", borderRadius: "var(--radius)", cursor: "pointer",
+                      padding: "7px 16px", borderRadius: "var(--radius)", cursor: "default",
                       background: "#FFDD00", border: "0.5px solid transparent",
                       color: "#000000", fontSize: "var(--t13)", fontFamily: "var(--font)",
                       fontWeight: 600, transition: "all 0.15s",
@@ -5208,7 +5401,7 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                         {c.links.map((l, i) => (
                           <button key={i} onClick={() => openUrl(l.url)} style={{
                             background: "none", border: "none",
-                            color: "var(--text-muted)", cursor: "pointer", padding: 6,
+                            color: "var(--text-muted)", cursor: "default", padding: 6,
                             display: "flex", alignItems: "center", transition: "color 0.15s",
                             borderRadius: 6,
                           }}
@@ -5236,7 +5429,7 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                     <button key={tool.name} onClick={() => openUrl(tool.link)} style={{
                       background: "none", border: "none", padding: "4px 0",
                       fontSize: "var(--t13)", color: "var(--text-secondary)",
-                      fontFamily: "var(--font)", cursor: "pointer", textAlign: "left",
+                      fontFamily: "var(--font)", cursor: "default", textAlign: "left",
                       transition: "color 0.15s", width: "fit-content",
                     }}
                     onMouseEnter={e => e.currentTarget.style.color = "var(--accent)"}
@@ -5254,7 +5447,7 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
                   </span>
                   <button onClick={() => openUrl("https://github.com/KiyoshiTheDevil/kiyoshi-music/blob/master/LICENSE")}
                     style={{
-                      background: "none", border: "none", padding: 0, cursor: "pointer",
+                      background: "none", border: "none", padding: 0, cursor: "default",
                       fontSize: "var(--t11)", color: "var(--text-muted)", fontFamily: "var(--font)",
                       transition: "color 0.15s",
                     }}
@@ -5270,17 +5463,18 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
             {tab === "debug" && (
               <>
                 <DebugTab t={t} />
-                <div style={{ marginTop: 24, paddingTop: 16, borderTop: "0.5px solid var(--border)" }}>
+                <div style={{ marginTop: 24 }}>
                   <button
-                    onClick={() => { localStorage.removeItem("kiyoshi-debug-unlocked"); setDebugUnlocked(false); setTab("darstellung"); }}
+                    onClick={() => { localStorage.removeItem("kiyoshi-debug-unlocked"); setDebugUnlocked(false); window.dispatchEvent(new CustomEvent("kiyoshi-debug-change", { detail: { unlocked: false } })); setTab("darstellung"); }}
+                    onMouseEnter={e => e.currentTarget.style.background = "var(--surface-3)"}
+                    onMouseLeave={e => e.currentTarget.style.background = "var(--surface-2)"}
                     style={{
                       display: "flex", alignItems: "center", gap: 8,
-                      padding: "8px 14px", borderRadius: "var(--radius)", cursor: "pointer",
-                      background: "transparent", border: "0.5px solid var(--border)",
-                      color: "var(--text-muted)", fontSize: "var(--t13)", transition: "all 0.15s",
+                      padding: "8px 16px", borderRadius: "var(--r-lg)", cursor: "default",
+                      background: "var(--surface-2)", border: "none",
+                      color: "var(--t2)", fontSize: 13, fontFamily: "var(--font)",
+                      transition: "background 0.15s",
                     }}
-                    onMouseEnter={e => { e.currentTarget.style.background = "var(--bg-hover)"; e.currentTarget.style.color = "var(--text-primary)"; }}
-                    onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--text-muted)"; }}
                   >
                     <EyeSlash size={15} />
                     Debug-Menü ausblenden
@@ -5293,7 +5487,6 @@ function SettingsPanel({ onClose, accent, onAccentChange, theme, onThemeChange, 
         </div>
 
       </div>
-    </div>
   );
 }
 
@@ -5307,7 +5500,7 @@ function QueueRow({ track, globalIdx, isDraggable, isActive, dragOver, onPointer
       onClick={onPlay}
       style={{
         display: "flex", alignItems: "center", gap: 8,
-        padding: "6px 12px 6px 10px", cursor: "pointer",
+        padding: "6px 12px 6px 10px", cursor: "default",
         background: dragOver === globalIdx ? "rgba(224,64,251,0.12)" : isActive ? "rgba(224,64,251,0.08)" : "transparent",
         borderTop: dragOver === globalIdx ? "2px solid var(--accent)" : "2px solid transparent",
         transition: "background 0.1s",
@@ -5354,7 +5547,7 @@ function QueueRow({ track, globalIdx, isDraggable, isActive, dragOver, onPointer
       <div
         onClick={e => { e.stopPropagation(); onToggleLike?.(track); }}
         style={{
-          flexShrink: 0, padding: 4, borderRadius: 4, cursor: "pointer",
+          flexShrink: 0, padding: 4, borderRadius: 4, cursor: "default",
           color: isLiked ? "var(--accent)" : "var(--text-muted)",
           transition: "color 0.15s",
         }}
@@ -5368,7 +5561,7 @@ function QueueRow({ track, globalIdx, isDraggable, isActive, dragOver, onPointer
       {isDraggable && (
         <div
           onClick={e => { e.stopPropagation(); onRemove(track.videoId); }}
-          style={{ color: "var(--text-muted)", cursor: "pointer", padding: 4, borderRadius: 4, flexShrink: 0, transition: "color 0.15s" }}
+          style={{ color: "var(--text-muted)", cursor: "default", padding: 4, borderRadius: 4, flexShrink: 0, transition: "color 0.15s" }}
           onMouseEnter={e => e.currentTarget.style.color = "#f44336"}
           onMouseLeave={e => e.currentTarget.style.color = "var(--text-muted)"}
         >
@@ -5507,12 +5700,12 @@ function QueuePanel({ queue, setQueue, currentTrack, setTrack, onClose, likedIds
               border: "none", borderRadius: 8, padding: "5px 12px",
               fontSize: "var(--t12)", fontWeight: panelTab === tab.id ? 600 : 400,
               color: panelTab === tab.id ? "var(--accent)" : "var(--text-muted)",
-              fontFamily: "var(--font)", cursor: "pointer", transition: "all 0.15s",
+              fontFamily: "var(--font)", cursor: "default", transition: "all 0.15s",
             }}>{tab.label}</button>
           ))}
           {panelTab === "queue" && (
             <button onClick={() => setQueue([])} style={{
-              marginLeft: "auto", background: "none", border: "none", cursor: "pointer", padding: "4px 8px",
+              marginLeft: "auto", background: "none", border: "none", cursor: "default", padding: "4px 8px",
               fontSize: "var(--t11)", color: "var(--text-muted)", borderRadius: "var(--radius)",
               fontFamily: "var(--font)", transition: "all 0.15s",
             }}
@@ -5550,7 +5743,7 @@ function QueuePanel({ queue, setQueue, currentTrack, setTrack, onClose, likedIds
                   <button onClick={() => { setSongDescId(null); fetchSongDesc(currentTrack?.videoId, true); }} style={{
                     alignSelf: "flex-start", background: "var(--bg-elevated)", border: "0.5px solid var(--border)",
                     borderRadius: 8, padding: "4px 12px", fontSize: "var(--t11)", color: "var(--text-secondary)",
-                    fontFamily: "var(--font)", cursor: "pointer", display: "flex", alignItems: "center", gap: 5,
+                    fontFamily: "var(--font)", cursor: "default", display: "flex", alignItems: "center", gap: 5,
                   }}><ArrowClockwise size={11} /> {t("retry") || "Erneut versuchen"}</button>
                 </div>
               )}
@@ -5634,7 +5827,7 @@ function QueuePanel({ queue, setQueue, currentTrack, setTrack, onClose, likedIds
           style={{
             position: "absolute", bottom: 16, right: 16,
             width: 40, height: 40, borderRadius: "50%",
-            background: "var(--accent)", border: "none", cursor: "pointer",
+            background: "var(--accent)", border: "none", cursor: "default",
             color: "#fff",
             display: "flex", alignItems: "center", justifyContent: "center",
             boxShadow: "0 2px 12px rgba(0,0,0,0.5)", zIndex: 10,
@@ -6162,7 +6355,7 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
   const ctrlBtn = (onClick, active, children, tooltip) => {
     const btn = (
       <button onClick={onClick} style={{
-        background: "none", border: "none", cursor: "pointer", padding: 6, borderRadius: "50%",
+        background: "none", border: "none", cursor: "default", padding: 6, borderRadius: "50%",
         display: "flex", alignItems: "center", justifyContent: "center",
         color: active ? "var(--accent)" : "var(--text-secondary)",
         transition: anim ? `color 0.15s, transform 0.18s cubic-bezier(0.34,1.56,0.64,1)` : "color 0.15s",
@@ -6175,7 +6368,7 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
   };
 
   return (
-    <div style={{ background: fullscreen ? "rgba(13,13,13,0.6)" : "var(--bg-surface)", backdropFilter: fullscreen ? "blur(20px)" : "none", flexShrink: 0, borderTop: fullscreen ? "none" : "0.5px solid var(--border)", position: "relative", zIndex: 50, height: 69 }}>
+    <div style={{ background: fullscreen ? "rgba(13,13,13,0.6)" : "var(--bg-surface)", backdropFilter: fullscreen ? "blur(20px)" : "none", flexShrink: 0, borderRadius: fullscreen ? 0 : "var(--r-xl)", position: "relative", zIndex: 50, height: 89, overflow: "hidden" }}>
       <div style={{ position: "relative", height: 0 }}>
         <div
           ref={seekBarRef}
@@ -6192,7 +6385,7 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
               setSeekTooltip(null);
             }
           }) : undefined}
-          style={{ position: "absolute", top: -8, left: 0, right: 0, height: 16, display: "flex", alignItems: "center", cursor: track ? "pointer" : "default", zIndex: 10 }}
+          style={{ position: "absolute", top: -8, left: 0, right: 0, height: 16, display: "flex", alignItems: "center", cursor: "default", zIndex: 10 }}
         >
           <div className="seek-bar" style={{ width: "100%", height: 3, background: "var(--bg-elevated)", transition: "height 0.15s ease", pointerEvents: "none" }}>
             <div style={{ width: `${pct}%`, height: "100%", background: "var(--accent)", transition: dragPct !== null ? "none" : "width 0.5s linear" }} />
@@ -6221,11 +6414,11 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
           )}
         </div>
       </div>
-      <div style={{ height: 68, display: "flex", alignItems: "center", padding: "0 20px 0 0", gap: 16 }}>
+      <div style={{ height: 88, display: "flex", alignItems: "center", padding: "0 20px 0 0", gap: 16 }}>
 
         <div style={{ display: "flex", alignItems: "center", gap: 10, width: 340, minWidth: 0 }}>
           <div style={{
-            width: 69, height: 69, borderRadius: 0, flexShrink: 0, overflow: "hidden", background: "var(--bg-elevated)",
+            width: 89, height: 89, borderRadius: 0, flexShrink: 0, overflow: "hidden", background: "var(--bg-elevated)",
             animation: anim && track ? "coverPop 0.5s cubic-bezier(0.34,1.56,0.64,1)" : "none",
           }}>
             {track?.thumbnail
@@ -6282,7 +6475,7 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
             style={{
               width: 42, height: 34, borderRadius: 10,
               background: "transparent",
-              border: "none", cursor: track ? "pointer" : "default",
+              border: "none", cursor: "default",
               display: "flex", alignItems: "center", justifyContent: "center",
               color: track ? "var(--accent)" : "var(--text-muted)",
               opacity: track ? 1 : 0.35,
@@ -6305,7 +6498,7 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
           <button disabled={!track} onClick={track ? togglePlay : undefined} style={{
             width: 64, height: 42, borderRadius: 21,
             background: track ? "var(--accent)" : "var(--bg-elevated)",
-            border: "none", cursor: track ? "pointer" : "default",
+            border: "none", cursor: "default",
             display: "flex", alignItems: "center", justifyContent: "center",
             opacity: track ? 1 : 0.35,
             transition: anim ? spring("transform") : "none",
@@ -6316,7 +6509,7 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
           onMouseDown={e => { if (track && anim) e.currentTarget.style.transform = "scale(0.92)"; }}
           onMouseUp={e => { if (track && anim) e.currentTarget.style.transform = "scale(1.08)"; }}
           >
-            {isPlaying ? <Pause size={16} style={{ color: track ? "white" : "var(--text-muted)" }} /> : <Play size={16} style={{ color: track ? "white" : "var(--text-muted)" }} />}
+            {isPlaying ? <Pause size={20} style={{ color: "var(--bg-surface)" }} /> : <Play size={20} style={{ color: "var(--bg-surface)" }} />}
           </button>
           <Tooltip text={t("scNext")}><button
             disabled={!track}
@@ -6324,7 +6517,7 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
             style={{
               width: 42, height: 34, borderRadius: 10,
               background: "transparent",
-              border: "none", cursor: track ? "pointer" : "default",
+              border: "none", cursor: "default",
               display: "flex", alignItems: "center", justifyContent: "center",
               color: track ? "var(--accent)" : "var(--text-muted)",
               opacity: track ? 1 : 0.35,
@@ -6397,7 +6590,7 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
             }}
             onMouseEnter={e => e.currentTarget.querySelector(".vol-bar").style.height = "5px"}
             onMouseLeave={e => e.currentTarget.querySelector(".vol-bar").style.height = "3px"}
-            style={{ width: 70, height: 16, display: "flex", alignItems: "center", cursor: "pointer", flexShrink: 0 }}
+            style={{ width: 70, height: 16, display: "flex", alignItems: "center", cursor: "default", flexShrink: 0 }}
           >
             <div className="vol-bar" style={{ width: "100%", height: 3, background: "var(--bg-elevated)", borderRadius: 2, overflow: "hidden", transition: "height 0.15s ease", pointerEvents: "none" }}>
               <div style={{ width: `${volume * 100}%`, height: "100%", background: "var(--accent)" }} />
@@ -6447,7 +6640,7 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
                       onClick={() => { setSleepTimerEnd(Date.now() + min * 60 * 1000); closeSleepMenu(); }}
                       style={{
                         display: "flex", alignItems: "center", justifyContent: "space-between",
-                        padding: "7px 12px", borderRadius: "var(--radius)", cursor: "pointer",
+                        padding: "7px 12px", borderRadius: "var(--radius)", cursor: "default",
                         fontSize: "var(--t13)", color: "var(--text-primary)",
                       }}
                       onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
@@ -6466,7 +6659,7 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
                         onClick={() => { setSleepTimerEnd(null); closeSleepMenu(); }}
                         style={{
                           display: "flex", alignItems: "center", gap: 10,
-                          padding: "7px 12px", borderRadius: "var(--radius)", cursor: "pointer",
+                          padding: "7px 12px", borderRadius: "var(--radius)", cursor: "default",
                           fontSize: "var(--t13)", color: "#f44336",
                         }}
                         onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
@@ -6520,7 +6713,7 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
                       onMouseEnter={() => { if (!morePlaylists) fetch(`${API}/library/playlists`).then(r => r.json()).then(d => setMorePlaylists(d.playlists || [])).catch(() => setMorePlaylists([])); }}
                       onMouseLeave={() => setMorePlaylists(null)}
                     >
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "7px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "var(--text-primary)" }}
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "7px 12px", borderRadius: "var(--radius)", cursor: "default", fontSize: "var(--t13)", color: "var(--text-primary)" }}
                         onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
                         onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                       >
@@ -6551,7 +6744,7 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
                   {track && (
                     <div
                       onClick={() => { toggleLike(); closeMoreMenu(); }}
-                      style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: isLiked ? "var(--accent)" : "var(--text-primary)" }}
+                      style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 12px", borderRadius: "var(--radius)", cursor: "default", fontSize: "var(--t13)", color: isLiked ? "var(--accent)" : "var(--text-primary)" }}
                       onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
                       onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                     >
@@ -6598,7 +6791,7 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
                       {albumId && onOpenAlbum && (
                         <div
                           onClick={() => { closeMoreMenu(); if (expanded) onExpandToggle(); onOpenAlbum({ browseId: albumId, title: track.album }); }}
-                          style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "var(--text-primary)" }}
+                          style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 12px", borderRadius: "var(--radius)", cursor: "default", fontSize: "var(--t13)", color: "var(--text-primary)" }}
                           onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
                           onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                         >
@@ -6609,7 +6802,7 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
                       {artistId && onOpenArtist && (
                         <div
                           onClick={() => { closeMoreMenu(); if (expanded) onExpandToggle(); onOpenArtist({ browseId: artistId, artist: track.artists }); }}
-                          style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "var(--text-primary)" }}
+                          style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 12px", borderRadius: "var(--radius)", cursor: "default", fontSize: "var(--t13)", color: "var(--text-primary)" }}
                           onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
                           onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                         >
@@ -6626,7 +6819,7 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
                   {/* Refetch Lyrics */}
                   <div
                     onClick={() => { closeMoreMenu(); onRefetchLyrics?.(); }}
-                    style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "var(--text-primary)" }}
+                    style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 12px", borderRadius: "var(--radius)", cursor: "default", fontSize: "var(--t13)", color: "var(--text-primary)" }}
                     onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
                     onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                   >
@@ -6637,7 +6830,7 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
                   {/* Import Lyrics */}
                   <div
                     onClick={() => { closeMoreMenu(); onImportLyrics?.(); }}
-                    style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "var(--text-primary)" }}
+                    style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 12px", borderRadius: "var(--radius)", cursor: "default", fontSize: "var(--t13)", color: "var(--text-primary)" }}
                     onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
                     onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                   >
@@ -6649,7 +6842,7 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
                   {isCustomLyrics && (
                     <div
                       onClick={() => { closeMoreMenu(); onRemoveCustomLyrics?.(); }}
-                      style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "#f44336" }}
+                      style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 12px", borderRadius: "var(--radius)", cursor: "default", fontSize: "var(--t13)", color: "#f44336" }}
                       onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
                       onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                     >
@@ -6661,7 +6854,7 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
                   {/* Translate Lyrics toggle */}
                   <div
                     onClick={() => onToggleLyricsTranslation?.()}
-                    style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: showLyricsTranslation ? "var(--text-primary)" : "var(--text-secondary)" }}
+                    style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 12px", borderRadius: "var(--radius)", cursor: "default", fontSize: "var(--t13)", color: showLyricsTranslation ? "var(--text-primary)" : "var(--text-secondary)" }}
                     onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
                     onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                   >
@@ -6686,7 +6879,7 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
                         onMouseEnter={() => setLangSubmenuOpen(true)}
                         onMouseLeave={() => setLangSubmenuOpen(false)}
                       >
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "7px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "var(--text-primary)" }}
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "7px 12px", borderRadius: "var(--radius)", cursor: "default", fontSize: "var(--t13)", color: "var(--text-primary)" }}
                           onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
                           onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                         >
@@ -6706,7 +6899,7 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
                             {LANGS.map(({ code, name }) => (
                               <div key={code}
                                 onClick={e => { e.stopPropagation(); onSetLyricsTranslationLang?.(code); setLangSubmenuOpen(false); }}
-                                style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "7px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t12)", color: lyricsTranslationLang === code ? "var(--text-primary)" : "var(--text-secondary)" }}
+                                style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "7px 12px", borderRadius: "var(--radius)", cursor: "default", fontSize: "var(--t12)", color: lyricsTranslationLang === code ? "var(--text-primary)" : "var(--text-secondary)" }}
                                 onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
                                 onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                               >
@@ -6734,7 +6927,7 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
                     return (
                       <div key={p.id}
                         onClick={() => { if (isFailed) return; closeMoreMenu(); onSwitchLyricsProvider?.(p.id); }}
-                        style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 12px", borderRadius: "var(--radius)", cursor: isFailed ? "not-allowed" : "pointer", fontSize: "var(--t12)", color: isFailed ? "var(--text-muted)" : isActive ? "var(--text-primary)" : "var(--text-secondary)", background: "transparent", opacity: isFailed ? 0.45 : 1 }}
+                        style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 12px", borderRadius: "var(--radius)", cursor: isFailed ? "not-allowed" : "default", fontSize: "var(--t12)", color: isFailed ? "var(--text-muted)" : isActive ? "var(--text-primary)" : "var(--text-secondary)", background: "transparent", opacity: isFailed ? 0.45 : 1 }}
                         onMouseEnter={e => { if (!isFailed) e.currentTarget.style.background = "var(--bg-hover)"; }}
                         onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                       >
@@ -6769,7 +6962,7 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
                   ) : (
                     <div
                       onClick={() => { closeMoreMenu(); onDownloadSong?.(track); }}
-                      style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "var(--text-primary)" }}
+                      style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 12px", borderRadius: "var(--radius)", cursor: "default", fontSize: "var(--t13)", color: "var(--text-primary)" }}
                       onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
                       onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                     >
@@ -6785,7 +6978,7 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
                   ].map(item => (
                     <div key={item.fmt}
                       onClick={async () => { closeMoreMenu(); await onExportSong?.(track, item.fmt); }}
-                      style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "var(--text-primary)" }}
+                      style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 12px", borderRadius: "var(--radius)", cursor: "default", fontSize: "var(--t13)", color: "var(--text-primary)" }}
                       onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
                       onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                     >
@@ -7740,7 +7933,7 @@ function LyricsOverlay({ track, audioRef, onClose, fontSize = 32, providers = DE
                 onClick={() => openUrl("https://lrc-maker.github.io").catch(console.error)}
                 style={{
                   background: "rgba(255,255,255,0.08)", border: "none",
-                  borderRadius: 10, padding: "8px 16px", cursor: "pointer",
+                  borderRadius: 10, padding: "8px 16px", cursor: "default",
                   color: "#fff", fontSize: "var(--t13)", fontFamily: "var(--font)",
                   display: "flex", alignItems: "center", gap: 8,
                   transition: "background 0.15s",
@@ -7756,7 +7949,7 @@ function LyricsOverlay({ track, audioRef, onClose, fontSize = 32, providers = DE
                 onClick={() => openUrl("https://composer.boidu.dev").catch(console.error)}
                 style={{
                   background: "rgba(255,255,255,0.08)", border: "none",
-                  borderRadius: 10, padding: "8px 16px", cursor: "pointer",
+                  borderRadius: 10, padding: "8px 16px", cursor: "default",
                   color: "#fff", fontSize: "var(--t13)", fontFamily: "var(--font)",
                   display: "flex", alignItems: "center", gap: 8,
                   transition: "background 0.15s",
@@ -7772,7 +7965,7 @@ function LyricsOverlay({ track, audioRef, onClose, fontSize = 32, providers = DE
               onClick={importCustomLyrics}
               style={{
                 background: "rgba(255,255,255,0.06)", border: "none",
-                borderRadius: 10, padding: "8px 20px", cursor: "pointer",
+                borderRadius: 10, padding: "8px 20px", cursor: "default",
                 color: "#fff", fontSize: "var(--t13)", fontFamily: "var(--font)",
                 display: "flex", alignItems: "center", gap: 8,
                 transition: "background 0.15s",
@@ -7819,7 +8012,7 @@ function LyricsOverlay({ track, audioRef, onClose, fontSize = 32, providers = DE
                 fontWeight: 700,
                 lineHeight: 1.5,
                 marginBottom: 24,
-                cursor: seekable ? "pointer" : "default",
+                cursor: "default",
                 filter: `blur(${blur}px)`,
                 opacity,
                 transition: "filter 0.4s ease, opacity 0.4s ease",
@@ -7942,7 +8135,7 @@ function GridCard({ thumbnail, title, subtitle, onClick, onContextMenu }) {
       }}
       className="grid-card"
       style={{
-        cursor: "pointer", borderRadius: 14, overflow: "hidden",
+        cursor: "default", borderRadius: 14, overflow: "hidden",
         background: "var(--bg-surface)",
         boxShadow: "0 2px 10px rgba(0,0,0,0.3)",
         transition: "transform 0.2s ease, box-shadow 0.2s ease",
@@ -8062,7 +8255,7 @@ function LibraryView({ onPlay, currentTrack, isPlaying, onOpenPlaylist, onOpenAl
                 background: tab === tab_.id ? "color-mix(in srgb, var(--accent) 20%, transparent)" : "transparent",
                 color: tab === tab_.id ? "var(--accent)" : "var(--text-secondary)",
                 border: "none", borderRadius: 8, padding: "7px 14px",
-                fontSize: "var(--t13)", cursor: "pointer", fontFamily: "var(--font)",
+                fontSize: "var(--t13)", cursor: "default", fontFamily: "var(--font)",
                 transition: "all 0.15s", fontWeight: tab === tab_.id ? 600 : 400,
               }}>{tab_.icon}{tab_.label}</button>
           ))}
@@ -8082,7 +8275,7 @@ function LibraryView({ onPlay, currentTrack, isPlaying, onOpenPlaylist, onOpenAl
               fontSize: "var(--t12)", fontFamily: "var(--font)",
               color: sortOrder === o.value ? "var(--accent)" : "var(--text-muted)",
               fontWeight: sortOrder === o.value ? 600 : 400,
-              cursor: "pointer", transition: "all 0.15s",
+              cursor: "default", transition: "all 0.15s",
             }}
             onMouseEnter={e => { if (sortOrder !== o.value) e.currentTarget.style.color = "var(--text-secondary)"; }}
             onMouseLeave={e => { if (sortOrder !== o.value) e.currentTarget.style.color = "var(--text-muted)"; }}
@@ -8113,7 +8306,7 @@ function LibraryView({ onPlay, currentTrack, isPlaying, onOpenPlaylist, onOpenAl
               border: "0.5px solid var(--border)",
               color: searchOpen ? "var(--accent)" : "var(--text-secondary)",
               display: "flex", alignItems: "center", justifyContent: "center",
-              cursor: "pointer", transition: "all 0.15s", padding: 0,
+              cursor: "default", transition: "all 0.15s", padding: 0,
             }}
             onMouseEnter={e => { if (!searchOpen) e.currentTarget.style.color = "var(--text-primary)"; }}
             onMouseLeave={e => { if (!searchOpen) e.currentTarget.style.color = "var(--text-secondary)"; }}
@@ -8215,7 +8408,7 @@ function SelActionBtn({ icon, label, onClick, danger, iconOnly, horizontal }) {
         color: hov
           ? (danger ? "#fff" : "var(--text-primary)")
           : "var(--text-secondary)",
-        cursor: "pointer",
+        cursor: "default",
         transition: "background 0.15s, color 0.15s",
         flexShrink: 0,
         fontFamily: "inherit",
@@ -8251,7 +8444,7 @@ function TableRow({ track, index, isPlaying, onPlay, onOpenArtist, onOpenAlbum, 
           : (isAlbum ? "minmax(0,2fr) minmax(0,1fr) 28px 52px" : "minmax(0,2fr) minmax(0,1fr) minmax(0,1fr) 28px 52px"),
         alignItems: "center", gap: 8,
         padding: "4px 16px", borderRadius: 8,
-        cursor: isPremiumOnly ? "default" : "pointer",
+        cursor: isPremiumOnly ? "default" : "default",
         background: selected ? "rgba(var(--accent-rgb, 180,64,251), 0.10)" : isPlaying ? "rgba(224,64,251,0.08)" : hovered ? "var(--bg-hover)" : "transparent",
         transition: "background 0.15s",
         opacity: isPremiumOnly ? 0.4 : 1,
@@ -8264,7 +8457,7 @@ function TableRow({ track, index, isPlaying, onPlay, onOpenArtist, onOpenAlbum, 
           style={{
             display: "flex", alignItems: "center", justifyContent: "center",
             opacity: (hovered || selected) ? 1 : 0, transition: "opacity 0.15s",
-            cursor: "pointer", flexShrink: 0,
+            cursor: "default", flexShrink: 0,
           }}
         >
           {selected
@@ -8303,7 +8496,7 @@ function TableRow({ track, index, isPlaying, onPlay, onOpenArtist, onOpenAlbum, 
       {!isAlbum && (
         <div
           onClick={e => { if (track.albumBrowseId && onOpenAlbum) { e.stopPropagation(); onOpenAlbum({ browseId: track.albumBrowseId, title: track.album }); }}}
-          style={{ ...linkStyle, cursor: track.albumBrowseId && onOpenAlbum ? "pointer" : "default" }}
+          style={{ ...linkStyle, cursor: "default" }}
           onMouseEnter={e => { if (track.albumBrowseId && onOpenAlbum) e.currentTarget.style.color = "var(--text-primary)"; }}
           onMouseLeave={e => e.currentTarget.style.color = "var(--text-secondary)"}
         >
@@ -8321,7 +8514,7 @@ function TableRow({ track, index, isPlaying, onPlay, onOpenArtist, onOpenAlbum, 
         ) : isDownloading ? (
           <DownloadSimple size={14} style={{ color: "var(--accent)", animation: "pulse 1s ease-in-out infinite" }} />
         ) : onDownload && hovered ? (
-          <DownloadSimple size={14} style={{ color: "var(--text-muted)", cursor: "pointer" }} />
+          <DownloadSimple size={14} style={{ color: "var(--text-muted)", cursor: "default" }} />
         ) : null}
       </div>
       {/* Duration */}
@@ -8380,7 +8573,7 @@ function PlaylistLayout({ title, thumbnail, tracks, total, loading, progress, ca
               background: "rgba(0,0,0,0.38)", border: "0.5px solid rgba(255,255,255,0.12)",
               color: onBack ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.25)",
               display: "flex", alignItems: "center", justifyContent: "center",
-              cursor: onBack ? "pointer" : "default",
+              cursor: "default",
               backdropFilter: "blur(8px)", transition: "background 0.15s",
               padding: 0,
             }}
@@ -8427,7 +8620,7 @@ function PlaylistLayout({ title, thumbnail, tracks, total, loading, progress, ca
                   <span
                     onClick={() => albumArtistBrowseId && onOpenArtist?.({ browseId: albumArtistBrowseId, artist: albumArtists })}
                     style={{
-                      cursor: albumArtistBrowseId ? "pointer" : "default",
+                      cursor: "default",
                       display: "inline-flex", alignItems: "center",
                       background: `rgba(${accentColor},0.25)`,
                       border: `1px solid rgba(${accentColor},0.42)`,
@@ -8465,7 +8658,7 @@ function PlaylistLayout({ title, thumbnail, tracks, total, loading, progress, ca
                 border: `1px solid rgba(${accentColor},0.38)`,
                 borderRadius: 28, height: 50, padding: "0 28px",
                 display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
-                cursor: "pointer", transition: "background 0.18s, border-color 0.18s, transform 0.15s",
+                cursor: "default", transition: "background 0.18s, border-color 0.18s, transform 0.15s",
                 fontSize: "var(--t15)", fontWeight: 700, color: "var(--accent)",
                 fontFamily: "var(--font)", backdropFilter: "blur(6px)",
               }}
@@ -8509,7 +8702,7 @@ function PlaylistLayout({ title, thumbnail, tracks, total, loading, progress, ca
                     background: searchVisible ? "rgba(255,255,255,0.16)" : "rgba(0,0,0,0.3)",
                     border: "0.5px solid rgba(255,255,255,0.15)",
                     borderRadius: "50%", width: 42, height: 42, display: "flex", alignItems: "center",
-                    justifyContent: "center", cursor: "pointer", transition: "background 0.15s",
+                    justifyContent: "center", cursor: "default", transition: "background 0.15s",
                     color: "rgba(255,255,255,0.85)", padding: 0, backdropFilter: "blur(6px)",
                   }}
                   onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.2)"}
@@ -8525,7 +8718,7 @@ function PlaylistLayout({ title, thumbnail, tracks, total, loading, progress, ca
                   const btnBase = {
                     borderRadius: 28, height: 42, display: "flex", alignItems: "center",
                     padding: "0 18px", gap: 8, fontSize: "var(--t13)", fontWeight: 600,
-                    cursor: "pointer", transition: "background 0.15s, border-color 0.15s",
+                    cursor: "default", transition: "background 0.15s, border-color 0.15s",
                     fontFamily: "var(--font)", backdropFilter: "blur(6px)", border: "0.5px solid rgba(255,255,255,0.15)",
                   };
                   return allCached ? (
@@ -8540,7 +8733,7 @@ function PlaylistLayout({ title, thumbnail, tracks, total, loading, progress, ca
                           style={{
                             background: "rgba(0,0,0,0.3)", border: "0.5px solid rgba(255,255,255,0.15)",
                             borderRadius: "50%", width: 42, height: 42, display: "flex", alignItems: "center",
-                            justifyContent: "center", cursor: "pointer", transition: "background 0.15s",
+                            justifyContent: "center", cursor: "default", transition: "background 0.15s",
                             color: "rgba(255,255,255,0.7)", padding: 0, backdropFilter: "blur(6px)",
                           }}
                           onMouseEnter={e => { e.currentTarget.style.background = "rgba(224,82,82,0.25)"; e.currentTarget.style.color = "#e05252"; }}
@@ -8559,7 +8752,7 @@ function PlaylistLayout({ title, thumbnail, tracks, total, loading, progress, ca
                         background: "rgba(0,0,0,0.3)",
                         color: "rgba(255,255,255,0.85)",
                         opacity: someDownloading ? 0.65 : 1,
-                        cursor: someDownloading ? "default" : "pointer",
+                        cursor: someDownloading ? "default" : "default",
                       }}
                       onMouseEnter={e => { if (!someDownloading) e.currentTarget.style.background = "rgba(255,255,255,0.14)"; }}
                       onMouseLeave={e => e.currentTarget.style.background = "rgba(0,0,0,0.3)"}
@@ -8579,7 +8772,7 @@ function PlaylistLayout({ title, thumbnail, tracks, total, loading, progress, ca
                     style={{
                       background: "rgba(0,0,0,0.3)", border: "0.5px solid rgba(255,255,255,0.15)",
                       borderRadius: "50%", width: 42, height: 42, display: "flex", alignItems: "center",
-                      justifyContent: "center", cursor: "pointer", transition: "background 0.15s, transform 0.15s",
+                      justifyContent: "center", cursor: "default", transition: "background 0.15s, transform 0.15s",
                       color: "rgba(255,255,255,0.85)", padding: 0, backdropFilter: "blur(6px)",
                     }}
                     onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.14)"; e.currentTarget.style.transform = "rotate(30deg)"; }}
@@ -8622,7 +8815,7 @@ function PlaylistLayout({ title, thumbnail, tracks, total, loading, progress, ca
         {onToggleSelect && (() => {
           const allSelected = visibleTracks.length > 0 && visibleTracks.every(tr => selectedTracks?.has(tr.videoId));
           return (
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", cursor: "default" }}
               onClick={() => onSelectAll?.(visibleTracks, allSelected)}
               title={allSelected ? t("deselectAll") : t("selectAll")}
             >
@@ -8779,7 +8972,7 @@ function DownloadsView({ onPlay, currentTrack, isPlaying, cachedSongIds, downloa
               background: tab === tb.id ? "color-mix(in srgb, var(--accent) 20%, transparent)" : "transparent",
               color: tab === tb.id ? "var(--accent)" : "var(--text-secondary)",
               border: "none", borderRadius: 8, padding: "7px 14px",
-              fontSize: "var(--t13)", cursor: "pointer", fontFamily: "var(--font)",
+              fontSize: "var(--t13)", cursor: "default", fontFamily: "var(--font)",
               transition: "all 0.15s", fontWeight: tab === tb.id ? 600 : 400,
             }}>{tb.icon}{tb.label}</button>
         ))}
@@ -8921,7 +9114,7 @@ function SearchView({ query, onPlay, currentTrack, isPlaying, onOpenArtist, onOp
               background: filter === tab_.id ? "var(--accent)" : "var(--bg-elevated)",
               color: filter === tab_.id ? "#fff" : "var(--text-secondary)",
               border: "none", borderRadius: 20, padding: "6px 16px",
-              fontSize: "var(--t13)", cursor: "pointer", fontFamily: "var(--font)",
+              fontSize: "var(--t13)", cursor: "default", fontFamily: "var(--font)",
               transition: "all 0.15s",
             }}>{tab_.label}</button>
           ))}
@@ -8955,7 +9148,7 @@ function SearchView({ query, onPlay, currentTrack, isPlaying, onOpenArtist, onOp
         }}>
           {results.map((a, i) => (
             <div key={i} onClick={() => a.browseId && onOpenArtist?.({ browseId: a.browseId, artist: a.title })}
-              style={{ cursor: "pointer", borderRadius: 8, padding: "12px 0", textAlign: "center" }}
+              style={{ cursor: "default", borderRadius: 8, padding: "12px 0", textAlign: "center" }}
               onMouseEnter={e => e.currentTarget.querySelector(".sr-title").style.color = "var(--accent)"}
               onMouseLeave={e => e.currentTarget.querySelector(".sr-title").style.color = "var(--text-primary)"}
             >
@@ -9096,7 +9289,7 @@ function HomeView({ displayName, onPlay, onOpenPlaylist, onOpenAlbum, onOpenArti
               <button key={i} onClick={() => handleChipClick(chip)} style={{
                 flexShrink: 0, padding: "7px 16px", borderRadius: 20,
                 fontSize: "var(--t13)", fontWeight: isActive ? 700 : 500,
-                border: "none", cursor: "pointer", fontFamily: "var(--font)",
+                border: "none", cursor: "default", fontFamily: "var(--font)",
                 background: isActive ? "var(--accent)" : "var(--bg-elevated)",
                 color: isActive ? "#fff" : "var(--text-secondary)",
                 transition: "background 0.15s, color 0.15s",
@@ -9123,7 +9316,7 @@ function HomeView({ displayName, onPlay, onOpenPlaylist, onOpenAlbum, onOpenArti
                 {moodPlaylists.map((pl, i) => (
                   <div key={i} className="home-card" onClick={() => onOpenPlaylist({ playlistId: pl.playlistId, title: pl.title, thumbnail: pl.thumbnail })}
                     onContextMenu={e => onContextMenu?.(e, { playlistId: pl.playlistId, title: pl.title, thumbnail: pl.thumbnail })}
-                    style={{ flexShrink: 0, width: 160, cursor: "pointer" }}>
+                    style={{ flexShrink: 0, width: 160, cursor: "default" }}>
                     <div style={{ position: "relative", marginBottom: 10, borderRadius: 10, overflow: "hidden", boxShadow: "0 4px 16px rgba(0,0,0,0.35)" }}>
                       <div style={{ width: 160, height: 160, background: "var(--bg-elevated)" }}>
                         {pl.thumbnail
@@ -9173,7 +9366,7 @@ function HomeView({ displayName, onPlay, onOpenPlaylist, onOpenAlbum, onOpenArti
                 <button onClick={() => onPlay(items[0], items)} style={{
                   fontSize: "var(--t12)", fontWeight: 600, color: "var(--accent)",
                   background: "rgba(var(--accent-rgb,180,100,255),0.12)", border: "none",
-                  borderRadius: 20, padding: "5px 14px", cursor: "pointer", fontFamily: "var(--font)",
+                  borderRadius: 20, padding: "5px 14px", cursor: "default", fontFamily: "var(--font)",
                 }}>{t("playAll")}</button>
               </div>
               <div className="carousel" style={{ display: "flex", gap: 2, overflowX: "auto", paddingBottom: 10, paddingLeft: 28, paddingRight: 28 }}>
@@ -9182,7 +9375,7 @@ function HomeView({ displayName, onPlay, onOpenPlaylist, onOpenAlbum, onOpenArti
                     {col.map((item, ri) => (
                       <div key={ri} onClick={() => onPlay(item, items)}
                         onContextMenu={e => { e.preventDefault(); onTrackContextMenu?.(e, item); }}
-                        style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 0", cursor: "pointer", borderBottom: "none" }}
+                        style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 0", cursor: "default", borderBottom: "none" }}
                         onMouseEnter={e => e.currentTarget.style.opacity = "0.75"}
                         onMouseLeave={e => e.currentTarget.style.opacity = "1"}
                       >
@@ -9200,7 +9393,7 @@ function HomeView({ displayName, onPlay, onOpenPlaylist, onOpenAlbum, onOpenArti
                           <div style={{ fontSize: "var(--t11)", color: "var(--text-muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginTop: 2 }}>{item.artists}</div>
                         </div>
                         <div onClick={e => { e.stopPropagation(); onTrackContextMenu?.(e, item); }}
-                          style={{ flexShrink: 0, padding: "4px 2px", color: "var(--text-secondary)", cursor: "pointer" }}>
+                          style={{ flexShrink: 0, padding: "4px 2px", color: "var(--text-secondary)", cursor: "default" }}>
                           <DotsThreeVertical size={16} />
                         </div>
                       </div>
@@ -9280,7 +9473,7 @@ function HomeView({ displayName, onPlay, onOpenPlaylist, onOpenAlbum, onOpenArti
                   onContextMenu={isSong
                     ? (e) => { e.preventDefault(); onTrackContextMenu?.(e, item); }
                     : (contextItem ? (e) => onContextMenu?.(e, contextItem) : undefined)}
-                  style={{ flexShrink: 0, width: CARD_SIZE, cursor: "pointer" }}
+                  style={{ flexShrink: 0, width: CARD_SIZE, cursor: "default" }}
                 >
                   {/* Thumbnail */}
                   <div style={{
@@ -9305,7 +9498,7 @@ function HomeView({ displayName, onPlay, onOpenPlaylist, onOpenAlbum, onOpenArti
                         <div onClick={handlePlayDirect} style={{
                           width: 44, height: 44, borderRadius: "50%", background: "var(--accent)",
                           display: "flex", alignItems: "center", justifyContent: "center",
-                          pointerEvents: "auto", cursor: "pointer",
+                          pointerEvents: "auto", cursor: "default",
                           boxShadow: "0 2px 12px rgba(0,0,0,0.5)",
                         }}>
                           <Play size={18} weight="fill" style={{ color: "white", marginLeft: 2 }} />
@@ -9377,7 +9570,7 @@ function HistoryView({ onPlay, currentTrack, isPlaying, onOpenArtist, onOpenAlbu
     <button onClick={clearHistory} style={{
       borderRadius: 28, height: 42, display: "flex", alignItems: "center",
       padding: "0 18px", gap: 8, fontSize: "var(--t13)", fontWeight: 600,
-      cursor: "pointer", transition: "background 0.15s, border-color 0.15s, color 0.15s",
+      cursor: "default", transition: "background 0.15s, border-color 0.15s, color 0.15s",
       fontFamily: "var(--font)", backdropFilter: "blur(6px)",
       border: "0.5px solid rgba(255,255,255,0.15)",
       background: "rgba(0,0,0,0.3)", color: "rgba(255,255,255,0.75)",
@@ -9481,7 +9674,7 @@ function ArtistDescription({ text }) {
           <button
             onClick={() => setPopupOpen(true)}
             style={{
-              marginTop: 6, background: "none", border: "none", cursor: "pointer",
+              marginTop: 6, background: "none", border: "none", cursor: "default",
               fontSize: "var(--t11)", color: "var(--accent)", padding: 0,
               fontFamily: "var(--font)", display: "block",
             }}
@@ -9512,7 +9705,7 @@ function ArtistDescription({ text }) {
               <div style={{ fontSize: "var(--t13)", fontWeight: 600 }}>{t("about")}</div>
               <button
                 onClick={() => setPopupOpen(false)}
-                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", padding: 4, borderRadius: "var(--radius)", fontFamily: "var(--font)" }}
+                style={{ background: "none", border: "none", cursor: "default", color: "var(--text-muted)", padding: 4, borderRadius: "var(--radius)", fontFamily: "var(--font)" }}
                 onMouseEnter={e => e.currentTarget.style.color = "var(--text-primary)"}
                 onMouseLeave={e => e.currentTarget.style.color = "var(--text-muted)"}
               ><X size={16} /></button>
@@ -9596,7 +9789,7 @@ function ArtistView({ browseId, onPlay, currentTrack, isPlaying, onOpenAlbum, on
           position: "absolute", top: 44, left: 16, zIndex: 5,
           background: "rgba(0,0,0,0.4)", border: "none", borderRadius: "50%",
           width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center",
-          cursor: "pointer", color: "#fff", backdropFilter: "blur(8px)",
+          cursor: "default", color: "#fff", backdropFilter: "blur(8px)",
         }}>
           <ArrowLeft size={18} />
         </button>
@@ -9613,7 +9806,7 @@ function ArtistView({ browseId, onPlay, currentTrack, isPlaying, onOpenAlbum, on
                   background: isPinned ? "var(--accent)" : "rgba(255,255,255,0.15)",
                   border: "none", borderRadius: "50%",
                   width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center",
-                  cursor: "pointer", color: "#fff", flexShrink: 0,
+                  cursor: "default", color: "#fff", flexShrink: 0,
                   transition: "background 0.2s", backdropFilter: "blur(8px)",
                 }}
               >
@@ -9666,7 +9859,7 @@ function ArtistView({ browseId, onPlay, currentTrack, isPlaying, onOpenAlbum, on
                     color: "#fff",
                     fontSize: "var(--t12)", fontWeight: 600,
                     fontFamily: "var(--font)",
-                    cursor: subLoading ? "default" : "pointer",
+                    cursor: subLoading ? "default" : "default",
                     opacity: subLoading ? 0.6 : 1,
                     transition: "background 0.2s, opacity 0.2s",
                     backdropFilter: "blur(8px)",
@@ -9701,7 +9894,7 @@ function ArtistView({ browseId, onPlay, currentTrack, isPlaying, onOpenAlbum, on
                     color: "var(--accent)",
                     fontSize: "var(--t12)", fontWeight: 600,
                     fontFamily: "var(--font)",
-                    cursor: radioLoading ? "default" : "pointer",
+                    cursor: radioLoading ? "default" : "default",
                     opacity: radioLoading ? 0.5 : 1,
                     transition: "background 0.15s, border-color 0.15s",
                     whiteSpace: "nowrap",
@@ -9743,7 +9936,7 @@ function ArtistView({ browseId, onPlay, currentTrack, isPlaying, onOpenAlbum, on
                   <button
                     onClick={() => onOpenPlaylist({ playlistId: artist.songsBrowseId, title: `${artist.name} – ${t("topSongs")}`, forcedTitle: `${artist.name} – ${t("topSongs")}`, thumbnail: artist.thumbnail })}
                     style={{
-                      background: "none", border: "none", cursor: "pointer",
+                      background: "none", border: "none", cursor: "default",
                       fontSize: "var(--t12)", color: "var(--text-secondary)", padding: "4px 8px",
                       borderRadius: "var(--radius)", fontFamily: "var(--font)",
                       transition: "background 0.15s, color 0.15s",
@@ -9755,7 +9948,7 @@ function ArtistView({ browseId, onPlay, currentTrack, isPlaying, onOpenAlbum, on
                 <button
                   onClick={() => onPlay(visibleTracks[0], visibleTracks)}
                   style={{
-                    background: "none", border: "none", cursor: "pointer",
+                    background: "none", border: "none", cursor: "default",
                     fontSize: "var(--t12)", color: "var(--accent)", padding: "4px 8px",
                     borderRadius: "var(--radius)", fontFamily: "var(--font)",
                     transition: "background 0.15s",
@@ -9797,7 +9990,7 @@ function ArtistView({ browseId, onPlay, currentTrack, isPlaying, onOpenAlbum, on
                     }}
                     disabled={allAlbumsLoading}
                     style={{
-                      background: "none", border: "none", cursor: allAlbumsLoading ? "default" : "pointer",
+                      background: "none", border: "none", cursor: allAlbumsLoading ? "default" : "default",
                       fontSize: "var(--t12)", color: "var(--text-secondary)", padding: "4px 8px",
                       borderRadius: "var(--radius)", fontFamily: "var(--font)",
                       opacity: allAlbumsLoading ? 0.5 : 1,
@@ -9813,7 +10006,7 @@ function ArtistView({ browseId, onPlay, currentTrack, isPlaying, onOpenAlbum, on
                   {displayAlbums.map((a, i) => (
                     <div key={i} onClick={() => onOpenAlbum({ browseId: a.browseId, title: a.title, thumbnail: a.thumbnail })}
                       onContextMenu={e => onContextMenu?.(e, { browseId: a.browseId, title: a.title, thumbnail: a.thumbnail, type: "album" })}
-                      style={{ flexShrink: 0, width: 148, cursor: "pointer" }}
+                      style={{ flexShrink: 0, width: 148, cursor: "default" }}
                       onMouseEnter={e => e.currentTarget.querySelector(".album-title-g").style.color = "var(--accent)"}
                       onMouseLeave={e => e.currentTarget.querySelector(".album-title-g").style.color = "var(--text-primary)"}
                     >
@@ -9832,7 +10025,7 @@ function ArtistView({ browseId, onPlay, currentTrack, isPlaying, onOpenAlbum, on
                   {displayAlbums.map((a, i) => (
                     <div key={i} onClick={() => onOpenAlbum({ browseId: a.browseId, title: a.title, thumbnail: a.thumbnail })}
                       onContextMenu={e => onContextMenu?.(e, { browseId: a.browseId, title: a.title, thumbnail: a.thumbnail, type: "album" })}
-                      style={{ flexShrink: 0, width: 148, cursor: "pointer" }}
+                      style={{ flexShrink: 0, width: 148, cursor: "default" }}
                       onMouseEnter={e => e.currentTarget.querySelector(".album-title").style.color = "var(--accent)"}
                       onMouseLeave={e => e.currentTarget.querySelector(".album-title").style.color = "var(--text-primary)"}
                     >
@@ -9871,7 +10064,7 @@ function ArtistView({ browseId, onPlay, currentTrack, isPlaying, onOpenAlbum, on
                     }}
                     disabled={allSinglesLoading}
                     style={{
-                      background: "none", border: "none", cursor: allSinglesLoading ? "default" : "pointer",
+                      background: "none", border: "none", cursor: allSinglesLoading ? "default" : "default",
                       fontSize: "var(--t12)", color: "var(--text-secondary)", padding: "4px 8px",
                       borderRadius: "var(--radius)", fontFamily: "var(--font)",
                       opacity: allSinglesLoading ? 0.5 : 1,
@@ -9887,7 +10080,7 @@ function ArtistView({ browseId, onPlay, currentTrack, isPlaying, onOpenAlbum, on
                   {displaySingles.map((s, i) => (
                     <div key={i} onClick={() => onOpenAlbum({ browseId: s.browseId, title: s.title, thumbnail: s.thumbnail })}
                       onContextMenu={e => onContextMenu?.(e, { browseId: s.browseId, title: s.title, thumbnail: s.thumbnail, type: "album" })}
-                      style={{ flexShrink: 0, width: 148, cursor: "pointer" }}
+                      style={{ flexShrink: 0, width: 148, cursor: "default" }}
                       onMouseEnter={e => e.currentTarget.querySelector(".single-title-g").style.color = "var(--accent)"}
                       onMouseLeave={e => e.currentTarget.querySelector(".single-title-g").style.color = "var(--text-primary)"}
                     >
@@ -9906,7 +10099,7 @@ function ArtistView({ browseId, onPlay, currentTrack, isPlaying, onOpenAlbum, on
                   {displaySingles.map((s, i) => (
                     <div key={i} onClick={() => onOpenAlbum({ browseId: s.browseId, title: s.title, thumbnail: s.thumbnail })}
                       onContextMenu={e => onContextMenu?.(e, { browseId: s.browseId, title: s.title, thumbnail: s.thumbnail, type: "album" })}
-                      style={{ flexShrink: 0, width: 148, cursor: "pointer" }}
+                      style={{ flexShrink: 0, width: 148, cursor: "default" }}
                       onMouseEnter={e => e.currentTarget.querySelector(".single-title").style.color = "var(--accent)"}
                       onMouseLeave={e => e.currentTarget.querySelector(".single-title").style.color = "var(--text-primary)"}
                     >
@@ -9939,7 +10132,7 @@ function ArtistView({ browseId, onPlay, currentTrack, isPlaying, onOpenAlbum, on
                     videoId: x.videoId, title: x.title, artists: x.artists,
                     thumbnail: x.thumbnail, duration: "",
                   })))}
-                  style={{ flexShrink: 0, width: 200, cursor: "pointer" }}
+                  style={{ flexShrink: 0, width: 200, cursor: "default" }}
                   onMouseEnter={e => e.currentTarget.querySelector(".vid-title").style.color = "var(--accent)"}
                   onMouseLeave={e => e.currentTarget.querySelector(".vid-title").style.color = "var(--text-primary)"}
                 >
@@ -9977,7 +10170,7 @@ function ArtistView({ browseId, onPlay, currentTrack, isPlaying, onOpenAlbum, on
               {artist.related.map((r, i) => (
                 <div key={i}
                   onClick={() => onOpenArtist?.({ browseId: r.browseId, artist: r.title })}
-                  style={{ flexShrink: 0, width: 120, cursor: "pointer", textAlign: "center" }}
+                  style={{ flexShrink: 0, width: 120, cursor: "default", textAlign: "center" }}
                   onMouseEnter={e => e.currentTarget.querySelector(".rel-name").style.color = "var(--accent)"}
                   onMouseLeave={e => e.currentTarget.querySelector(".rel-name").style.color = "var(--text-primary)"}
                 >
@@ -10021,7 +10214,7 @@ function LoginBtn({ onClick, children, secondary }) {
       width: "100%", padding: "12px", border: secondary ? "0.5px solid var(--border)" : "none",
       borderRadius: 10, color: secondary ? "var(--text-secondary)" : "#fff",
       background: secondary ? "var(--bg-elevated)" : "var(--accent)",
-      fontSize: "var(--t13)", fontWeight: 600, cursor: "pointer", fontFamily: "var(--font)",
+      fontSize: "var(--t13)", fontWeight: 600, cursor: "default", fontFamily: "var(--font)",
     }}>{children}</button>
   );
 }
@@ -10107,7 +10300,7 @@ function LoginScreen({ onSuccess, onCancel }) {
         {onCancel && step !== "waiting" && (
           <button onClick={onCancel} style={{
             position: "absolute", top: 14, right: 14,
-            background: "none", border: "none", cursor: "pointer",
+            background: "none", border: "none", cursor: "default",
             color: "var(--text-muted)", display: "flex", alignItems: "center", justifyContent: "center",
             borderRadius: "50%", width: 28, height: 28, transition: "color 0.15s, background 0.15s",
           }}
@@ -10260,7 +10453,7 @@ function LanguagePickerScreen({ currentLanguage, onConfirm }) {
               onClick={() => setSelected(lang.code)}
               style={{
                 display: "flex", alignItems: "center", gap: 14,
-                padding: "14px 16px", borderRadius: 10, cursor: "pointer",
+                padding: "14px 16px", borderRadius: 10, cursor: "default",
                 background: selected === lang.code ? "rgba(224,64,251,0.08)" : "var(--bg-elevated)",
                 border: `0.5px solid ${selected === lang.code ? "var(--accent)" : "transparent"}`,
                 transition: "background 0.15s, border-color 0.15s",
@@ -10288,7 +10481,7 @@ function LanguagePickerScreen({ currentLanguage, onConfirm }) {
           style={{
             width: "100%", padding: "12px", border: "none", flexShrink: 0,
             borderRadius: 10, color: "#fff", background: "var(--accent)",
-            fontSize: "var(--t13)", fontWeight: 600, cursor: "pointer", fontFamily: "var(--font)",
+            fontSize: "var(--t13)", fontWeight: 600, cursor: "default", fontFamily: "var(--font)",
           }}
         >
           {continueLabel} →
@@ -10348,12 +10541,12 @@ function ProfileSwitcher({ profiles, currentProfile, onSwitch, onAdd, onDelete, 
             <button onClick={() => setConfirmName(null)} style={{
               flex: 1, padding: "8px", background: "var(--bg-elevated)",
               border: "0.5px solid var(--border)", borderRadius: 8,
-              color: "var(--text-secondary)", fontSize: "var(--t12)", cursor: "pointer", fontFamily: "var(--font)",
+              color: "var(--text-secondary)", fontSize: "var(--t12)", cursor: "default", fontFamily: "var(--font)",
             }}>{t("cancel")}</button>
             <button onClick={() => { onDelete(confirmName); setConfirmName(null); }} style={{
               flex: 1, padding: "8px", background: "rgba(244,67,54,0.12)",
               border: "0.5px solid #f44336", borderRadius: 8,
-              color: "#f44336", fontSize: "var(--t12)", fontWeight: 600, cursor: "pointer", fontFamily: "var(--font)",
+              color: "#f44336", fontSize: "var(--t12)", fontWeight: 600, cursor: "default", fontFamily: "var(--font)",
             }}>{t("removeAccountConfirm")}</button>
           </div>
         </div>
@@ -10371,7 +10564,7 @@ function ProfileSwitcher({ profiles, currentProfile, onSwitch, onAdd, onDelete, 
                 display: "flex", alignItems: "center", gap: 10,
                 padding: "8px 10px", borderRadius: 8, marginBottom: 2,
                 background: p.active ? "rgba(224,64,251,0.08)" : "transparent",
-                cursor: p.active ? "default" : "pointer",
+                cursor: p.active ? "default" : "default",
                 transition: "background 0.15s",
               }}
               onClick={() => { if (!p.active) onSwitch(p.name); }}
@@ -10399,7 +10592,7 @@ function ProfileSwitcher({ profiles, currentProfile, onSwitch, onAdd, onDelete, 
                 </div>
                 {p.type === "local" && p.active && (
                   <div title={t("linkGoogleAccount")} onClick={e => { e.stopPropagation(); onAdd && onAdd(); }} style={{
-                    padding: 3, borderRadius: 4, cursor: "pointer", color: "var(--text-muted)", flexShrink: 0, transition: "color 0.15s",
+                    padding: 3, borderRadius: 4, cursor: "default", color: "var(--text-muted)", flexShrink: 0, transition: "color 0.15s",
                   }}
                   onMouseEnter={e => e.currentTarget.style.color = "var(--accent)"}
                   onMouseLeave={e => e.currentTarget.style.color = "var(--text-muted)"}
@@ -10411,7 +10604,7 @@ function ProfileSwitcher({ profiles, currentProfile, onSwitch, onAdd, onDelete, 
                   <div
                     title={t("reauthSession")}
                     onClick={e => { e.stopPropagation(); onReauth(p.name); }}
-                    style={{ padding: 3, borderRadius: 4, cursor: "pointer", color: "var(--text-muted)", transition: "color 0.15s", flexShrink: 0 }}
+                    style={{ padding: 3, borderRadius: 4, cursor: "default", color: "var(--text-muted)", transition: "color 0.15s", flexShrink: 0 }}
                     onMouseEnter={e => e.currentTarget.style.color = "var(--accent)"}
                     onMouseLeave={e => e.currentTarget.style.color = "var(--text-muted)"}
                   >
@@ -10419,7 +10612,7 @@ function ProfileSwitcher({ profiles, currentProfile, onSwitch, onAdd, onDelete, 
                   </div>
                 )}
                 <div onClick={e => { e.stopPropagation(); setConfirmName(p.name); }} style={{
-                  padding: 3, borderRadius: 4, cursor: "pointer", color: "var(--text-muted)",
+                  padding: 3, borderRadius: 4, cursor: "default", color: "var(--text-muted)",
                   transition: "color 0.15s", flexShrink: 0,
                 }}
                 onMouseEnter={e => e.currentTarget.style.color = "#f44336"}
@@ -10436,7 +10629,7 @@ function ProfileSwitcher({ profiles, currentProfile, onSwitch, onAdd, onDelete, 
             <button onClick={onAdd} style={{
               width: "100%", padding: "8px 10px", background: "transparent",
               border: "none", borderRadius: 8,
-              color: "var(--text-secondary)", fontSize: "var(--t12)", cursor: "pointer",
+              color: "var(--text-secondary)", fontSize: "var(--t12)", cursor: "default",
               fontFamily: "var(--font)", display: "flex", alignItems: "center", gap: 8,
               transition: "background 0.15s, color 0.15s",
             }}
@@ -10606,7 +10799,7 @@ function FfmpegSetupScreen({ onDone }) {
               style={{
                 flex: 1, padding: "10px", borderRadius: 8,
                 background: "rgba(255,255,255,0.06)", border: "0.5px solid rgba(255,255,255,0.12)",
-                color: "rgba(255,255,255,0.5)", fontSize: 13, cursor: "pointer", fontFamily: "var(--font)",
+                color: "rgba(255,255,255,0.5)", fontSize: 13, cursor: "default", fontFamily: "var(--font)",
                 transition: "all 0.15s",
               }}
               onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.1)"}
@@ -10618,7 +10811,7 @@ function FfmpegSetupScreen({ onDone }) {
                 flex: 2, padding: "10px", borderRadius: 8,
                 background: "linear-gradient(135deg, #EEA8FF, #FF008C)",
                 border: "none", color: "#fff", fontSize: 13, fontWeight: 600,
-                cursor: "pointer", fontFamily: "var(--font)", transition: "opacity 0.15s",
+                cursor: "default", fontFamily: "var(--font)", transition: "opacity 0.15s",
               }}
               onMouseEnter={e => e.currentTarget.style.opacity = "0.85"}
               onMouseLeave={e => e.currentTarget.style.opacity = "1"}
@@ -10632,7 +10825,7 @@ function FfmpegSetupScreen({ onDone }) {
             style={{
               width: "100%", padding: "10px", borderRadius: 8,
               background: "rgba(255,255,255,0.06)", border: "0.5px solid rgba(255,255,255,0.12)",
-              color: "rgba(255,255,255,0.6)", fontSize: 13, cursor: "pointer", fontFamily: "var(--font)",
+              color: "rgba(255,255,255,0.6)", fontSize: 13, cursor: "default", fontFamily: "var(--font)",
             }}
           >Trotzdem starten</button>
         )}
@@ -10755,12 +10948,20 @@ export default function App() {
   const updateDownloadAbortRef = useRef(null);
   const mutePrevVolumeRef = useRef(0.5);
   const [toasts, setToasts] = useState([]);
+  const [exitingToasts, setExitingToasts] = useState(new Set());
 
   // ─── Toast Notifications ─────────────────────────────────────────────────────
   const addToast = useCallback((message, type = "info") => {
     const id = Date.now() + Math.random();
     setToasts(t => [...t, { id, message, type }]);
-    setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), type === "error" ? 6000 : 3500);
+    const displayMs = type === "error" ? 6000 : 3500;
+    setTimeout(() => {
+      setExitingToasts(s => new Set([...s, id]));
+      setTimeout(() => {
+        setToasts(t => t.filter(x => x.id !== id));
+        setExitingToasts(s => { const n = new Set(s); n.delete(id); return n; });
+      }, 300);
+    }, displayMs);
   }, []);
 
   // ─── Update Check (Tauri plugin-updater) ────────────────────────────────────
@@ -10885,7 +11086,13 @@ export default function App() {
   }, [globalContextMenu]);
 
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsClosing, setSettingsClosing] = useState(false);
+  const [settingsTab, setSettingsTab] = useState("darstellung");
   const [settingsInitialTab, setSettingsInitialTab] = useState(null);
+  const closeSettings = useCallback(() => {
+    setSettingsClosing(true);
+    setTimeout(() => { setSettingsOpen(false); setSettingsClosing(false); }, 240);
+  }, []);
   const [accent, setAccent] = useState(() => {
     const saved = localStorage.getItem("kiyoshi-accent");
     if (saved) document.documentElement.style.setProperty("--accent", saved);
@@ -12046,20 +12253,32 @@ export default function App() {
 
       {/* Toast Notifications */}
       {toasts.length > 0 && (
-        <div style={{ position: "fixed", bottom: 110, right: 20, zIndex: 99998, display: "flex", flexDirection: "column", gap: 8, pointerEvents: "none", zoom: uiZoom }}>
-          {toasts.map(toast => (
-            <div key={toast.id} style={{
-              background: "var(--bg-elevated)",
-              border: `1px solid ${toast.type === "error" ? "rgba(255,100,100,0.35)" : toast.type === "success" ? "rgba(100,220,130,0.35)" : "var(--border)"}`,
-              color: toast.type === "error" ? "#ff7070" : toast.type === "success" ? "#6bdf96" : "var(--text-primary)",
-              padding: "10px 16px", borderRadius: 10, fontSize: "var(--t13)", fontWeight: 500,
-              boxShadow: "0 4px 24px rgba(0,0,0,0.45)",
-              animation: "fadeSlideIn 0.22s cubic-bezier(0.34,1.56,0.64,1)",
-              maxWidth: 340,
-            }}>
-              {toast.message}
-            </div>
-          ))}
+        <div style={{ position: "fixed", bottom: 110, right: 20, zIndex: 99998, display: "flex", flexDirection: "column", gap: 6, pointerEvents: "none", zoom: uiZoom }}>
+          {toasts.map(toast => {
+            const isError   = toast.type === "error";
+            const isSuccess = toast.type === "success";
+            const iconColor = isError ? "#ff7070" : isSuccess ? "#6bdf96" : "var(--accent)";
+            const Icon = isError ? WarningCircle : isSuccess ? CheckCircle : Info;
+            const exiting = exitingToasts.has(toast.id);
+            return (
+              <div key={toast.id} style={{
+                background: "var(--surface-2)",
+                borderRadius: "var(--r-xl)",
+                padding: "11px 16px 11px 12px",
+                display: "flex", alignItems: "center", gap: 10,
+                boxShadow: "0 8px 32px rgba(0,0,0,0.55)",
+                animation: exiting
+                  ? "toastOut 0.28s cubic-bezier(0.4,0,0.2,1) forwards"
+                  : "fadeSlideIn 0.25s cubic-bezier(0.34,1.4,0.64,1)",
+                maxWidth: 340,
+              }}>
+                <Icon size={17} weight="fill" style={{ color: iconColor, flexShrink: 0 }} />
+                <span style={{ fontSize: 13, fontWeight: 500, color: "var(--t1)", lineHeight: 1.4 }}>
+                  {toast.message}
+                </span>
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -12071,10 +12290,12 @@ export default function App() {
         <div style={{
           width: fullscreen ? 0 : (sidebarCollapsed ? SIDEBAR_COLLAPSED : SIDEBAR_EXPANDED),
           minWidth: fullscreen ? 0 : (sidebarCollapsed ? SIDEBAR_COLLAPSED : SIDEBAR_EXPANDED),
-          overflow: "hidden", flexShrink: 0,
+          flexShrink: 0, overflow: "hidden",
           transition: "width 0.3s cubic-bezier(0.4,0,0.2,1), min-width 0.3s cubic-bezier(0.4,0,0.2,1)",
+          padding: fullscreen ? 0 : "8px 4px 8px 8px",
+          position: "relative",
         }}>
-          <Sidebar view={view} setView={navigateTo} onSearch={handleSearch} collapsed={sidebarCollapsed} onToggleCollapse={() => setSidebarCollapsed(c => !c)} onOpenSettings={() => setSettingsOpen(true)} onOpenUpdateTab={() => { setSettingsInitialTab("update"); setSettingsOpen(true); }} onCloseOverlay={() => setOverlayOpen(false)} onOpenPlaylist={(pl) => openPlaylist(pl, view)} onOpenAlbum={(item) => openAlbum(item, view)} onOpenArtist={(item) => openArtist(item, view)} onAddRecent={addRecentPlaylist} onContextMenu={openContextMenu} currentProfileData={profiles.find(p => p.active)} onOpenProfileSwitcher={() => setShowProfileSwitcher(true)} profiles={profiles}
+          <Sidebar view={view} setView={navigateTo} onSearch={handleSearch} collapsed={sidebarCollapsed} onToggleCollapse={() => setSidebarCollapsed(c => !c)} onOpenSettings={() => setSettingsOpen(true)} onOpenUpdateTab={() => { setSettingsTab("update"); setSettingsOpen(true); }} onCloseOverlay={() => setOverlayOpen(false)} onOpenPlaylist={(pl) => openPlaylist(pl, view)} onOpenAlbum={(item) => openAlbum(item, view)} onOpenArtist={(item) => openArtist(item, view)} onAddRecent={addRecentPlaylist} onContextMenu={openContextMenu} currentProfileData={profiles.find(p => p.active)} onOpenProfileSwitcher={() => setShowProfileSwitcher(true)} profiles={profiles}
             onSwitchProfile={async (name) => {
               await fetch(`${API}/profiles/switch`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) });
               await fetchProfiles();
@@ -12114,11 +12335,30 @@ export default function App() {
             onToggleOffline={handleToggleOffline}
             onRefreshView={() => setViewRefreshKey(k => k + 1)}
             obsEnabled={obsEnabled}
-            onOpenOverlaySettings={() => { setSettingsInitialTab("overlay"); setSettingsOpen(true); }}
+            onOpenOverlaySettings={() => { setSettingsTab("overlay"); setSettingsOpen(true); }}
+            settingsOpen={settingsOpen}
           />
+          {(settingsOpen || settingsClosing) && !fullscreen && (
+            <SettingsSidebarContent
+              tab={settingsTab}
+              setTab={setSettingsTab}
+              updateInfo={updateInfo}
+              onClose={closeSettings}
+              collapsed={sidebarCollapsed}
+              closing={settingsClosing}
+            />
+          )}
         </div>
         <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", position: "relative" }}>
-          <div key={appKey} className="scrollable" style={{ flex: 1, overflowY: "auto" }}>
+          <div style={{
+            flex: 1, minHeight: 0, overflow: "hidden",
+            borderRadius: "var(--r-xl)",
+            margin: queueOpen ? "8px 376px 4px 4px" : "8px 8px 4px 4px",
+            transition: animations ? "margin 0.3s cubic-bezier(0.4,0,0.2,1), opacity 0.25s ease" : "none",
+            opacity: (overlayOpen || settingsOpen || settingsClosing) ? 0 : 1,
+            pointerEvents: (overlayOpen || settingsOpen || settingsClosing) ? "none" : "auto",
+          }}>
+          <div key={appKey} className="scrollable" style={{ height: "100%", overflowY: "auto" }}>
             {view === "home" && <AnimatedView key={`home-${viewRefreshKey}`}><HomeView displayName={profiles.find(p => p.active)?.displayName} onPlay={handlePlay} onOpenPlaylist={(item) => openPlaylist(item, "home")} onOpenAlbum={(item) => openAlbum(item, "home")} onOpenArtist={(item) => openArtist(item, "home")} onContextMenu={openContextMenu} onTrackContextMenu={(e, track) => setTrackContextMenu({ x: e.clientX, y: e.clientY, track })} hideExplicit={hideExplicit} /></AnimatedView>}
             {view === "search" && <AnimatedView key={`search-${viewRefreshKey}`}><SearchView query={searchQuery} onPlay={handlePlay} currentTrack={currentTrack} isPlaying={isPlaying} onOpenArtist={openArtist} onOpenAlbum={(item) => openAlbum(item, "search")} onOpenPlaylist={(item) => openPlaylist(item, "search")} onContextMenu={openContextMenu} onTrackContextMenu={(e, track) => setTrackContextMenu({ x: e.clientX, y: e.clientY, track })} hideExplicit={hideExplicit} /></AnimatedView>}
             {view === "liked" && <AnimatedView key={`liked-${viewRefreshKey}`}><LikedView onPlay={handlePlay} currentTrack={currentTrack} isPlaying={isPlaying} onOpenArtist={openArtist} onOpenAlbum={(item) => openAlbum(item, "liked")} onTrackContextMenu={(e, track) => setTrackContextMenu({ x: e.clientX, y: e.clientY, track })} cachedSongIds={cachedSongIds} downloadingIds={downloadingIds} onDownloadSong={handleDownloadSong} hideExplicit={hideExplicit} onToggleLike={handleToggleLike} likedIds={likedIds} selectedTracks={selectedTracks} onToggleSelect={toggleTrackSelection} onSelectAll={selectAllTracks} onBack={goBack} /></AnimatedView>}
@@ -12138,7 +12378,10 @@ export default function App() {
                 {translate(language, "offlineBanner")}
               </div>
             )}
+            {/* Spacer so content scrolls clear of the floating player bar */}
+            <div style={{ height: 97, flexShrink: 0, pointerEvents: "none" }} aria-hidden="true" />
           </div>
+          </div>{/* end clip container */}
           {/* Player + floating action bar wrapper — position:relative so the bar can float above the player without affecting layout */}
           <div style={{ position: "relative", flexShrink: 0 }}>
             {/* Multi-track selection action bar — position:absolute so it floats above the player without pushing the list up */}
@@ -12238,8 +12481,9 @@ export default function App() {
             visibility: !fullscreen || playerVisible ? "visible" : "hidden",
             transition: "opacity 0.5s ease, visibility 0.5s ease",
             pointerEvents: !fullscreen || playerVisible ? "auto" : "none",
-            position: fullscreen ? "relative" : "relative",
+            position: "relative",
             zIndex: fullscreen ? 105 : "auto",
+            padding: fullscreen ? 0 : "0 8px 8px 4px",
           }}>
           <Player
             track={currentTrack}
@@ -12311,11 +12555,14 @@ export default function App() {
           </div>
         <div style={{
           position: "absolute",
-          top: overlayOpen ? 0 : "100%",
-          left: fullscreen ? 0 : (sidebarCollapsed ? SIDEBAR_COLLAPSED : SIDEBAR_EXPANDED),
-          right: queueOpen ? 360 : 0, bottom: fullscreen ? 0 : 69, zIndex: fullscreen ? 102 : 100,
+          top: overlayOpen ? (fullscreen ? 0 : 8) : "100%",
+          left: fullscreen ? 0 : ((sidebarCollapsed ? SIDEBAR_COLLAPSED : SIDEBAR_EXPANDED) + 4),
+          right: fullscreen ? 0 : (queueOpen ? 376 : 8),
+          bottom: fullscreen ? 0 : 101,
+          zIndex: fullscreen ? 102 : 100,
           overflow: "hidden",
-          transition: animations ? "top 0.4s cubic-bezier(0.34,1.56,0.64,1), right 0.3s ease" : "top 0.1s ease",
+          borderRadius: fullscreen ? 0 : "var(--r-xl)",
+          transition: animations ? "top 0.4s cubic-bezier(0.34,1.56,0.64,1), right 0.3s ease, left 0.3s ease" : "top 0.1s ease",
           pointerEvents: overlayOpen ? "all" : "none",
         }}>
           {/* Shared static background — stays fixed during crossfade */}
@@ -12343,9 +12590,12 @@ export default function App() {
         {/* Queue panel */}
         <div style={{
           position: "absolute",
-          top: 0, right: queueOpen ? 0 : -360,
-          width: 360, bottom: fullscreen ? 0 : 69, zIndex: fullscreen ? 104 : 101,
-          background: "var(--bg-surface)", borderLeft: "0.5px solid var(--border)",
+          top: fullscreen ? 0 : 8,
+          right: queueOpen ? (fullscreen ? 0 : 8) : -360,
+          width: 360, bottom: fullscreen ? 0 : 101, zIndex: fullscreen ? 104 : 101,
+          background: "var(--bg-surface)",
+          borderRadius: fullscreen ? 0 : "var(--r-xl)",
+          overflow: "hidden",
           transition: animations ? "right 0.3s cubic-bezier(0.4,0,0.2,1)" : "right 0.1s ease",
           display: "flex", flexDirection: "column",
           pointerEvents: queueOpen ? "all" : "none",
@@ -12369,9 +12619,20 @@ export default function App() {
       )}
 
 
-      {settingsOpen && (
+      {(settingsOpen || settingsClosing) && (
+        <div style={{
+          position: "absolute",
+          top: fullscreen ? 0 : 8,
+          left: fullscreen ? 0 : ((sidebarCollapsed ? SIDEBAR_COLLAPSED : SIDEBAR_EXPANDED) + 4),
+          right: fullscreen ? 0 : 8,
+          bottom: fullscreen ? 0 : 101,
+          zIndex: 150,
+          borderRadius: fullscreen ? 0 : "var(--r-xl)",
+          overflow: "hidden",
+          animation: animations ? (settingsClosing ? "fadeSlideOut 0.22s cubic-bezier(0.4,0,0.2,1) forwards" : "fadeSlideIn 0.28s cubic-bezier(0.4,0,0.2,1)") : undefined,
+        }}>
           <SettingsPanel
-            onClose={() => setSettingsOpen(false)}
+            onClose={closeSettings}
             accent={accent}
             onAccentChange={handleAccentChange}
             theme={theme}
@@ -12404,8 +12665,8 @@ export default function App() {
             onDownloadUpdate={downloadUpdate}
             onInstallUpdate={installUpdate}
             onCancelDownload={cancelUpdateDownload}
-            initialTab={settingsInitialTab}
-            onTabOpened={() => setSettingsInitialTab(null)}
+            tab={settingsTab}
+            setTab={setSettingsTab}
             hideExplicit={hideExplicit}
             onHideExplicitChange={v => { setHideExplicit(v); localStorage.setItem("kiyoshi-hide-explicit", v); }}
             uiZoom={uiZoom}
@@ -12468,6 +12729,7 @@ export default function App() {
             getShortcutLabel={getShortcutLabel}
             resetShortcut={resetShortcut}
           />
+        </div>
         )}
 
         {/* Debug Floating Window */}
@@ -12604,7 +12866,7 @@ export default function App() {
                 }}
                 onMouseLeave={() => setTrackCtxPlaylists(null)}
               >
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "var(--text-primary)" }}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "default", fontSize: "var(--t13)", color: "var(--text-primary)" }}
                   onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
                   onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                 >
@@ -12655,7 +12917,7 @@ export default function App() {
                       await handleToggleLike(trackCtxData.track);
                       setTrackContextMenu(null); setTrackCtxPlaylists(null);
                     }}
-                    style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: ctxLiked ? "var(--accent)" : "var(--text-primary)" }}
+                    style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "default", fontSize: "var(--t13)", color: ctxLiked ? "var(--accent)" : "var(--text-primary)" }}
                     onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
                     onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                   >
@@ -12681,7 +12943,7 @@ export default function App() {
                     setTrackContextMenu(null);
                     setTrackCtxPlaylists(null);
                   }}
-                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "var(--text-danger, #e05252)" }}
+                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "default", fontSize: "var(--t13)", color: "var(--text-danger, #e05252)" }}
                   onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
                   onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                 >
@@ -12697,7 +12959,7 @@ export default function App() {
                     trackCtxData.removeFromHistory();
                     setTrackContextMenu(null); setTrackCtxPlaylists(null);
                   }}
-                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "var(--text-danger, #e05252)" }}
+                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "default", fontSize: "var(--t13)", color: "var(--text-danger, #e05252)" }}
                   onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
                   onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                 >
@@ -12713,7 +12975,7 @@ export default function App() {
               {trackCtxData.track.albumBrowseId && (
                 <div
                   onClick={() => { const t = trackCtxData.track; setTrackContextMenu(null); setTrackCtxPlaylists(null); openAlbum({ browseId: t.albumBrowseId, title: t.album }, view); }}
-                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "var(--text-primary)" }}
+                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "default", fontSize: "var(--t13)", color: "var(--text-primary)" }}
                   onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
                   onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                 >
@@ -12729,7 +12991,7 @@ export default function App() {
                     return (
                       <div key={i}
                         onClick={() => { setTrackContextMenu(null); setTrackCtxPlaylists(null); openArtist({ browseId, artist: name }, view); }}
-                        style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "var(--text-primary)" }}
+                        style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "default", fontSize: "var(--t13)", color: "var(--text-primary)" }}
                         onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
                         onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                       >
@@ -12741,7 +13003,7 @@ export default function App() {
                 : trackCtxData.track.artistBrowseId && (
                   <div
                     onClick={() => { const t = trackCtxData.track; setTrackContextMenu(null); setTrackCtxPlaylists(null); openArtist({ browseId: t.artistBrowseId }, view); }}
-                    style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "var(--text-primary)" }}
+                    style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "default", fontSize: "var(--t13)", color: "var(--text-primary)" }}
                     onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
                     onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                   >
@@ -12761,7 +13023,7 @@ export default function App() {
                     } catch {}
                     setTrackContextMenu(null); setTrackCtxPlaylists(null);
                   }}
-                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "var(--text-danger, #e05252)" }}
+                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "default", fontSize: "var(--t13)", color: "var(--text-danger, #e05252)" }}
                   onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
                   onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                 >
@@ -12774,7 +13036,7 @@ export default function App() {
                     handleDownloadSong(trackCtxData.track);
                     setTrackContextMenu(null); setTrackCtxPlaylists(null);
                   }}
-                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "var(--text-primary)" }}
+                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "default", fontSize: "var(--t13)", color: "var(--text-primary)" }}
                   onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
                   onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                 >
@@ -12790,7 +13052,7 @@ export default function App() {
                   setTrackContextMenu(null); setTrackCtxPlaylists(null);
                   handleExportSong(track, "mp3");
                 }}
-                style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "var(--text-primary)" }}
+                style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "default", fontSize: "var(--t13)", color: "var(--text-primary)" }}
                 onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
                 onMouseLeave={e => e.currentTarget.style.background = "transparent"}
               >
@@ -12805,7 +13067,7 @@ export default function App() {
                   setTrackContextMenu(null); setTrackCtxPlaylists(null);
                   handleExportSong(track, "opus");
                 }}
-                style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "var(--text-primary)" }}
+                style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "default", fontSize: "var(--t13)", color: "var(--text-primary)" }}
                 onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
                 onMouseLeave={e => e.currentTarget.style.background = "transparent"}
               >
@@ -12830,7 +13092,7 @@ export default function App() {
                     navigator.clipboard.writeText(text).catch(() => {});
                   }).catch(() => {});
                 }}
-                style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "var(--text-primary)" }}
+                style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "default", fontSize: "var(--t13)", color: "var(--text-primary)" }}
                 onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
                 onMouseLeave={e => e.currentTarget.style.background = "transparent"}
               >
@@ -12873,7 +13135,7 @@ export default function App() {
                     await writeTextFile(filePath, lrcText);
                   } catch (e) { console.error(e); }
                 }}
-                style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "var(--text-primary)" }}
+                style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "default", fontSize: "var(--t13)", color: "var(--text-primary)" }}
                 onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
                 onMouseLeave={e => e.currentTarget.style.background = "transparent"}
               >
@@ -12899,7 +13161,7 @@ export default function App() {
             }}>
               <div
                 onClick={() => { togglePin(globalCtxData.playlist); setGlobalContextMenu(null); }}
-                style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "var(--text-primary)" }}
+                style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "default", fontSize: "var(--t13)", color: "var(--text-primary)" }}
                 onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
                 onMouseLeave={e => e.currentTarget.style.background = "transparent"}
               >
@@ -12914,7 +13176,7 @@ export default function App() {
                   else openPlaylist(item, view);
                   setGlobalContextMenu(null);
                 }}
-                style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "var(--text-primary)" }}
+                style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "default", fontSize: "var(--t13)", color: "var(--text-primary)" }}
                 onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
                 onMouseLeave={e => e.currentTarget.style.background = "transparent"}
               >
@@ -12928,7 +13190,7 @@ export default function App() {
               {globalCtxData.playlist?.browseId && globalCtxData.playlist?.type !== "artist" && (
                 <div
                   onClick={() => { openAlbum(globalCtxData.playlist, view); setGlobalContextMenu(null); }}
-                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "var(--text-primary)" }}
+                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "default", fontSize: "var(--t13)", color: "var(--text-primary)" }}
                   onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
                   onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                 >
@@ -12939,7 +13201,7 @@ export default function App() {
               {globalCtxData.playlist?.artistBrowseId && (
                 <div
                   onClick={() => { openArtist({ browseId: globalCtxData.playlist.artistBrowseId }, view); setGlobalContextMenu(null); }}
-                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "var(--text-primary)" }}
+                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "default", fontSize: "var(--t13)", color: "var(--text-primary)" }}
                   onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
                   onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                 >
@@ -12955,7 +13217,7 @@ export default function App() {
               {globalCtxData.playlist?.playlistId && globalCtxData.playlist?.type !== "album" && (
                 <div
                   onClick={() => { setRenameDialog({ playlistId: globalCtxData.playlist.playlistId, title: globalCtxData.playlist.title }); setGlobalContextMenu(null); }}
-                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "var(--text-primary)" }}
+                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "default", fontSize: "var(--t13)", color: "var(--text-primary)" }}
                   onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
                   onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                 >
@@ -12967,7 +13229,7 @@ export default function App() {
               {globalCtxData.playlist?.playlistId && globalCtxData.playlist?.type !== "album" && (
                 <div
                   onClick={() => { setDeleteDialog({ playlistId: globalCtxData.playlist.playlistId, title: globalCtxData.playlist.title }); setGlobalContextMenu(null); }}
-                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "var(--text-danger, #e05252)" }}
+                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "default", fontSize: "var(--t13)", color: "var(--text-danger, #e05252)" }}
                   onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
                   onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                 >
@@ -12978,7 +13240,7 @@ export default function App() {
               {!pinnedIds.includes(itemId(globalCtxData.playlist)) && (
                 <div
                   onClick={() => { removeRecentPlaylist(itemId(globalCtxData.playlist)); setGlobalContextMenu(null); }}
-                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "pointer", fontSize: "var(--t13)", color: "var(--text-danger, #e05252)" }}
+                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: "var(--radius)", cursor: "default", fontSize: "var(--t13)", color: "var(--text-danger, #e05252)" }}
                   onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
                   onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                 >
@@ -13046,7 +13308,7 @@ export default function App() {
               <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
                 <button onClick={() => setDeleteDialog(null)} style={{
                   padding: "8px 18px", borderRadius: 8, border: "0.5px solid var(--border)",
-                  background: "var(--bg-main)", color: "var(--text-secondary)", fontSize: "var(--t13)", cursor: "pointer",
+                  background: "var(--bg-main)", color: "var(--text-secondary)", fontSize: "var(--t13)", cursor: "default",
                 }}>{translate(language, "cancel")}</button>
                 <button onClick={async () => {
                   try {
@@ -13058,7 +13320,7 @@ export default function App() {
                   setDeleteDialog(null);
                 }} style={{
                   padding: "8px 18px", borderRadius: 8, border: "none",
-                  background: "#e05252", color: "#fff", fontSize: "var(--t13)", fontWeight: 500, cursor: "pointer",
+                  background: "#e05252", color: "#fff", fontSize: "var(--t13)", fontWeight: 500, cursor: "default",
                 }}>{translate(language, "removeAccountConfirm")}</button>
               </div>
             </div>

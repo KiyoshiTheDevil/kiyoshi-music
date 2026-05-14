@@ -35,54 +35,121 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --bg-base: #0d0d0d;
-  --bg-surface: #141414;
-  --bg-elevated: #1c1c1c;
-  --bg-hover: #222222;
-  --accent: #e040fb;
+  /* ── Surfaces ────────────────────────────────────────────────────── */
+  --bg-base:     #0d0d0d;    /* App background */
+  --bg-surface:  #141414;    /* Sidebar / panels  (= surface-0) */
+  --bg-elevated: #1c1c1c;    /* Raised content    (= surface-1) */
+  --bg-hover:    #222222;    /* Hover fallback     (= surface-2) */
+
+  /* Fluent elevation aliases (use these going forward) */
+  --surface-1:   #1c1c1c;   /* Setting cards */
+  --surface-2:   #313131;   /* Buttons / controls default */
+  --surface-3:   #3c3c3c;   /* Buttons / controls hovered */
+
+  /* ── Acrylic material ────────────────────────────────────────────── */
+  --acrylic: rgba(13, 13, 13, 0.84);
+
+  /* ── Stroke / Borders ────────────────────────────────────────────── */
+  --stroke:      rgba(255,255,255,0.082);
+  --stroke-dim:  rgba(255,255,255,0.050);
+  --stroke-med:  rgba(255,255,255,0.145);
+  --border:      var(--stroke);   /* legacy alias */
+
+  /* ── Fill states ─────────────────────────────────────────────────── */
+  --fill-subtle: rgba(255,255,255,0.055);
+  --fill-mod:    rgba(255,255,255,0.093);
+  --fill-strong: rgba(255,255,255,0.14);
+
+  /* ── Text opacity hierarchy ──────────────────────────────────────── */
+  --t1: rgba(255,255,255,0.886);  /* Primary   ~89% */
+  --t2: rgba(255,255,255,0.544);  /* Secondary ~54% */
+  --t3: rgba(255,255,255,0.373);  /* Tertiary  ~37% */
+  --t4: rgba(255,255,255,0.200);  /* Disabled  ~20% */
+  /* Legacy aliases */
+  --text-primary:   var(--t1);
+  --text-secondary: var(--t2);
+  --text-muted:     var(--t3);
+
+  /* ── Accent ──────────────────────────────────────────────────────── */
+  --accent:     #e040fb;
   --accent-dim: rgba(224,64,251,0.08);
-  --text-primary: #f0f0f0;
-  --text-secondary: #999;
-  --text-muted: #555;
-  --border: rgba(255,255,255,0.07);
+
+  /* ── Radius scale ────────────────────────────────────────────────── */
+  --r-xs:  3px;
+  --r-sm:  4px;
+  --r-md:  6px;
+  --r-lg:  8px;
+  --r-xl:  12px;
+  /* Legacy aliases */
+  --radius:    var(--r-lg);
+  --radius-lg: var(--r-xl);
+
+  /* ── Misc ────────────────────────────────────────────────────────── */
   --slider-track: #333333;
-  --radius: 8px;
-  --radius-lg: 12px;
   --font: 'MiSans Latin', system-ui, sans-serif;
 }
 
 /* ─── OLED Theme ───────────────────────────────────────────────────────── */
 [data-theme="oled"] {
-  --bg-base: #000000;
+  --bg-base:    #000000;
   --bg-surface: #080808;
   --bg-elevated: #0f0f0f;
-  --bg-hover: #141414;
-  --text-primary: #ffffff;
-  --text-secondary: #888;
-  --text-muted: #444;
-  --border: rgba(255,255,255,0.05);
+  --bg-hover:   #141414;
+  --surface-1:  #0f0f0f;
+  --surface-2:  #181818;
+  --surface-3:  #212121;
+  --acrylic:    rgba(0, 0, 0, 0.88);
+  --stroke:     rgba(255,255,255,0.060);
+  --stroke-dim: rgba(255,255,255,0.036);
+  --stroke-med: rgba(255,255,255,0.110);
+  --border:     var(--stroke);
+  --t1: rgba(255,255,255,1.000);
+  --t2: rgba(255,255,255,0.500);
+  --t3: rgba(255,255,255,0.330);
+  --t4: rgba(255,255,255,0.160);
+  --text-primary:   var(--t1);
+  --text-secondary: var(--t2);
+  --text-muted:     var(--t3);
   --slider-track: #282828;
 }
 
 /* ─── Light Theme ──────────────────────────────────────────────────────── */
 [data-theme="light"] {
-  --bg-base: #f0f0f0;
+  --bg-base:    #f0f0f0;
   --bg-surface: #ffffff;
-  --bg-elevated: #e4e4e4;
-  --bg-hover: #d8d8d8;
-  --text-primary: #111111;
-  --text-secondary: #555555;
-  --text-muted: #999999;
-  --border: rgba(0,0,0,0.10);
+  --bg-elevated: #e8e8e8;
+  --bg-hover:   #dcdcdc;
+  --surface-1:  #f7f7f7;
+  --surface-2:  #ededed;
+  --surface-3:  #e2e2e2;
+  --acrylic:    rgba(240, 240, 240, 0.88);
+  --stroke:     rgba(0,0,0,0.09);
+  --stroke-dim: rgba(0,0,0,0.055);
+  --stroke-med: rgba(0,0,0,0.150);
+  --border:     var(--stroke);
+  --fill-subtle: rgba(0,0,0,0.040);
+  --fill-mod:    rgba(0,0,0,0.070);
+  --fill-strong: rgba(0,0,0,0.110);
+  --t1: rgba(0,0,0,0.900);
+  --t2: rgba(0,0,0,0.560);
+  --t3: rgba(0,0,0,0.380);
+  --t4: rgba(0,0,0,0.200);
+  --text-primary:   var(--t1);
+  --text-secondary: var(--t2);
+  --text-muted:     var(--t3);
   --slider-track: #b8b8b8;
 }
 
 /* ─── High Contrast Mode ───────────────────────────────────────────────── */
 /* Works on top of any theme. Maximises contrast for accessibility. */
 [data-highcontrast="true"] {
-  --text-secondary: #d8d8d8;
-  --text-muted:     #a0a0a0;
-  --border:         rgba(255,255,255,0.45);
+  --t2: rgba(255,255,255,0.850);
+  --t3: rgba(255,255,255,0.630);
+  --text-secondary: var(--t2);
+  --text-muted:     var(--t3);
+  --stroke:         rgba(255,255,255,0.45);
+  --stroke-med:     rgba(255,255,255,0.65);
+  --border:         var(--stroke);
   --slider-track:   #505050;
   --accent-dim:     rgba(255,255,255,0.12);
 }
@@ -91,17 +158,28 @@
   --bg-surface:   #0a0a0a;
   --bg-elevated:  #141414;
   --bg-hover:     #202020;
-  --text-primary: #ffffff;
+  --surface-1:    #141414;
+  --surface-2:    #1e1e1e;
+  --surface-3:    #282828;
+  --t1: rgba(255,255,255,1.000);
+  --text-primary: var(--t1);
 }
 [data-theme="light"][data-highcontrast="true"] {
   --bg-base:      #ffffff;
   --bg-surface:   #ffffff;
   --bg-elevated:  #f0f0f0;
   --bg-hover:     #e0e0e0;
-  --text-primary: #000000;
-  --text-secondary: #1a1a1a;
-  --text-muted:   #444444;
-  --border:       rgba(0,0,0,0.5);
+  --surface-1:    #f0f0f0;
+  --surface-2:    #e4e4e4;
+  --surface-3:    #d8d8d8;
+  --t1: rgba(0,0,0,1.000);
+  --t2: rgba(0,0,0,0.870);
+  --t3: rgba(0,0,0,0.620);
+  --text-primary:   var(--t1);
+  --text-secondary: var(--t2);
+  --text-muted:     var(--t3);
+  --stroke:         rgba(0,0,0,0.5);
+  --border:         var(--stroke);
   --slider-track: #888888;
 }
 /* Stronger scrollbar thumb in high contrast */
@@ -209,4 +287,61 @@ html, body, #root {
 @keyframes ctxMenuOut {
   from { opacity: 1; transform: scale(1)    translateY(0); }
   to   { opacity: 0; transform: scale(0.94) translateY(-6px); }
+}
+
+/* ─── Sidebar Nav Items — Fluent Design ─────────────────────────────────── */
+.sidebar-nav-item {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--r-lg);
+  cursor: default;
+  color: var(--t2);
+  transition: background 0.12s, color 0.12s;
+}
+/* Left active-bar */
+.sidebar-nav-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 0;
+  background: var(--accent);
+  border-radius: 0 2px 2px 0;
+  transition: height 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
+}
+.sidebar-nav-item.active::before { height: 16px; }
+
+/* Radial reveal highlight — follows cursor via --rx / --ry */
+.sidebar-nav-item::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    circle 70px at var(--rx, 50%) var(--ry, 50%),
+    rgba(255,255,255,0.07) 0%,
+    transparent 100%
+  );
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s;
+}
+.sidebar-nav-item:hover::after { opacity: 1; }
+
+/* Keep content above pseudo-elements */
+.sidebar-nav-item > * { position: relative; z-index: 1; }
+
+.sidebar-nav-item:hover { background: var(--fill-subtle); color: var(--t1); }
+.sidebar-nav-item.active { background: var(--accent-dim); color: var(--accent); }
+.sidebar-nav-item.active:hover {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+/* ─── Desktop cursor — no pointer hand on interactive elements ───────────── */
+button, a, select, label,
+[role="button"], [role="tab"], [role="option"],
+.sidebar-nav-item {
+  cursor: default !important;
 }

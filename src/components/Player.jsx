@@ -153,14 +153,14 @@ export default function Player({ track, isPlaying, onTogglePlay, audioRef }) {
         .player-artist { font-size: 11px; color: var(--text-secondary); white-space: nowrap; }
         .player-center { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; }
         .player-controls { display: flex; align-items: center; gap: 14px; }
-        .ctrl { background: none; border: none; cursor: pointer; color: var(--text-secondary); display: flex; align-items: center; padding: 4px; border-radius: 50%; transition: color 0.12s; }
+        .ctrl { background: none; border: none; cursor: default; color: var(--text-secondary); display: flex; align-items: center; padding: 4px; border-radius: 50%; transition: color 0.12s; }
         .ctrl:hover { color: var(--text-primary); }
         .ctrl:disabled { opacity: 0.3; cursor: default; }
         .ctrl-play { width: 34px; height: 34px; border-radius: 50%; background: var(--accent); color: white !important; justify-content: center; }
         .ctrl-play:hover { opacity: 0.85; }
         .player-progress { display: flex; align-items: center; gap: 8px; width: 100%; max-width: 400px; }
         .p-time { font-size: 10px; color: var(--text-muted); min-width: 28px; text-align: center; }
-        .p-bar { flex: 1; height: 3px; background: var(--bg-elevated); border-radius: 2px; cursor: pointer; position: relative; }
+        .p-bar { flex: 1; height: 3px; background: var(--bg-elevated); border-radius: 2px; cursor: default; position: relative; }
         .p-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.1s linear; }
         .player-right { display: flex; align-items: center; gap: 8px; width: 140px; justify-content: flex-end; }
         .vol-slider { width: 80px; accent-color: var(--accent); height: 3px; }

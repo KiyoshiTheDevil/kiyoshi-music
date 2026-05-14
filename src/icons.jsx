@@ -149,6 +149,7 @@ export const LockOpen           = fa("lock-open");
 export const ScreencastSimple   = fa("tv");
 export const CircleFill         = fa("circle", true);
 export const Info               = fa("circle-info");
+export const WarningCircle      = fa("circle-exclamation");
 export const Star               = fa("star", true);
 
 // ── Brand icons ───────────────────────────────────────────────────────────────
