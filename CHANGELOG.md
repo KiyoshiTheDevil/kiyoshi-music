@@ -7,7 +7,7 @@ All notable changes to Kiyoshi Music are documented here.
 ## [0.9.30-beta] — 2026-05-14
 
 ### UI / Design
-- **Fluent Design System migration** — comprehensive token-based redesign across the entire app:
+- Design Overhaul-Update:
   - Sidebar nav items: radial cursor-follow glow effect via `--rx`/`--ry` CSS variables
   - New `.sidebar-glow` CSS class for buttons with dropdowns (no `overflow: hidden`) — applied to Profile, Settings and OBS Overlay buttons
   - New Playlist button in sidebar now matches nav item style with hover glow
