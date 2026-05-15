@@ -1295,31 +1295,67 @@ def _ydl_pick_any_audio(video_id, extra_opts=None, skip_auth=False):
     return info.get("url")
 
 # Each entry: (format_string, extra_ydl_opts, skip_auth)
-# Anonymous (skip_auth=True) attempts come FIRST: the default web client
-# requires PO tokens when cookies are present, causing "Requested format is
-# not available" even for ordinary tracks.  Without cookies, YouTube serves
-# standard stream URLs and format extraction works reliably.
-# Authenticated fallbacks are kept at the end for premium / restricted content.
-_WEB_MUSIC_OPTS = {"extractor_args": {"youtube": {"player_client": ["web_music"]}}}
-_ANDROID_OPTS   = {"extractor_args": {"youtube": {"player_client": ["android_music"], "player_skip": ["js"]}}}
-_IOS_OPTS       = {"extractor_args": {"youtube": {"player_client": ["ios"],           "player_skip": ["js"]}}}
-_TV_OPTS        = {"extractor_args": {"youtube": {"player_client": ["tv_embedded"],   "player_skip": ["js"]}}}
+#
+# Strategy (2026): YouTube requires PO tokens for the default `web` client
+# when cookies are present, but mobile clients (android_music, ios) bypass
+# that requirement entirely.  Authenticated mobile clients are therefore
+# tried FIRST — they have valid cookies, skip PO-token checks, and are
+# less likely to trigger the "Sign in to confirm you're not a bot" error.
+# Anonymous clients follow as fallback (no cookies = no PO-token demand).
+# The plain web client (default / web_music) comes last; it only works
+# anonymously when YouTube hasn't flagged the IP.
+_WEB_MUSIC_OPTS  = {"extractor_args": {"youtube": {"player_client": ["web_music"]}}}
+_ANDROID_OPTS    = {"extractor_args": {"youtube": {"player_client": ["android_music"], "player_skip": ["js"]}}}
+_IOS_OPTS        = {"extractor_args": {"youtube": {"player_client": ["ios"],           "player_skip": ["js"]}}}
+_IOS_MUSIC_OPTS  = {"extractor_args": {"youtube": {"player_client": ["ios_music"],     "player_skip": ["js"]}}}
+_TV_OPTS         = {"extractor_args": {"youtube": {"player_client": ["tv_embedded"],   "player_skip": ["js"]}}}
 _M4A_FMT = "bestaudio[ext=m4a]/bestaudio[acodec=aac]"
 
 _STREAM_ATTEMPTS = [
-    # ── anonymous first (no PO-token issues), m4a/AAC only ───────────────────
-    # symphonia 0.5 has no Opus decoder — WebM/Opus files would skip immediately
-    (_M4A_FMT, None,            True),
-    (_M4A_FMT, _TV_OPTS,        True),   # TV client bypasses bot-detection reliably
-    (_M4A_FMT, _WEB_MUSIC_OPTS, True),   # YTMusic exclusives
+    # ── 1. Authenticated mobile clients (no PO-token needed, bypass bot check) ─
+    # symphonia 0.5 has no Opus decoder — only m4a/AAC formats are usable.
+    (_M4A_FMT, _ANDROID_OPTS,   False),
+    (_M4A_FMT, _IOS_OPTS,       False),
+    (_M4A_FMT, _IOS_MUSIC_OPTS, False),
+    (_M4A_FMT, _TV_OPTS,        False),
+    # ── 2. Anonymous mobile/TV clients (no cookies = no PO-token demand) ────────
+    (_M4A_FMT, _TV_OPTS,        True),
     (_M4A_FMT, _ANDROID_OPTS,   True),
     (_M4A_FMT, _IOS_OPTS,       True),
-    # ── authenticated fallback (premium / geo-restricted content) ────────────
-    (_M4A_FMT, None,            False),
-    (_M4A_FMT, _TV_OPTS,        False),
+    (_M4A_FMT, _IOS_MUSIC_OPTS, True),
+    # ── 3. Authenticated web clients (last resort — PO tokens may be needed) ────
     (_M4A_FMT, _WEB_MUSIC_OPTS, False),
-    (_M4A_FMT, _ANDROID_OPTS,   False),
+    (_M4A_FMT, None,            False),
+    # ── 4. Anonymous web clients ─────────────────────────────────────────────────
+    (_M4A_FMT, _WEB_MUSIC_OPTS, True),
+    (_M4A_FMT, None,            True),
 ]
+
+def _browser_cookie_opts():
+    """
+    Return a list of ydl_opts dicts that use cookiesfrombrowser for each
+    major browser installed on this machine.  Called as a last-resort fallback
+    when all normal stream attempts fail — extracts fresh YouTube cookies
+    directly from the browser profile without any manual export step.
+    """
+    import shutil
+    # Ordered by market share on Windows; each entry is (browser_key, binary_hint)
+    candidates = [
+        ("chrome",  "chrome"),
+        ("edge",    "msedge"),
+        ("firefox", "firefox"),
+        ("brave",   "brave"),
+        ("opera",   "opera"),
+        ("vivaldi", "vivaldi"),
+    ]
+    opts_list = []
+    for browser_key, binary in candidates:
+        if shutil.which(binary) or shutil.which(browser_key):
+            opts_list.append({
+                "cookiesfrombrowser": (browser_key,),
+                "extractor_args": {"youtube": {"player_client": ["android_music"], "player_skip": ["js"]}},
+            })
+    return opts_list
 
 
 def _stream_url_from_info(info):
@@ -1372,6 +1408,20 @@ def stream_url(video_id):
                     _hard_stop = True
                     break
                 _logging.warning(f"[stream] {video_id} brute-force auth={not no_auth} failed: {e}")
+    # Last resort: extract fresh cookies from an installed browser
+    for browser_opts in _browser_cookie_opts():
+        try:
+            info = _ydl_extract_url(video_id, _M4A_FMT, extra_opts=browser_opts, skip_auth=True)
+            url = _stream_url_from_info(info)
+            if url:
+                browser = browser_opts.get("cookiesfrombrowser", ("?",))[0]
+                _logging.info(f"[stream] {video_id} recovered via {browser} browser cookies")
+                return jsonify({"url": url})
+        except Exception as e:
+            last_err = e
+            if _is_hard_error(str(e)):
+                break
+            _logging.warning(f"[stream] {video_id} browser-cookies failed: {e}")
     err_str = str(last_err) if last_err else "No URL found"
     premium = "Music Premium" in err_str
     unavailable = _is_unavailable(err_str)
