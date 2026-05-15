@@ -9,11 +9,11 @@ permissions:
   contents: write
 
 jobs:
-  # ─── Build + upload assets to a pre-created draft release ────────────────────
-  # Strategy: create the GitHub release FIRST (gh release create), capture its
-  # numeric ID, then pass that ID to tauri-action via `releaseId`.  This avoids
-  # the race condition where tauri-action queries the GitHub API before the pushed
-  # tag is fully visible, which caused releases to be named "untagged-<hash>".
+  # ─── Build + publish release ──────────────────────────────────────────────────
+  # Creates a PUBLISHED (non-draft) release immediately so the download URL uses
+  # the real tag name (releases/download/v0.9.x-beta/…) from the start.
+  # Draft releases get an "untagged-<hash>" placeholder URL that persists even
+  # after publishing when the tag is already in use — so we avoid drafts entirely.
   build-windows:
     runs-on: windows-latest
     outputs:
@@ -21,28 +21,28 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # ── 1. Create the draft release and capture its numeric ID ───────────────
-      - name: Create GitHub draft release
+      # ── 1. Create the release (published, not draft) and capture its ID ──────
+      - name: Create GitHub release
         id: create_release
         shell: bash
         run: |
           TAG="${{ github.ref_name }}"
-          IS_PRE=${{ contains(github.ref_name, 'beta') || contains(github.ref_name, 'alpha') }}
+          IS_PRE=false
+          if [[ "$TAG" == *beta* ]] || [[ "$TAG" == *alpha* ]]; then IS_PRE=true; fi
 
-          # Use gh api (REST) — always supports --jq regardless of gh CLI version.
-          # gh release create --json requires a newer gh than Windows runners ship.
+          # gh api always supports --jq regardless of gh CLI version on the runner.
           RELEASE_ID=$(gh api repos/${{ github.repository }}/releases \
             --method POST \
             --field tag_name="$TAG" \
             --field name="Kiyoshi Music $TAG" \
             --field body="Build in progress…" \
-            --field draft=true \
+            --field draft=false \
             --field prerelease=$IS_PRE \
             --field target_commitish="${{ github.sha }}" \
             --jq '.id')
 
           echo "release_id=$RELEASE_ID" >> "$GITHUB_OUTPUT"
-          echo "Created draft release id=$RELEASE_ID for tag=$TAG"
+          echo "Created release id=$RELEASE_ID for tag=$TAG"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -90,7 +90,7 @@ jobs:
         with:
           workspaces: src-tauri
 
-      # ── 2. Build with tauri-action, uploading to the pre-created release ─────
+      # ── 2. Build + upload assets to the pre-created release ──────────────────
       - name: Build Tauri NSIS installer + updater bundle
         id: tauri
         uses: tauri-apps/tauri-action@v0
@@ -102,7 +102,7 @@ jobs:
           releaseId: ${{ steps.create_release.outputs.release_id }}
           args: --target x86_64-pc-windows-msvc --bundles nsis
 
-  # ── Update release notes from CHANGELOG (keeps release as draft) ─────────────
+  # ── Update release notes + auto-trigger latest.json update ───────────────────
   finalize:
     needs: build-windows
     runs-on: ubuntu-latest
@@ -111,25 +111,25 @@ jobs:
         with:
           ref: master
 
-      - name: Update draft release notes
+      - name: Update release notes
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG="${{ github.ref_name }}"
           VERSION="${TAG#v}"
 
-          # Look up the release ID from the full list (includes drafts).
-          # The /releases/tags/{tag} endpoint only returns published releases,
-          # so we filter the list instead.
+          # Find release by listing all releases and filtering by tag_name.
+          # (The /releases/tags/{tag} endpoint only works reliably for fully
+          #  published releases; listing is more robust.)
           RELEASE_ID=$(gh api "repos/${{ github.repository }}/releases" \
             --jq ".[] | select(.tag_name == \"$TAG\") | .id")
 
           if [ -z "$RELEASE_ID" ]; then
-            echo "ERROR: Could not find draft release for tag $TAG"
-            exit 1
+            echo "WARNING: Could not find release for tag $TAG — skipping notes update."
+            exit 0
           fi
 
-          # Extract changelog for this version
+          # Extract changelog section for this version
           RELEASE_NOTES=""
           if [ -f CHANGELOG.md ]; then
             RELEASE_NOTES=$(awk "/^## \[${VERSION}\]/{found=1; next} found && /^## \[/{exit} found{print}" CHANGELOG.md \
@@ -138,12 +138,81 @@ jobs:
 
           gh api "repos/${{ github.repository }}/releases/$RELEASE_ID" \
             --method PATCH \
-            --field draft=true \
             --field body="${RELEASE_NOTES}"
 
+          echo "Release notes updated for $TAG."
+
+      - name: Update latest.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ github.ref_name }}"
+          VERSION="${TAG#v}"
+
+          # Fetch release — must be published (draft=false) which it is.
+          RELEASE=$(gh api "repos/${{ github.repository }}/releases/tags/$TAG")
+
+          ASSETS=$(echo "$RELEASE" | jq '.assets')
+
+          # Tauri NSIS bundles produce:
+          #   *.nsis.zip       — updater bundle  (used as the download URL)
+          #   *.nsis.zip.sig   — minisign signature
+          ZIP_URL=$(echo "$ASSETS" | jq -r \
+            '[.[] | select(.name | endswith(".nsis.zip"))] | first | .browser_download_url // ""')
+          SIG_URL=$(echo "$ASSETS" | jq -r \
+            '[.[] | select(.name | endswith(".nsis.zip.sig"))] | first | .browser_download_url // ""')
+
+          # Fall back to the plain .exe if the .nsis.zip is absent
+          if [ -z "$ZIP_URL" ] || [ "$ZIP_URL" = "null" ]; then
+            ZIP_URL=$(echo "$ASSETS" | jq -r \
+              '[.[] | select(.name | endswith("x64-setup.exe"))] | first | .browser_download_url // ""')
+          fi
+
+          echo "ZIP URL : $ZIP_URL"
+          echo "SIG URL : $SIG_URL"
+
+          if [ -z "$ZIP_URL" ] || [ "$ZIP_URL" = "null" ]; then
+            echo "ERROR: updater bundle not found in release assets." >&2
+            exit 1
+          fi
+
+          SIG_CONTENT=""
+          if [ -n "$SIG_URL" ] && [ "$SIG_URL" != "null" ]; then
+            for attempt in 1 2 3 4 5; do
+              SIG_CONTENT=$(curl -fsSL "$SIG_URL" 2>/dev/null) && break
+              echo "SIG download attempt $attempt/5 failed — retrying in 10s…"
+              sleep 10
+            done
+          fi
+
+          NOTES=""
+          if [ -f CHANGELOG.md ]; then
+            NOTES=$(awk "/^## \[${VERSION}\]/{found=1; next} found && /^## \[/{exit} found{print}" CHANGELOG.md \
+              | sed '/^[[:space:]]*$/d' | head -80)
+          fi
+
+          jq -n \
+            --arg version "v${VERSION}" \
+            --arg pub_date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg url  "${ZIP_URL}" \
+            --arg sig  "${SIG_CONTENT}" \
+            --arg notes "${NOTES}" \
+            '{version:$version, pub_date:$pub_date, notes:$notes,
+              platforms:{"windows-x86_64":{url:$url, signature:$sig}}}' \
+            > updates/latest.json
+
+          echo "latest.json:"
+          cat updates/latest.json
+
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name  "github-actions[bot]"
+          git add updates/latest.json
+          git diff --cached --quiet \
+            && echo "latest.json unchanged — no commit needed." \
+            || git commit -m "chore: update latest.json for $TAG [skip ci]"
+          git push origin master
+
           echo ""
-          echo "═══════════════════════════════════════════════════════════════"
-          echo "  Release $TAG built — left as DRAFT for manual review."
-          echo "  → Publish in GitHub UI when ready."
-          echo "  → Then trigger 'Update latest.json' workflow manually."
-          echo "═══════════════════════════════════════════════════════════════"
+          echo "═══════════════════════════════════════════════════════"
+          echo "  $TAG released and latest.json updated. Done!"
+          echo "═══════════════════════════════════════════════════════"
