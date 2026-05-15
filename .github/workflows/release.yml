@@ -28,17 +28,17 @@ jobs:
         run: |
           TAG="${{ github.ref_name }}"
           IS_PRE=${{ contains(github.ref_name, 'beta') || contains(github.ref_name, 'alpha') }}
-          PRE_FLAG=""
-          if [ "$IS_PRE" = "true" ]; then PRE_FLAG="--prerelease"; fi
 
-          # `gh release create --json id` returns the numeric ID directly
-          RELEASE_ID=$(gh release create "$TAG" \
-            --draft \
-            $PRE_FLAG \
-            --title "Kiyoshi Music $TAG" \
-            --notes "Build in progress…" \
-            --target "${{ github.sha }}" \
-            --json id \
+          # Use gh api (REST) — always supports --jq regardless of gh CLI version.
+          # gh release create --json requires a newer gh than Windows runners ship.
+          RELEASE_ID=$(gh api repos/${{ github.repository }}/releases \
+            --method POST \
+            --field tag_name="$TAG" \
+            --field name="Kiyoshi Music $TAG" \
+            --field body="Build in progress…" \
+            --field draft=true \
+            --field prerelease=$IS_PRE \
+            --field target_commitish="${{ github.sha }}" \
             --jq '.id')
 
           echo "release_id=$RELEASE_ID" >> "$GITHUB_OUTPUT"
