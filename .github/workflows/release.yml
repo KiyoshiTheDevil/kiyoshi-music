@@ -162,6 +162,13 @@ jobs:
           SIG_URL=$(echo "$ASSETS" | jq -r \
             '[.[] | select(.name | endswith(".nsis.zip.sig"))] | first | .browser_download_url // ""')
 
+          # Fall back to .exe.sig if .nsis.zip.sig is absent
+          if [ -z "$SIG_URL" ] || [ "$SIG_URL" = "null" ]; then
+            SIG_URL=$(echo "$ASSETS" | jq -r \
+              '[.[] | select(.name | endswith("x64-setup.exe.sig"))] | first | .browser_download_url // ""')
+            echo "SIG fallback (.exe.sig): $SIG_URL"
+          fi
+
           # Fall back to the plain .exe if the .nsis.zip is absent
           if [ -z "$ZIP_URL" ] || [ "$ZIP_URL" = "null" ]; then
             ZIP_URL=$(echo "$ASSETS" | jq -r \

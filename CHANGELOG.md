@@ -4,6 +4,15 @@ All notable changes to Kiyoshi Music are documented here.
 
 ---
 
+## [0.9.35-beta] — 2026-05-15
+
+### Bug Fixes
+- **Bot-detection fix (yt-dlp)** — Stream extraction now tries installed browser cookies first (Chrome, Edge, Firefox, Brave, etc.) before falling back to app session cookies. Browser cookies include a fresh `__Secure-1PSIDTS` anti-bot token which prevents "Sign in to confirm you're not a bot" errors for newly released songs.
+- **YouTube cookie refresh** — The app session now periodically pings `www.youtube.com` to keep the `__Secure-1PSIDTS` token valid for yt-dlp stream extraction (previously only `music.youtube.com` was pinged, which uses a different token scope).
+- **Release updater signature** — The release workflow now correctly falls back from `.nsis.zip.sig` to `.exe.sig` when building with `--bundles nsis`, ensuring `latest.json` always contains a valid Tauri updater signature.
+
+---
+
 ## [0.9.34-beta] — 2026-05-15
 
 ### Bug Fixes
