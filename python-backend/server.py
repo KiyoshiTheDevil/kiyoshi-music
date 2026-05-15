@@ -1338,24 +1338,19 @@ def _browser_cookie_opts():
     when all normal stream attempts fail — extracts fresh YouTube cookies
     directly from the browser profile without any manual export step.
     """
-    import shutil
-    # Ordered by market share on Windows; each entry is (browser_key, binary_hint)
-    candidates = [
-        ("chrome",  "chrome"),
-        ("edge",    "msedge"),
-        ("firefox", "firefox"),
-        ("brave",   "brave"),
-        ("opera",   "opera"),
-        ("vivaldi", "vivaldi"),
+    # Do NOT check PATH — browsers on Windows are NOT in PATH.
+    # yt-dlp finds cookies via platform-specific default profile locations
+    # (e.g. %LOCALAPPDATA%\Google\Chrome\User Data\Default\Network\Cookies).
+    # Just enumerate all candidates; yt-dlp raises an error for missing browsers
+    # which we catch in the caller.
+    browsers = ["chrome", "edge", "firefox", "brave", "opera", "vivaldi", "chromium"]
+    return [
+        {
+            "cookiesfrombrowser": (b,),
+            "extractor_args": {"youtube": {"player_client": ["android_music"], "player_skip": ["js"]}},
+        }
+        for b in browsers
     ]
-    opts_list = []
-    for browser_key, binary in candidates:
-        if shutil.which(binary) or shutil.which(browser_key):
-            opts_list.append({
-                "cookiesfrombrowser": (browser_key,),
-                "extractor_args": {"youtube": {"player_client": ["android_music"], "player_skip": ["js"]}},
-            })
-    return opts_list
 
 
 def _stream_url_from_info(info):
@@ -1379,6 +1374,25 @@ def _is_unavailable(err_str):
 @app.route("/stream/<video_id>")
 def stream_url(video_id):
     last_err = None
+
+    # ── Tier 1: browser cookies — always fresh, user is logged in there ───────
+    # Tried first because app session cookies may be stale; browser cookies are
+    # updated every time the user visits YouTube and are never expired.
+    for browser_opts in _browser_cookie_opts():
+        browser = browser_opts["cookiesfrombrowser"][0]
+        try:
+            info = _ydl_extract_url(video_id, _M4A_FMT, extra_opts=browser_opts, skip_auth=True)
+            url = _stream_url_from_info(info)
+            if url:
+                _logging.info(f"[stream] {video_id} OK via {browser} browser cookies")
+                return jsonify({"url": url})
+        except Exception as e:
+            last_err = e
+            if _is_hard_error(str(e)):
+                break
+            _logging.warning(f"[stream] {video_id} browser={browser}: {e}")
+
+    # ── Tier 2: _STREAM_ATTEMPTS (app cookies + anonymous mobile/web) ────────
     for fmt, extra, no_auth in _STREAM_ATTEMPTS:
         try:
             info = _ydl_extract_url(video_id, fmt, extra_opts=extra, skip_auth=no_auth)
@@ -1387,11 +1401,11 @@ def stream_url(video_id):
                 return jsonify({"url": url})
         except Exception as e:
             last_err = e
-            err_str = str(e)
-            if _is_hard_error(err_str):
+            if _is_hard_error(str(e)):
                 break
-            _logging.warning(f"[stream] {video_id} fmt={fmt} auth={not no_auth} failed: {e}")
-    # Brute-force: no format selector, pick manually — with and without auth
+            _logging.warning(f"[stream] {video_id} fmt={fmt} no_auth={no_auth}: {e}")
+
+    # ── Tier 3: brute-force — no format selector, any audio format ───────────
     _hard_stop = False
     for no_auth in (False, True):
         if _hard_stop:
@@ -1400,28 +1414,15 @@ def stream_url(video_id):
             try:
                 url = _ydl_pick_any_audio(video_id, extra_opts=extra, skip_auth=no_auth)
                 if url:
-                    _logging.info(f"[stream] {video_id} recovered via brute-force (auth={not no_auth})")
+                    _logging.info(f"[stream] {video_id} recovered via brute-force no_auth={no_auth}")
                     return jsonify({"url": url})
             except Exception as e:
                 last_err = e
                 if _is_hard_error(str(e)) or _is_unavailable(str(e)):
                     _hard_stop = True
                     break
-                _logging.warning(f"[stream] {video_id} brute-force auth={not no_auth} failed: {e}")
-    # Last resort: extract fresh cookies from an installed browser
-    for browser_opts in _browser_cookie_opts():
-        try:
-            info = _ydl_extract_url(video_id, _M4A_FMT, extra_opts=browser_opts, skip_auth=True)
-            url = _stream_url_from_info(info)
-            if url:
-                browser = browser_opts.get("cookiesfrombrowser", ("?",))[0]
-                _logging.info(f"[stream] {video_id} recovered via {browser} browser cookies")
-                return jsonify({"url": url})
-        except Exception as e:
-            last_err = e
-            if _is_hard_error(str(e)):
-                break
-            _logging.warning(f"[stream] {video_id} browser-cookies failed: {e}")
+                _logging.warning(f"[stream] {video_id} brute-force no_auth={no_auth}: {e}")
+
     err_str = str(last_err) if last_err else "No URL found"
     premium = "Music Premium" in err_str
     unavailable = _is_unavailable(err_str)
