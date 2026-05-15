@@ -1,11 +1,11 @@
 {
-  "version": "v0.9.33-beta",
-  "pub_date": "2026-05-15T00:00:00Z",
-  "notes": "Bug fixes: FA icons now load reliably via Vite asset pipeline; release workflow and updater fixed.",
+  "version": "v0.9.34-beta",
+  "pub_date": "2026-05-15T03:11:58Z",
+  "notes": "### Bug Fixes\n- **Page transition animations** — Added `fill-mode: both` to the `fadeSlideIn` animation so the element starts fully transparent from the very first rendered frame; removes any single-frame flash and makes the animation reliably visible.\n- **Release workflow** — Pre-create the GitHub draft release (using `gh release create`) before the tauri-action build step; tauri-action then uploads assets to the existing release via `releaseId`. This eliminates the race condition where GitHub's API had not yet associated the pushed tag, causing releases to appear as `untagged-<hash>` entries.\n---",
   "platforms": {
     "windows-x86_64": {
-      "url": "https://github.com/KiyoshiTheDevil/kiyoshi-music/releases/download/untagged-3f770cfcbe56a38e1c5e/Kiyoshi.Music_0.9.33-beta_x64-setup.exe",
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTb3ErUzRRK3lrL2tCQndtR2pTM1lkcEszUWZNRTdXeWU2dzliTGhaemw4YkkvaG5DeUpFMDBVTEhCWjdBaEtnbGxJNDlPTEozWk56T1VUdCtYUERXYkVXRFl1UGZzRVFNPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc4Nzk0NDk5CWZpbGU6S2l5b3NoaSBNdXNpY18wLjkuMzMtYmV0YV94NjQtc2V0dXAuZXhlCjRVQ1lvVGxVL2Q1cEF6Y3RQL1BuU0pmdkdjaDh6Z3I2Y0N0Y1lMRkwwZmRhYlUrNTEwMlc3VmowYXZxM3FOdTFONnRvUG93OVRKeUdLdTMvU25QckN3PT0K"
+      "url": "https://github.com/KiyoshiTheDevil/kiyoshi-music/releases/download/v0.9.34-beta/Kiyoshi.Music_0.9.34-beta_x64-setup.exe",
+      "signature": ""
     }
   }
 }
