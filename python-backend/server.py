@@ -435,21 +435,32 @@ def get_ytmusic():
         raise Exception("Kein Profil aktiv. Bitte zuerst anmelden.")
     return _ytm
 
-def _get_ydl_cookiefile():
-    """Write YouTube cookies as a Netscape file for yt-dlp.
+_ydl_cookie_last_refresh = 0.0   # epoch seconds of last successful cookie refresh
 
-    Merges two sources (later source wins on conflicts):
-    1. Long-lived cookies from the stored profile headers.json (SAPISID, SID, HSID …)
-    2. Live session cookies from the active ytmusicapi _session (includes freshly
-       rotated short-lived tokens like __Secure-1PSIDTS / __Secure-3PSIDTS that
-       YouTube uses for bot-detection of audio-stream requests).
+def _get_ydl_cookiefile():
+    """Write a fresh Netscape cookie file for yt-dlp and return its path.
+
+    Cookie sources (later wins on key conflicts):
+    1. Long-lived cookies from headers.json (SAPISID, SID, HSID … valid for years)
+    2. Live ytmusicapi session cookies (may include short-lived tokens for
+       music.youtube.com set during recent API calls)
+    3. A lightweight HEAD request to www.youtube.com using the same session,
+       which causes YouTube to issue / rotate __Secure-1PSIDTS and
+       __Secure-3PSIDTS on the youtube.com domain — these are the exact tokens
+       yt-dlp needs to pass bot-detection when extracting stream URLs.
+
+    The cookie file is only regenerated once per minute; callers that need a
+    guaranteed-fresh file can delete it or call with force=True.
 
     Returns the file path, or None if no authenticated profile is active.
     """
+    global _ydl_cookie_last_refresh
     if not _current_profile or is_local_profile(_current_profile):
         return None
     try:
-        # ── 1. Stored long-lived cookies ────────────────────────────────────────
+        cookie_file = os.path.join(PROFILES_DIR, f"{_current_profile}_ydl_cookies.txt")
+
+        # ── 1. Stored long-lived cookies from headers.json ──────────────────────
         with open(profile_path(_current_profile)) as f:
             headers = json.load(f)
         cookie_str = headers.get("cookie", "")
@@ -463,26 +474,59 @@ def _get_ydl_cookiefile():
             if name:
                 cookie_dict[name] = value
 
-        # ── 2. Live session cookies (fresh short-lived tokens) ──────────────────
+        # ── 2. Live ytmusicapi session cookies (music.youtube.com) ─────────────
+        session = None
         try:
             if _ytm is not None and hasattr(_ytm, "_session"):
-                for c in _ytm._session.cookies:
+                session = _ytm._session
+                for c in session.cookies:
                     domain = c.domain or ""
                     if "youtube" in domain or not domain:
                         cookie_dict[c.name] = c.value
         except Exception:
             pass
 
+        # ── 3. Ping youtube.com to refresh __Secure-1PSIDTS (anti-bot token) ───
+        # ytmusicapi talks to music.youtube.com; yt-dlp stream extraction needs
+        # cookies scoped to youtube.com.  A cheap GET on youtube.com triggers
+        # YouTube to rotate and set the short-lived bot-detection cookies on the
+        # correct domain.  We throttle this to once per 55 seconds.
+        now = time.time()
+        if session is not None and (now - _ydl_cookie_last_refresh) > 55:
+            try:
+                resp = session.get(
+                    "https://www.youtube.com/",
+                    timeout=6,
+                    headers={
+                        "User-Agent": (
+                            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                            "AppleWebKit/537.36 (KHTML, like Gecko) "
+                            "Chrome/124.0.0.0 Safari/537.36"
+                        ),
+                        "Accept-Language": "en-US,en;q=0.9",
+                    },
+                    allow_redirects=True,
+                )
+                # Harvest cookies set by this response (youtube.com scope)
+                for c in session.cookies:
+                    domain = c.domain or ""
+                    if "youtube" in domain or not domain:
+                        cookie_dict[c.name] = c.value
+                _ydl_cookie_last_refresh = now
+                _logging.debug("[cookies] youtube.com ping refreshed session cookies")
+            except Exception as exc:
+                _logging.debug(f"[cookies] youtube.com ping failed (non-fatal): {exc}")
+
         if not cookie_dict:
             return None
 
-        # ── Write Netscape file ─────────────────────────────────────────────────
-        cookie_file = os.path.join(PROFILES_DIR, f"{_current_profile}_ydl_cookies.txt")
+        # ── Write Netscape cookie file ───────────────────────────────────────────
         lines = ["# Netscape HTTP Cookie File\n"]
         for name, value in cookie_dict.items():
             secure = "TRUE" if name.startswith("__Secure-") or name.startswith("__Host-") else "FALSE"
+            # Columns: domain  include_subdomains  path  secure  expires  name  value
             lines.append(f".youtube.com\tTRUE\t/\t{secure}\t2147483647\t{name}\t{value}\n")
-        # newline="\n" → Unix line endings, required for yt-dlp to recognise the header on Windows
+        # Unix line endings — required for yt-dlp to parse the Netscape header on Windows
         with open(cookie_file, "w", encoding="utf-8", newline="\n") as f:
             f.writelines(lines)
         return cookie_file
