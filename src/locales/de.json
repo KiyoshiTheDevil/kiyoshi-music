@@ -265,6 +265,8 @@
   "lyricsCopied": "Lyrics in Zwischenablage kopiert!",
   "lrcSaved": "LRC gespeichert!",
   "errorLoading": "Fehler beim Laden",
+  "sessionExpired": "Sitzung abgelaufen",
+  "sessionExpiredHint": "Deine YouTube-Sitzung ist abgelaufen. Bitte melde dich in den Einstellungen erneut an, um auf deine Lieblingssongs zuzugreifen.",
   "backendHint": "Läuft das Python-Backend?",
   "localProfile": "Lokales Profil",
   "createLocalProfile": "Lokales Profil erstellen",

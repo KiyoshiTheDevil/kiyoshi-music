@@ -265,6 +265,8 @@
   "lyricsCopied": "Lyrics copied to clipboard!",
   "lrcSaved": "LRC saved!",
   "errorLoading": "Error loading",
+  "sessionExpired": "Session expired",
+  "sessionExpiredHint": "Your YouTube session has expired. Please sign in again in the settings to access your liked songs.",
   "backendHint": "Is the Python backend running?",
   "localProfile": "Local Profile",
   "createLocalProfile": "Create Local Profile",

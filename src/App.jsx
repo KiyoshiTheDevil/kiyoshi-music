@@ -109,10 +109,10 @@ const _MAX_FRONTEND_LOGS = 500;
 })();
 
 // ─── App Version ─────────────────────────────────────────────────────────────
-const APP_VERSION = "0.9.30-beta";
+const APP_VERSION = "0.9.40-beta";
 
 // ─── Update Checker (GitHub Releases) ───────────────────────────────────────
-const APP_TAG = "v0.9.30-beta";
+const APP_TAG = "v0.9.40-beta";
 const GITHUB_RELEASES_API = "https://api.github.com/repos/KiyoshiTheDevil/kiyoshi-music/releases?per_page=1";
 
 function isNewerVersion(latest, current) {
@@ -9620,6 +9620,7 @@ function LikedView({ onPlay, currentTrack, isPlaying, onOpenArtist, onOpenAlbum,
   const [tracks, setTracks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [errorCode, setErrorCode] = useState(null);
   const t = useLang();
 
   useEffect(() => {
@@ -9627,16 +9628,23 @@ function LikedView({ onPlay, currentTrack, isPlaying, onOpenArtist, onOpenAlbum,
     fetch(`${API}/liked`)
       .then(r => r.json())
       .then(d => {
-        if (d.error) throw new Error(d.error);
+        if (d.error) { const err = new Error(d.error); err.code = d.code; throw err; }
         setTracks(d.tracks || []);
       })
-      .catch(e => setError(e.message))
+      .catch(e => { setError(e.message); setErrorCode(e.code || null); })
       .finally(() => setLoading(false));
   }, []);
 
   if (loading) return (
     <div style={{ padding: 28, color: "var(--text-secondary)" }}>
       {t("loadingLikedSongs")}
+    </div>
+  );
+
+  if (error && errorCode === "auth_expired") return (
+    <div style={{ padding: 28 }}>
+      <div style={{ color: "#f44336", marginBottom: 8 }}>{t("sessionExpired")}</div>
+      <div style={{ color: "var(--text-secondary)", fontSize: "var(--t13)" }}>{t("sessionExpiredHint")}</div>
     </div>
   );
 

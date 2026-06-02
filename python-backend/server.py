@@ -94,6 +94,15 @@ def _artist_links(artist_list):
         if a.get("name")
     ]
 
+def _pick_thumb(thumbs, min_size=226):
+    """Pick the smallest thumbnail that is at least min_size px wide.
+    Falls back to the first thumbnail if none meet the threshold."""
+    if not thumbs:
+        return ""
+    candidates = [t for t in thumbs if isinstance(t, dict) and t.get("width", 0) >= min_size]
+    chosen = min(candidates, key=lambda t: t["width"]) if candidates else thumbs[0]
+    return chosen.get("url", "") if isinstance(chosen, dict) else ""
+
 # Cache feature flags (can be toggled at runtime via /cache/settings)
 _cache_enabled = {"playlists": True, "albums": True, "images": True, "songs": True, "lyrics": True}
 
@@ -1260,6 +1269,16 @@ def cache_settings():
         return jsonify({"ok": True})
     return jsonify(_cache_enabled)
 
+def _is_signed_out_ytm_error(e):
+    """Detect the ytmusicapi failure that occurs when the YouTube session is
+    expired / signed out. In that state YT Music returns the signed-out
+    'singleColumnBrowseResultsRenderer' (with a 'Sign in' prompt) instead of the
+    authenticated 'twoColumnBrowseResultsRenderer', and ytmusicapi throws a
+    cryptic parse error. We surface this as a clean 'please re-login' instead."""
+    s = str(e)
+    return "twoColumnBrowseResultsRenderer" in s or "singleColumnBrowseResultsRenderer" in s
+
+
 @app.route("/liked")
 def liked_songs():
     try:
@@ -1280,7 +1299,7 @@ def liked_songs():
             artist_browse_id = (artist_list[0].get("id") or "") if artist_list else ""
             album = t.get("album", {})
             thumbs = t.get("thumbnails", [])
-            thumbnail = thumbs[-1].get("url", "") if thumbs else ""
+            thumbnail = _pick_thumb(thumbs)
             tracks.append({
                 "videoId": t.get("videoId", ""),
                 "title": t.get("title", ""),
@@ -1295,10 +1314,16 @@ def liked_songs():
             })
         return jsonify({"tracks": tracks})
     except Exception as e:
+        if _is_signed_out_ytm_error(e):
+            return jsonify({"error": "YouTube session expired", "code": "auth_expired"}), 401
         return jsonify({"error": str(e)}), 500
 
-def _ydl_extract_url(video_id, fmt, skip_download=True, extra_opts=None, skip_auth=False):
-    """Run yt-dlp extraction with the given format string. Returns info dict."""
+def _ydl_extract_url(video_id, fmt, skip_download=True, extra_opts=None, skip_auth=False, use_ytm=True):
+    """Run yt-dlp extraction with the given format string. Returns info dict.
+
+    use_ytm=True  → music.youtube.com (authenticated / YouTube Music content)
+    use_ytm=False → www.youtube.com   (anonymous fallback; wider format availability)
+    """
     import yt_dlp
     ydl_opts = {
         "format": fmt,
@@ -1310,13 +1335,14 @@ def _ydl_extract_url(video_id, fmt, skip_download=True, extra_opts=None, skip_au
         ydl_opts.update(extra_opts)
     if not skip_auth:
         _apply_ydl_auth(ydl_opts)
+    base = "music.youtube.com" if use_ytm else "www.youtube.com"
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         return ydl.extract_info(
-            f"https://music.youtube.com/watch?v={video_id}",
+            f"https://{base}/watch?v={video_id}",
             download=False
         )
 
-def _ydl_pick_any_audio(video_id, extra_opts=None, skip_auth=False):
+def _ydl_pick_any_audio(video_id, extra_opts=None, skip_auth=False, use_ytm=True):
     """Last-resort: fetch all formats without a selector and pick manually."""
     import yt_dlp
     ydl_opts = {"quiet": True, "no_warnings": True, "skip_download": True}
@@ -1324,9 +1350,10 @@ def _ydl_pick_any_audio(video_id, extra_opts=None, skip_auth=False):
         ydl_opts.update(extra_opts)
     if not skip_auth:
         _apply_ydl_auth(ydl_opts)
+    base = "music.youtube.com" if use_ytm else "www.youtube.com"
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(
-            f"https://music.youtube.com/watch?v={video_id}",
+            f"https://{base}/watch?v={video_id}",
             download=False
         )
     fmts = info.get("formats") or []
@@ -1355,22 +1382,25 @@ _IOS_MUSIC_OPTS  = {"extractor_args": {"youtube": {"player_client": ["ios_music"
 _TV_OPTS         = {"extractor_args": {"youtube": {"player_client": ["tv_embedded"],   "player_skip": ["js"]}}}
 _M4A_FMT = "bestaudio[ext=m4a]/bestaudio[acodec=aac]"
 
+_MWEB_OPTS = {"extractor_args": {"youtube": {"player_client": ["mweb"]}}}
+
+# Strategy (2026): Web cookies ONLY work correctly with web clients.
+# Mixing mobile client headers (android_music, ios) with web cookies causes
+# YouTube to detect an inconsistency and return "Sign in to confirm you're not a bot".
+# → Authenticated requests use web_music / default web client only.
+# → Mobile clients are ALWAYS anonymous (no cookies = no client mismatch).
+# → Anonymous fallbacks try youtube.com (use_ytm=False) for wider format availability.
 _STREAM_ATTEMPTS = [
-    # ── 1. Authenticated mobile clients (no PO-token needed, bypass bot check) ─
-    # symphonia 0.5 has no Opus decoder — only m4a/AAC formats are usable.
-    (_M4A_FMT, _ANDROID_OPTS,   False),
-    (_M4A_FMT, _IOS_OPTS,       False),
-    (_M4A_FMT, _IOS_MUSIC_OPTS, False),
-    (_M4A_FMT, _TV_OPTS,        False),
-    # ── 2. Anonymous mobile/TV clients (no cookies = no PO-token demand) ────────
+    # ── 1. Authenticated web clients (web cookies + web client = consistent) ─────
+    (_M4A_FMT, _WEB_MUSIC_OPTS, False),   # web_music + cookies
+    (_M4A_FMT, None,            False),    # default web + cookies
+    # ── 2. Anonymous mobile/TV (no cookies → no mismatch, no PO-token demand) ───
     (_M4A_FMT, _TV_OPTS,        True),
     (_M4A_FMT, _ANDROID_OPTS,   True),
     (_M4A_FMT, _IOS_OPTS,       True),
     (_M4A_FMT, _IOS_MUSIC_OPTS, True),
-    # ── 3. Authenticated web clients (last resort — PO tokens may be needed) ────
-    (_M4A_FMT, _WEB_MUSIC_OPTS, False),
-    (_M4A_FMT, None,            False),
-    # ── 4. Anonymous web clients ─────────────────────────────────────────────────
+    (_M4A_FMT, _MWEB_OPTS,      True),    # mobile-web often bypasses bot checks
+    # ── 3. Anonymous web ─────────────────────────────────────────────────────────
     (_M4A_FMT, _WEB_MUSIC_OPTS, True),
     (_M4A_FMT, None,            True),
 ]
@@ -1378,23 +1408,17 @@ _STREAM_ATTEMPTS = [
 def _browser_cookie_opts():
     """
     Return a list of ydl_opts dicts that use cookiesfrombrowser for each
-    major browser installed on this machine.  Called as a last-resort fallback
-    when all normal stream attempts fail — extracts fresh YouTube cookies
-    directly from the browser profile without any manual export step.
+    major browser installed on this machine.
+
+    Uses the default web client (no extractor_args override) so that:
+    - Browser cookies and web-client headers are consistent (no mismatch)
+    - Newer yt-dlp versions can auto-extract PO tokens from browser storage
     """
     # Do NOT check PATH — browsers on Windows are NOT in PATH.
     # yt-dlp finds cookies via platform-specific default profile locations
     # (e.g. %LOCALAPPDATA%\Google\Chrome\User Data\Default\Network\Cookies).
-    # Just enumerate all candidates; yt-dlp raises an error for missing browsers
-    # which we catch in the caller.
-    browsers = ["chrome", "edge", "firefox", "brave", "opera", "vivaldi", "chromium"]
-    return [
-        {
-            "cookiesfrombrowser": (b,),
-            "extractor_args": {"youtube": {"player_client": ["android_music"], "player_skip": ["js"]}},
-        }
-        for b in browsers
-    ]
+    browsers = ["edge", "chrome", "firefox", "brave", "opera", "vivaldi", "chromium"]
+    return [{"cookiesfrombrowser": (b,)} for b in browsers]
 
 
 def _stream_url_from_info(info):
@@ -1450,22 +1474,27 @@ def stream_url(video_id):
             _logging.warning(f"[stream] {video_id} fmt={fmt} no_auth={no_auth}: {e}")
 
     # ── Tier 3: brute-force — no format selector, any audio format ───────────
+    # Also retries with youtube.com URL for anonymous attempts: youtube.com
+    # has wider format availability and is less restrictive than music.youtube.com
+    # for anonymous/unauthenticated access.
     _hard_stop = False
-    for no_auth in (False, True):
+    for no_auth, use_ytm in ((False, True), (True, True), (True, False)):
         if _hard_stop:
             break
-        for extra in (None, _ANDROID_OPTS, _IOS_OPTS, _TV_OPTS):
+        for extra in (None, _WEB_MUSIC_OPTS, _MWEB_OPTS, _ANDROID_OPTS, _IOS_OPTS, _TV_OPTS):
+            if extra in (_ANDROID_OPTS, _IOS_OPTS, _TV_OPTS, _MWEB_OPTS) and not no_auth:
+                continue  # never combine mobile clients with cookies
             try:
-                url = _ydl_pick_any_audio(video_id, extra_opts=extra, skip_auth=no_auth)
+                url = _ydl_pick_any_audio(video_id, extra_opts=extra, skip_auth=no_auth, use_ytm=use_ytm)
                 if url:
-                    _logging.info(f"[stream] {video_id} recovered via brute-force no_auth={no_auth}")
+                    _logging.info(f"[stream] {video_id} recovered via brute-force no_auth={no_auth} ytm={use_ytm}")
                     return jsonify({"url": url})
             except Exception as e:
                 last_err = e
                 if _is_hard_error(str(e)) or _is_unavailable(str(e)):
                     _hard_stop = True
                     break
-                _logging.warning(f"[stream] {video_id} brute-force no_auth={no_auth}: {e}")
+                _logging.warning(f"[stream] {video_id} brute-force no_auth={no_auth} ytm={use_ytm}: {e}")
 
     err_str = str(last_err) if last_err else "No URL found"
     premium = "Music Premium" in err_str
@@ -1547,7 +1576,7 @@ def library_playlists():
         result = []
         for p in playlists:
             thumbs = p.get("thumbnails", [])
-            thumbnail = thumbs[-1].get("url", "") if thumbs else ""
+            thumbnail = _pick_thumb(thumbs)
             result.append({
                 "playlistId": p.get("playlistId", ""),
                 "title": p.get("title", ""),
@@ -1684,7 +1713,7 @@ def library_albums():
         result = []
         for a in albums:
             thumbs = a.get("thumbnails", [])
-            thumbnail = thumbs[-1].get("url", "") if thumbs else ""
+            thumbnail = _pick_thumb(thumbs)
             artists = ", ".join(x["name"] for x in a.get("artists", []))
             result.append({
                 "browseId": a.get("browseId", ""),
@@ -1706,7 +1735,7 @@ def library_artists():
         result = []
         for a in artists:
             thumbs = a.get("thumbnails", [])
-            thumbnail = thumbs[-1].get("url", "") if thumbs else ""
+            thumbnail = _pick_thumb(thumbs)
             result.append({
                 "browseId": a.get("browseId", ""),
                 "artist": a.get("artist", ""),
@@ -1758,7 +1787,7 @@ def stream_playlist(playlist_id):
                 artists = ", ".join(a["name"] for a in artist_list)
                 artist_browse_id = (artist_list[0].get("id") or "") if artist_list else ""
                 thumbs = t.get("thumbnails", [])
-                thumb = thumbs[-1].get("url", "") if thumbs else ""
+                thumb = _pick_thumb(thumbs)
                 album = t.get("album") or {}
                 return {
                     "videoId": t.get("videoId", ""),
@@ -1821,7 +1850,7 @@ def stream_playlist(playlist_id):
             yield send({"type": "loading", "message": "Playlist wird abgerufen\u2026", "progress": 0})
             playlist = get_ytmusic().get_playlist(playlist_id, limit=None)
             thumbs = playlist.get("thumbnails") or []
-            thumbnail = thumbs[-1].get("url", "") if thumbs else ""
+            thumbnail = _pick_thumb(thumbs)
             all_tracks = [fmt(t) for t in playlist.get("tracks", []) if t.get("videoId")]
             total = len(all_tracks)
 
@@ -1857,9 +1886,8 @@ def get_radio(playlist_id):
             artists = ", ".join(a["name"] for a in artist_list if isinstance(a, dict) and a.get("name"))
             # get_watch_playlist returns thumbnail as a list of dicts OR a plain string
             thumb_raw = t.get("thumbnails") or t.get("thumbnail") or []
-            if isinstance(thumb_raw, list) and thumb_raw:
-                last = thumb_raw[-1]
-                thumb = last.get("url", "") if isinstance(last, dict) else str(last)
+            if isinstance(thumb_raw, list):
+                thumb = _pick_thumb(thumb_raw)
             elif isinstance(thumb_raw, str):
                 thumb = thumb_raw
             else:
@@ -1911,7 +1939,7 @@ def get_playlist(playlist_id):
                 artists = ", ".join(a["name"] for a in artist_list)
                 artist_browse_id = (artist_list[0].get("id") or "") if artist_list else ""
                 thumbs = t.get("thumbnails", [])
-                thumbnail = thumbs[-1].get("url", "") if thumbs else ""
+                thumbnail = _pick_thumb(thumbs)
                 album = t.get("album") or {}
                 tracks.append({
                     "videoId": t.get("videoId", ""),
@@ -1937,7 +1965,7 @@ def get_playlist(playlist_id):
             artists = ", ".join(a["name"] for a in artist_list)
             artist_browse_id = (artist_list[0].get("id") or "") if artist_list else ""
             thumbs = t.get("thumbnails", [])
-            thumbnail = thumbs[-1].get("url", "") if thumbs else ""
+            thumbnail = _pick_thumb(thumbs)
             album = t.get("album") or {}
             tracks.append({
                 "videoId": t.get("videoId", ""),
@@ -1981,7 +2009,7 @@ def get_album(browse_id):
             artists = ", ".join(a["name"] for a in track_artists) or album_artist_name
             artist_browse_id = track_artists[0].get("id", "") if track_artists else album_artist_browse_id
             thumbs = album.get("thumbnails", [])
-            thumbnail = thumbs[-1].get("url", "") if thumbs else ""
+            thumbnail = _pick_thumb(thumbs)
             tracks.append({
                 "videoId": t.get("videoId", ""),
                 "title": t.get("title", ""),
@@ -1999,7 +2027,7 @@ def get_album(browse_id):
             "artists": album_artist_name,
             "artistBrowseId": album_artist_browse_id,
             "year": album.get("year", ""),
-            "thumbnail": thumbs[-1].get("url", "") if thumbs else "",
+            "thumbnail": _pick_thumb(thumbs),
             "tracks": tracks,
         }
         if _cache_enabled["albums"]:
@@ -2019,7 +2047,7 @@ def get_artist(browse_id):
             if not t.get("videoId"):
                 continue
             thumbs = t.get("thumbnails", [])
-            thumbnail = thumbs[-1].get("url", "") if thumbs else ""
+            thumbnail = _pick_thumb(thumbs)
             # duration may be a pre-formatted string ("3:45") or absent;
             # fall back to duration_seconds if available
             duration = t.get("duration", "")
@@ -2048,7 +2076,7 @@ def get_artist(browse_id):
                 "browseId": a.get("browseId", ""),
                 "title": a.get("title", ""),
                 "year": a.get("year", ""),
-                "thumbnail": thumbs[-1].get("url", "") if thumbs else "",
+                "thumbnail": _pick_thumb(thumbs),
             })
 
         # Singles
@@ -2059,7 +2087,7 @@ def get_artist(browse_id):
                 "browseId": s.get("browseId", ""),
                 "title": s.get("title", ""),
                 "year": s.get("year", ""),
-                "thumbnail": thumbs[-1].get("url", "") if thumbs else "",
+                "thumbnail": _pick_thumb(thumbs),
             })
 
         # Videos
@@ -2074,7 +2102,7 @@ def get_artist(browse_id):
                 "title":     v.get("title", ""),
                 "artists":   ", ".join(a.get("name", "") for a in v_artists) or artist.get("name", ""),
                 "views":     v.get("views", ""),
-                "thumbnail": thumbs[-1].get("url", "") if thumbs else "",
+                "thumbnail": _pick_thumb(thumbs),
             })
 
         # Related artists ("Fans might also like")
@@ -2085,13 +2113,13 @@ def get_artist(browse_id):
                 "browseId":    r.get("browseId", ""),
                 "title":       r.get("title", ""),
                 "subscribers": r.get("subscribers", ""),
-                "thumbnail":   thumbs[-1].get("url", "") if thumbs else "",
+                "thumbnail":   _pick_thumb(thumbs),
             })
 
         thumbs = artist.get("thumbnails", [])
         return jsonify({
             "name":          artist.get("name", ""),
-            "thumbnail":     thumbs[-1].get("url", "") if thumbs else "",
+            "thumbnail":     _pick_thumb(thumbs),
             "description":   artist.get("description", "") or "",
             "subscribers":      artist.get("subscribers", "") or "",
             "monthlyListeners": artist.get("monthlyListeners", "") or "",
@@ -2239,7 +2267,7 @@ def get_artist_albums_route():
                 "browseId":  a.get("browseId", ""),
                 "title":     a.get("title", ""),
                 "year":      a.get("year", ""),
-                "thumbnail": thumbs[-1].get("url", "") if thumbs else "",
+                "thumbnail": _pick_thumb(thumbs),
                 "type":      a.get("type", ""),
             })
         return jsonify({"albums": result})
@@ -2259,7 +2287,7 @@ def search():
 
         for t in results:
             thumbs = t.get("thumbnails", [])
-            thumbnail = thumbs[-1].get("url", "") if thumbs else ""
+            thumbnail = _pick_thumb(thumbs)
 
             if filter_type == "songs":
                 artist_list = t.get("artists", [])
@@ -2320,7 +2348,7 @@ def get_home():
                     artist_browse_id = (artist_list[0].get("id") or "") if artist_list else ""
                     album = item.get("album") or {}
                     thumbs = item.get("thumbnails", [])
-                    thumb = thumbs[-1].get("url", "") if thumbs else ""
+                    thumb = _pick_thumb(thumbs)
                     items.append({
                         "type": "song",
                         "videoId": item.get("videoId", ""),
@@ -2337,7 +2365,7 @@ def get_home():
                 # Playlist
                 elif item.get("playlistId"):
                     thumbs = item.get("thumbnails", [])
-                    thumb = thumbs[-1].get("url", "") if thumbs else ""
+                    thumb = _pick_thumb(thumbs)
                     items.append({
                         "type": "playlist",
                         "playlistId": item.get("playlistId", ""),
@@ -2353,7 +2381,7 @@ def get_home():
                     is_artist = browse_id.startswith("UC")
                     item_type = "artist" if is_artist else "album"
                     thumbs = item.get("thumbnails", [])
-                    thumb = thumbs[-1].get("url", "") if thumbs else ""
+                    thumb = _pick_thumb(thumbs)
                     artists = ", ".join(a["name"] for a in item.get("artists", []))
                     items.append({
                         "type": item_type,
@@ -2403,7 +2431,7 @@ def get_mood_playlists():
         result = []
         for pl in playlists:
             thumbs = pl.get("thumbnails", [])
-            t = thumbs[-1].get("url", "") if thumbs else ""
+            t = _pick_thumb(thumbs)
             artists = ", ".join(a["name"] for a in pl.get("artists", []))
             result.append({
                 "playlistId": pl.get("playlistId", ""),
