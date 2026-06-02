@@ -4,6 +4,46 @@ All notable changes to Kiyoshi Music are documented here.
 
 ---
 
+## [0.9.40-beta] — 2026-06-02
+
+> **Note — last stable release for now.** This is the final planned release on the
+> current codebase for the time being. A larger UI rework is in progress: the
+> interface is being rebuilt on a proper design foundation (Tailwind CSS, later
+> HeroUI) to permanently resolve the class of production-only styling and animation
+> issues addressed below. Expect a quieter period on the release feed while that
+> work happens — this version is intended to be a solid, stable base to sit on in
+> the meantime.
+
+### Bug Fixes
+- **Songs not loading in the production build** — yt-dlp stream extraction mixed
+  mobile-client request headers with web session cookies, which triggered YouTube's
+  bot detection and produced "Requested format not available". Authenticated requests
+  now use web clients only, while anonymous fallbacks use mobile clients only, and
+  never combine the two. New `mweb` client and a `youtube.com` fallback path improve
+  resilience.
+- **Icons rendered as blank squares** — Font Awesome fonts are now embedded as
+  base64 data URIs in the bundled CSS. WebView2 blocks font loading from the
+  `tauri://` protocol regardless of Content-Security-Policy, which left icons
+  unrendered in the installed build.
+- **Player-bar buttons squished together** — The `.icon-btn` sizing rule (the 32×32
+  button box) lived in a runtime-injected `<style>` block that did not apply on first
+  paint in the release build, collapsing the bottom-right controls (volume, queue,
+  lyrics, fullscreen) to bare icon size. The full button definition now lives in
+  bundled CSS so it is guaranteed to be present at first render.
+- **Native button styling leaking through** — The browser button reset (transparent
+  background, no border) was likewise moved into bundled CSS, fixing grey/white
+  native button chrome appearing over icon buttons in the installed build.
+- **Page-transition slide-in animations not playing** — The `fadeSlideIn` /
+  `fadeSlideOut` keyframes were moved out of the runtime-injected style block into
+  bundled CSS, so page-change slide-in transitions now play reliably in production.
+- **Cryptic error on "Liked Songs" when signed out** — When a YouTube session
+  expires, YouTube Music returns a signed-out response that the underlying library
+  could not parse, surfacing a raw `twoColumnBrowseResultsRenderer` stacktrace. The
+  app now detects this case and shows a clear "Session expired — please sign in
+  again" message instead.
+
+---
+
 ## [0.9.35-beta] — 2026-05-15
 
 ### Bug Fixes
