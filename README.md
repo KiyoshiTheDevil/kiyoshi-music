@@ -3,7 +3,7 @@
   <h1>Kiyoshi Music</h1>
   <p>An unofficial YouTube Music desktop client — built with Tauri 2 &amp; React.</p>
 
-> **Note — 0.9.40-beta is the last stable release for now.**
+> **Note - 0.9.40-beta is the last stable release for now.**
 > This is the final planned release on the current codebase for the time being.
 > A larger app rework is in progress! Expect a quieter period on the release feed while that
 > work happens — this version is intended to be a solid, stable base to sit on in the meantime.
