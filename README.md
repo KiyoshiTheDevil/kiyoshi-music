@@ -8,7 +8,7 @@
 > A larger app rework is in progress! Expect a quieter period on the release feed while that
 > work happens - this version is intended to be a solid, stable base to sit on in the meantime.
 
-  [![Version](https://img.shields.io/badge/version-0.9.7--beta-a855f7?style=flat-square)](https://github.com/KiyoshiTheDevil/kiyoshi-music/releases/latest)
+  [![Version](https://img.shields.io/badge/version-0.9.40--beta-a855f7?style=flat-square)](https://github.com/KiyoshiTheDevil/kiyoshi-music/releases/latest)
   [![Platform](https://img.shields.io/badge/platform-Windows-0078d4?style=flat-square&logo=windows&logoColor=white)](https://github.com/KiyoshiTheDevil/kiyoshi-music/releases/latest)
   [![Tauri](https://img.shields.io/badge/Tauri-2.x-24c8db?style=flat-square&logo=tauri&logoColor=white)](https://tauri.app)
   [![Crowdin](https://img.shields.io/badge/translate-Crowdin-2e3340?style=flat-square&logo=crowdin&logoColor=white)](https://crowdin.com/project/kiyoshi-music)
