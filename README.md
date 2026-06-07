@@ -78,7 +78,7 @@
 
 Head to the [**Releases**](https://github.com/KiyoshiTheDevil/kiyoshi-music/releases/latest) page and grab the latest Windows installer (`.exe`).
 
-> **Linux:** Not officially supported. - No support planned in the future.
+> **Linux:** Not officially supported, yet. :)
 
 > **Google Account:** Not required to use the app. Only needed if you want to sync your YouTube Music library and playlists.
 
